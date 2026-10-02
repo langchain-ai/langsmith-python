@@ -15,14 +15,14 @@ jobs:
       PRODUCTION_REPO: langchain-ai/langsmith-python
     steps:
       - name: Check out staging
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Load GitHub App key from 1Password
         id: load-gh-app-secrets
-        uses: 1password/load-secrets-action@3a12b0ab99d9cd590a3e9b5a90ea017210ed9556 # v4.0.1
+        uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
         with:
           export-env: false
         env:
