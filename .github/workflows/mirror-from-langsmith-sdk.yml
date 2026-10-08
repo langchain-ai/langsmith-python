@@ -33,7 +33,7 @@ jobs:
     steps:
       - name: Load GitHub App key from 1Password
         id: load-gh-app-secrets
-        uses: 1password/load-secrets-action@3a12b0ab99d9cd590a3e9b5a90ea017210ed9556 # v4.0.1
+        uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
         with:
           export-env: false
         env:
@@ -51,7 +51,7 @@ jobs:
 
       # the triggering ref supplies the script, so a dispatch from a branch tests that branch
       - name: Check out staging
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
@@ -66,7 +66,7 @@ jobs:
           mode: firewall-free
 
       - name: Install uv
-        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: '0.10.2'
 

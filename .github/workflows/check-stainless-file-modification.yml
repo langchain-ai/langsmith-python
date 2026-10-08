@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.repository == 'langchain-ai/langsmith-python-staging'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
