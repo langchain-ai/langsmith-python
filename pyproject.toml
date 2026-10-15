@@ -101,7 +101,7 @@ openai-agents = ["openai-agents>=0.0.3"]
 claude-agent-sdk = ["claude-agent-sdk>=0.1.0; python_version>='3.10'"]
 
 # Enabled via `pip install langsmith[google-adk]`
-google-adk = ["google-adk>=1.0.0", "wrapt>=1.16.0"]
+google-adk = ["google-adk>=2.3.0", "wrapt>=1.16.0"]
 
 # Enabled via `pip install langsmith[google-adk-live]`
 # ADK Live (Gemini Live voice) tracing via LangSmithGoogleADKLivePlugin. Needs the
@@ -145,8 +145,8 @@ override-dependencies = ["json-repair>=0.60.1"]
 [dependency-groups]
 # version pins are in uv.lock
 dev = [
-    "pyright==1.1.399",
-    "mypy==2.3.1",
+    "pyright==1.1.414",
+    "mypy==2.4.0",
     "respx",
     "pytest>=9.0.3",
     "pytest-asyncio",
@@ -198,7 +198,7 @@ dev = [
     "ty==0.0.75",
     "pytest-httpx>=0.30.0",
     "wrapt>=1.16.0",
-    "google-adk>=1.0.0",
+    "google-adk>=2.3.0",
     "pytest-timeout>=2.3.1",
     "PyJWT[crypto]>=2.8.0",
 ]
@@ -223,7 +223,7 @@ test = [
 ]
 
 [build-system]
-requires = ["hatchling==1.26.3", "hatch-fancy-pypi-readme"]
+requires = ["hatchling==1.32.4", "hatch-fancy-pypi-readme"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build]
