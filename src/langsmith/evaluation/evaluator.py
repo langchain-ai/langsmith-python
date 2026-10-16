@@ -856,7 +856,7 @@ def _format_evaluator_result(
             f"EvaluationResult, or EvaluationResults. Got {result}"
         )
     elif isinstance(result, list):
-        if not all(isinstance(x, dict) for x in result):
+        if not all(isinstance(x, dict) or isinstance(x, EvaluationResult) for x in result):
             raise ValueError(f"Expected a list of dicts or EvaluationResults. Received {result}.")
         result = {"results": result}  # type: ignore[misc]
     elif isinstance(result, str):
