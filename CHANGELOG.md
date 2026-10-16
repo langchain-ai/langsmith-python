@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.12](https://github.com/langchain-ai/langsmith-python/compare/v0.14.11...v0.14.12) (2026-10-16)
+
+
+### Features
+
+* **evaluators:** add trajectory input type for code evaluators ([9b6f6e5](https://github.com/langchain-ai/langsmith-python/commit/9b6f6e540ac7c2f6f9e96d26ab78c546cf15e6af))
+
+
+### Documentation
+
+* move sandbox auth options to the bottom of README.md ([#71](https://github.com/langchain-ai/langsmith-python/issues/71)) ([be8a4db](https://github.com/langchain-ai/langsmith-python/commit/be8a4dbd51dab7866d9d7791ae31e8f4d51af400))
+
 ## [0.14.11](https://github.com/langchain-ai/langsmith-python/compare/v0.14.10...v0.14.11) (2026-10-16)
 
 
