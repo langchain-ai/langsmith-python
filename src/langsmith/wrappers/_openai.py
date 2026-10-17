@@ -252,7 +252,7 @@ def _reduce_completions(all_chunks: list[Completion]) -> dict:
     return d
 
 
-def _process_chat_completion(outputs: Any):
+def _process_chat_completion(outputs: Any, *, suppress_pydantic_serialization_warnings: bool = False):
     try:
         # Check if outputs is an APIResponse wrapper (from with_raw_response).
         # The OpenAI SDK's APIResponse wraps the actual response object.
@@ -264,7 +264,15 @@ def _process_chat_completion(outputs: Any):
             except Exception:
                 pass
 
-        rdict = outputs.model_dump()
+        if suppress_pydantic_serialization_warnings:
+            # ParsedChatCompletion can contain a user-defined Pydantic model in
+            # message.parsed while its runtime generic resolves to NoneType. The
+            # value still serializes correctly, so ask Pydantic not to report
+            # serializer warnings for this dump. Avoid process-global filters since
+            # wrappers can run concurrently in user applications.
+            rdict = outputs.model_dump(warnings=False)
+        else:
+            rdict = outputs.model_dump()
         oai_token_usage = rdict.pop("usage", None)
         rdict["usage_metadata"] = (
             _create_usage_metadata(oai_token_usage, rdict.get("service_tier")) if oai_token_usage else None
@@ -495,7 +503,10 @@ def wrap_openai(
         client.beta.chat.completions.parse = _get_parse_wrapper(  # type: ignore[method-assign]
             client.beta.chat.completions.parse,  # type: ignore
             chat_name,
-            _process_chat_completion,
+            functools.partial(
+                _process_chat_completion,
+                suppress_pydantic_serialization_warnings=True,
+            ),
             tracing_extra=tracing_extra_rest,
             invocation_params_fn=functools.partial(
                 _infer_invocation_params,
@@ -511,7 +522,10 @@ def wrap_openai(
         client.chat.completions.parse = _get_parse_wrapper(  # type: ignore[method-assign]
             client.chat.completions.parse,  # type: ignore
             chat_name,
-            _process_chat_completion,
+            functools.partial(
+                _process_chat_completion,
+                suppress_pydantic_serialization_warnings=True,
+            ),
             tracing_extra=tracing_extra_rest,
             invocation_params_fn=functools.partial(
                 _infer_invocation_params,
