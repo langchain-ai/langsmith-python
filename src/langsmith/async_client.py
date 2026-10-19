@@ -1031,6 +1031,72 @@ class AsyncClient:
         async for dataset in self._aget_paginated_list("/datasets", params=kwargs):
             yield ls_schemas.Dataset(**dataset)
 
+    async def list_dataset_splits(
+        self,
+        *,
+        dataset_id: Optional[ID_TYPE] = None,
+        dataset_name: Optional[str] = None,
+        as_of: Optional[Union[str, datetime.datetime]] = None,
+    ) -> list[str]:
+        """Get the splits for a dataset.
+
+        Args:
+            dataset_id: The ID of the dataset. Takes precedence over dataset_name.
+            dataset_name: The name of the dataset.
+            as_of: The version of the dataset to retrieve splits for. Can be a
+                timestamp or a string tag. Defaults to the latest version.
+
+        Returns:
+            The names of this dataset's splits.
+        """
+        if dataset_id is None:
+            if dataset_name is None:
+                raise ValueError("Must provide dataset name or ID")
+            dataset_id = (await self.read_dataset(dataset_name=dataset_name)).id
+        params = {}
+        if as_of is not None:
+            params["as_of"] = as_of.isoformat() if isinstance(as_of, datetime.datetime) else as_of
+
+        response = await self._arequest_with_retries(
+            "GET",
+            f"/datasets/{ls_client._as_uuid(dataset_id, 'dataset_id')}/splits",
+            params=params,
+        )
+        return response.json()
+
+    async def update_dataset_splits(
+        self,
+        *,
+        dataset_id: Optional[ID_TYPE] = None,
+        dataset_name: Optional[str] = None,
+        split_name: str,
+        example_ids: list[ID_TYPE],
+        remove: bool = False,
+    ) -> None:
+        """Add examples to or remove examples from a dataset split.
+
+        Args:
+            dataset_id: The ID of the dataset to update. Takes precedence over
+                dataset_name.
+            dataset_name: The name of the dataset to update.
+            split_name: The name of the split to update.
+            example_ids: The IDs of the examples to add to or remove from the split.
+            remove: If True, remove the examples from the split. If False, add
+                the examples to the split.
+        """
+        if dataset_id is None:
+            if dataset_name is None:
+                raise ValueError("Must provide dataset name or ID")
+            dataset_id = (await self.read_dataset(dataset_name=dataset_name)).id
+        data = {
+            "split_name": split_name,
+            "examples": [str(ls_client._as_uuid(id_, f"example_ids[{i}]")) for i, id_ in enumerate(example_ids)],
+            "remove": remove,
+        }
+        await self._arequest_with_retries(
+            "PUT", f"/datasets/{ls_client._as_uuid(dataset_id, 'dataset_id')}/splits", json=data
+        )
+
     async def create_example(
         self,
         inputs: dict[str, Any],
