@@ -355,7 +355,9 @@ def _get_parse_wrapper(
 
 def _reduce_response_events(events: list[ResponseStreamEvent]) -> dict:
     for event in events:
-        if event.type == "response.completed":
+        # A stream can end on any of the three terminal events; the incomplete and
+        # failed ones still carry the partial output, usage and error.
+        if event.type in ("response.completed", "response.incomplete", "response.failed"):
             return _process_responses_api_output(event.response)
     return {}
 

@@ -7,6 +7,7 @@ import pytest
 from langsmith import run_helpers
 from langsmith.wrappers._openai import (
     _infer_invocation_params,
+    _reduce_response_events,
     _traceable_kwargs_with_ls_agent_type,
 )
 
@@ -179,3 +180,87 @@ def test_nested_none_opt_out_overrides_propagated_tag():
     )
     assert "ls_agent_type" in result["child_metadata"]
     assert result["child_metadata"]["ls_agent_type"] is None
+
+
+# ---------------------------------------------------------------------------
+# _reduce_response_events
+# ---------------------------------------------------------------------------
+
+
+def _response_event(event_type: str, status: str, **response_fields):
+    from openai.types.responses import Response
+    from openai.types.responses import (
+        ResponseCompletedEvent,
+        ResponseFailedEvent,
+        ResponseIncompleteEvent,
+    )
+
+    event_cls = {
+        "response.completed": ResponseCompletedEvent,
+        "response.incomplete": ResponseIncompleteEvent,
+        "response.failed": ResponseFailedEvent,
+    }[event_type]
+    response = Response(
+        id="resp_1",
+        created_at=0,
+        model="gpt-4o-mini",
+        object="response",
+        output=response_fields.pop("output", []),
+        parallel_tool_calls=True,
+        tool_choice="auto",
+        tools=[],
+        status=status,
+        **response_fields,
+    )
+    return event_cls(type=event_type, response=response, sequence_number=1)
+
+
+def _usage():
+    return {
+        "input_tokens": 12,
+        "input_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 0},
+        "output_tokens": 7,
+        "output_tokens_details": {"reasoning_tokens": 0},
+        "total_tokens": 19,
+    }
+
+
+def test_reduce_response_events_completed():
+    event = _response_event("response.completed", "completed", usage=_usage())
+
+    outputs = _reduce_response_events([event])
+
+    assert outputs["status"] == "completed"
+    assert outputs["usage_metadata"]["total_tokens"] == 19
+
+
+def test_reduce_response_events_keeps_incomplete_response():
+    event = _response_event(
+        "response.incomplete",
+        "incomplete",
+        usage=_usage(),
+        incomplete_details={"reason": "max_output_tokens"},
+    )
+
+    outputs = _reduce_response_events([event])
+
+    assert outputs["status"] == "incomplete"
+    assert outputs["incomplete_details"] == {"reason": "max_output_tokens"}
+    assert outputs["usage_metadata"]["output_tokens"] == 7
+
+
+def test_reduce_response_events_keeps_failed_response():
+    event = _response_event(
+        "response.failed",
+        "failed",
+        error={"code": "server_error", "message": "boom"},
+    )
+
+    outputs = _reduce_response_events([event])
+
+    assert outputs["status"] == "failed"
+    assert outputs["error"]["message"] == "boom"
+
+
+def test_reduce_response_events_without_terminal_event():
+    assert _reduce_response_events([]) == {}
