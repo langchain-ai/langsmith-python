@@ -1060,6 +1060,94 @@ class AsyncClient:
         response = await self._arequest_with_retries("GET", f"/examples/{ls_client._as_uuid(example_id)}")
         return ls_schemas.Example(**response.json())
 
+    async def update_example(
+        self,
+        example_id: ls_client.ID_TYPE,
+        *,
+        inputs: Optional[dict[str, Any]] = None,
+        outputs: Optional[Mapping[str, Any]] = None,
+        metadata: Optional[dict] = None,
+        split: Optional[str | list[str]] = None,
+        dataset_id: Optional[ls_client.ID_TYPE] = None,
+        attachments_operations: Optional[ls_schemas.AttachmentsOperations] = None,
+        attachments: Optional[ls_schemas.Attachments] = None,
+    ) -> dict[str, Any]:
+        """Update a specific example.
+
+        Args:
+            example_id: The ID of the example to update.
+            inputs: The input values to update.
+            outputs: The output values to update.
+            metadata: The metadata to update.
+            split: The dataset split(s) to update, such as 'train', 'test',
+                or 'validation'.
+            dataset_id: The ID of the dataset the example belongs to. If omitted,
+                it is resolved by reading the example.
+            attachments_operations: The attachments operations to perform.
+            attachments: The attachments to add to the example.
+
+        Returns:
+            The updated example.
+
+        Raises:
+            ValueError: If ``attachments_operations`` is used against a deployment
+                that does not support it.
+        """
+        info = await self.info()
+        multipart_enabled = (info.instance_flags or {}).get("dataset_examples_multipart_enabled", False)
+        if attachments_operations is not None and not multipart_enabled:
+            raise ValueError(
+                "Your LangSmith deployment does not allow using the attachment operations, "
+                "please upgrade your deployment to the latest version."
+            )
+        example_dict = dict(
+            inputs=inputs,
+            outputs=outputs,
+            id=example_id,
+            metadata=metadata,
+            split=split,
+            attachments_operations=attachments_operations,
+            attachments=attachments,
+        )
+        # Omitted (None) fields are not sent, so they are preserved server-side.
+        example = ls_schemas.ExampleUpdate(**{k: v for k, v in example_dict.items() if v is not None})
+
+        if dataset_id is None:
+            dataset_id = (await self.read_example(example_id)).dataset_id
+
+        if multipart_enabled:
+            # _prepare_multipart_data does not use `self`, so it is shared with the sync client.
+            body, _, opened_files = ls_client.Client._prepare_multipart_data(
+                cast(Any, None),
+                [example],
+                include_dataset_id=False,
+                dangerously_allow_filesystem=False,
+            )
+            try:
+                response = await self._arequest_with_retries(
+                    "PATCH",
+                    ls_client._dataset_examples_path(self._api_url, dataset_id),
+                    headers={"Content-Type": body.content_type},
+                    content=body.to_bytes(),
+                )
+            finally:
+                ls_client._close_files(list(opened_files.values()))
+            return response.json()
+
+        # Fallback for deployments without multipart support.
+        response = await self._arequest_with_retries(
+            "PATCH",
+            f"/examples/{ls_client._as_uuid(example_id, 'example_id')}",
+            headers={"Content-Type": "application/json"},
+            content=ls_client._dumps_json(
+                {
+                    **{k: v for k, v in ls_client.dump_model(example).items() if v is not None},
+                    "dataset_id": str(dataset_id),
+                }
+            ),
+        )
+        return response.json()
+
     async def list_examples(
         self,
         *,

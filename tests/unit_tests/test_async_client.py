@@ -10,7 +10,6 @@ from datetime import datetime
 from unittest import mock
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
-
 import httpx
 import pytest
 import requests
@@ -958,3 +957,100 @@ async def test_async_client_resource_version_check(
 
     version_warnings = [r for r in caplog.records if r.name == _VERSION_LOGGER]
     assert bool(version_warnings) is expect_warning
+
+
+def _make_update_client(mock_client_cls, *, instance_flags, example_dataset_id=None):
+    calls = []
+
+    async def handler(method, endpoint, **kwargs):
+        calls.append((method, endpoint, kwargs))
+        response = MagicMock()
+        response.status_code = 200
+        if endpoint == "/info":
+            response.json.return_value = {"version": "0.16.0", "instance_flags": instance_flags}
+        elif method == "GET" and endpoint.startswith("/examples/"):
+            response.json.return_value = {
+                "id": endpoint.rsplit("/", 1)[-1],
+                "dataset_id": str(example_dataset_id),
+                "inputs": {},
+                "created_at": "2024-01-01T00:00:00Z",
+                "modified_at": "2024-01-01T00:00:00Z",
+            }
+        else:
+            response.json.return_value = {"ok": True}
+        return response
+
+    mock_httpx_client = AsyncMock()
+    mock_httpx_client.base_url = httpx.URL("http://localhost:1984")
+    mock_httpx_client.headers = httpx.Headers()
+    mock_httpx_client.timeout = httpx.Timeout(10)
+    mock_httpx_client.request.side_effect = handler
+    mock_client_cls.return_value = mock_httpx_client
+    return AsyncClient(api_url="http://localhost:1984", api_key="test"), calls
+
+
+@mock.patch("langsmith.async_client.httpx.AsyncClient")
+@pytest.mark.asyncio
+async def test_update_example_json_fallback_sends_only_provided_fields(mock_client_cls):
+    client, calls = _make_update_client(mock_client_cls, instance_flags={})
+    example_id, dataset_id = uuid.uuid4(), uuid.uuid4()
+
+    result = await client.update_example(example_id, outputs={"a": 1}, dataset_id=dataset_id)
+
+    assert result == {"ok": True}
+    method, endpoint, kwargs = calls[-1]
+    assert (method, endpoint) == ("PATCH", f"/examples/{example_id}")
+    payload = json.loads(kwargs["content"])
+    assert payload["outputs"] == {"a": 1}
+    assert payload["dataset_id"] == str(dataset_id)
+    assert "inputs" not in payload and "metadata" not in payload
+    # dataset_id was given, so the example is not read first
+    assert not any(c[0] == "GET" and c[1].startswith("/examples/") for c in calls)
+
+
+@mock.patch("langsmith.async_client.httpx.AsyncClient")
+@pytest.mark.asyncio
+async def test_update_example_resolves_dataset_id_from_example(mock_client_cls):
+    dataset_id = uuid.uuid4()
+    client, calls = _make_update_client(mock_client_cls, instance_flags={}, example_dataset_id=dataset_id)
+    example_id = uuid.uuid4()
+
+    await client.update_example(example_id, metadata={"k": "v"})
+
+    assert any(c[0] == "GET" and c[1] == f"/examples/{example_id}" for c in calls)
+    payload = json.loads(calls[-1][2]["content"])
+    assert payload["dataset_id"] == str(dataset_id)
+
+
+@mock.patch("langsmith.async_client.httpx.AsyncClient")
+@pytest.mark.asyncio
+async def test_update_example_multipart_when_enabled(mock_client_cls):
+    client, calls = _make_update_client(mock_client_cls, instance_flags={"dataset_examples_multipart_enabled": True})
+    example_id, dataset_id = uuid.uuid4(), uuid.uuid4()
+
+    await client.update_example(
+        example_id,
+        inputs={"q": "updated"},
+        dataset_id=dataset_id,
+        attachments={"img": ("image/png", b"bytes")},
+    )
+
+    method, endpoint, kwargs = calls[-1]
+    assert method == "PATCH"
+    assert endpoint.endswith(f"/platform/datasets/{dataset_id}/examples")
+    assert kwargs["headers"]["Content-Type"].startswith("multipart/form-data")
+    assert str(example_id).encode() in kwargs["content"]
+    assert b"updated" in kwargs["content"]
+
+
+@mock.patch("langsmith.async_client.httpx.AsyncClient")
+@pytest.mark.asyncio
+async def test_update_example_attachment_operations_require_multipart(mock_client_cls):
+    client, _ = _make_update_client(mock_client_cls, instance_flags={})
+
+    with pytest.raises(ValueError, match="attachment operations"):
+        await client.update_example(
+            uuid.uuid4(),
+            dataset_id=uuid.uuid4(),
+            attachments_operations={"rename": {"old": "new"}},
+        )
