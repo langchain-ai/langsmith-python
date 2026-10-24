@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.15.0](https://github.com/langchain-ai/langsmith-python/compare/v0.14.12...v0.15.0) (2026-10-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* **sandboxes:** add sandbox volumes
+
+### Features
+
+* add agent owner API support ([6854d88](https://github.com/langchain-ai/langsmith-python/commit/6854d8813f18143f8f5ec2af758eade440e6b020))
+* **engine:** scan and fix GitLab projects through a workspace service account ([19f9076](https://github.com/langchain-ai/langsmith-python/commit/19f90767908aec4a9c6ca11d90c01e913e7df153))
+* **js-sdk:** batch createFeedback through the multipart endpoint ([a6569b5](https://github.com/langchain-ai/langsmith-python/commit/a6569b5fbf212fe58b624faf07003d7def5709ab))
+* let Engine boards verify without requesting a preview ([f1c915e](https://github.com/langchain-ai/langsmith-python/commit/f1c915e6a7b249951ed8d9e8aaa5e39212643704))
+* **sandboxes:** add sandbox volumes ([f4bef1c](https://github.com/langchain-ai/langsmith-python/commit/f4bef1ccbb20849a121e69a13f86913f4e3bc000))
+* **sandboxes:** create non-persistent sandboxes with `persistent: false` (private beta), never billed for storage ([4f8def7](https://github.com/langchain-ai/langsmith-python/commit/4f8def7c176c33813aa1d190ccaf95332d165a94))
+* **sandboxes:** relay sandbox egress through a customer's network ([9363303](https://github.com/langchain-ai/langsmith-python/commit/9363303d3788f4fa399067ca60c7c65c920db990))
+* **sandboxes:** sandbox functions ([89f7345](https://github.com/langchain-ai/langsmith-python/commit/89f73451e4c0de94c78cb5636011ea60d4058354))
+* **sdk:** add select and exclude_default_fields to list_examples in the Python SDK ([bbf5b46](https://github.com/langchain-ai/langsmith-python/commit/bbf5b469559fe95c69f6832e82e2d9bc8cf50ac3))
+* **sdks:** add resolve_destination to the Python SDK ([012283c](https://github.com/langchain-ai/langsmith-python/commit/012283cdfa9123b8119e84601355a311c4547464))
+
+
+### Bug Fixes
+
+* **py:** make Client.flush() wait for buffered run ops ([ccfb6b5](https://github.com/langchain-ai/langsmith-python/commit/ccfb6b5c1df5f839df02684dc121ae4f6dfb9155))
+* **sdk-python:** stop AsyncExperimentResults iteration from hanging when processing fails ([ba06e4b](https://github.com/langchain-ai/langsmith-python/commit/ba06e4b29fb3f151cf98ed07d3bffca796b51853))
+* **sdk:** default Python agent creation to EXTERNAL ([39fb8af](https://github.com/langchain-ai/langsmith-python/commit/39fb8af8a50c07aab13f634e725b8d4de9818fea))
+* **security:** update application certifi bundles ([82a5a67](https://github.com/langchain-ai/langsmith-python/commit/82a5a67f274c0900ea50108f0b00fe903373f6f6))
+
+
+### Build System
+
+* **deps:** consolidate dependency updates and align checkpoint versions ([5cdd396](https://github.com/langchain-ai/langsmith-python/commit/5cdd3965ab971d2766d106f108daea4ffe31dbe5))
+
 ## [0.14.12](https://github.com/langchain-ai/langsmith-python/compare/v0.14.11...v0.14.12) (2026-10-21)
 
 
