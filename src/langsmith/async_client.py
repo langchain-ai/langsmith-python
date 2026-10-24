@@ -505,23 +505,38 @@ class AsyncClient:
                         raise ls_utils.LangSmithAPIError(
                             f"Server error ({response.status_code}) caused failure to"
                             f" {method} {endpoint} in"
-                            f" LangSmith API. {repr(e)}"
+                            f" LangSmith API. {repr(e)}",
+                            response=response,
                         ) from e
                     elif response.status_code == 408:
                         raise ls_utils.LangSmithRequestTimeout(
-                            f"Client took too long to send request to {method}{endpoint}"
+                            f"Client took too long to send request to {method}{endpoint}",
+                            response=response,
                         ) from e
                     elif response.status_code == 429:
-                        raise ls_utils.LangSmithRateLimitError(f"Rate limit exceeded for {endpoint}. {repr(e)}") from e
+                        raise ls_utils.LangSmithRateLimitError(
+                            f"Rate limit exceeded for {endpoint}. {repr(e)}",
+                            response=response,
+                        ) from e
                     elif response.status_code == 401:
-                        raise ls_utils.LangSmithAuthError(f"Authentication failed for {endpoint}. {repr(e)}") from e
+                        raise ls_utils.LangSmithAuthError(
+                            f"Authentication failed for {endpoint}. {repr(e)}",
+                            response=response,
+                        ) from e
                     elif response.status_code == 404:
-                        raise ls_utils.LangSmithNotFoundError(f"Resource not found for {endpoint}. {repr(e)}") from e
+                        raise ls_utils.LangSmithNotFoundError(
+                            f"Resource not found for {endpoint}. {repr(e)}",
+                            response=response,
+                        ) from e
                     elif response.status_code == 409:
-                        raise ls_utils.LangSmithConflictError(f"Conflict for {endpoint}. {repr(e)}") from e
+                        raise ls_utils.LangSmithConflictError(
+                            f"Conflict for {endpoint}. {repr(e)}",
+                            response=response,
+                        ) from e
                     else:
                         raise ls_utils.LangSmithError(
-                            f"Failed to {method} {endpoint} in LangSmith API. {repr(e)}"
+                            f"Failed to {method} {endpoint} in LangSmith API. {repr(e)}",
+                            response=response,
                         ) from e
                 except httpx.RequestError as e:
                     raise ls_utils.LangSmithConnectionError(f"Request error: {repr(e)}") from e
