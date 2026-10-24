@@ -1,4 +1,5 @@
 from __future__ import annotations
+from types import SimpleNamespace
 
 import base64
 import functools
@@ -366,6 +367,37 @@ def _process_generate_content_response(response: Any) -> dict:
         return {"output": response}
 
 
+def _chunk_to_dict(chunk: Any) -> Optional[dict]:
+    """Convert a streamed chunk to a dict, mirroring the non-streamed path."""
+    try:
+        if hasattr(chunk, "to_dict"):
+            return chunk.to_dict()
+        if hasattr(chunk, "model_dump"):
+            return chunk.model_dump()
+    except Exception as e:
+        logger.debug(f"Error converting chunk to dict: {e}")
+    return None
+
+
+def _coalesce_text_parts(parts: list) -> list:
+    """Merge adjacent plain-text parts so streamed text matches non-streamed shape."""
+    merged: list = []
+    for part in parts:
+        if (
+            merged
+            and isinstance(part, dict)
+            and part.get("text")
+            and not part.get("thought")
+            and isinstance(merged[-1], dict)
+            and merged[-1].get("text")
+            and not merged[-1].get("thought")
+        ):
+            merged[-1] = {**merged[-1], "text": merged[-1]["text"] + part["text"]}
+        else:
+            merged.append(part)
+    return merged
+
+
 def _reduce_generate_content_chunks(all_chunks: list) -> dict:
     """Reduce streaming chunks into a single response."""
     if not all_chunks:
@@ -374,17 +406,44 @@ def _reduce_generate_content_chunks(all_chunks: list) -> dict:
             "usage_metadata": UsageMetadata(input_tokens=0, output_tokens=0, total_tokens=0),
         }
 
-    # Accumulate text from all chunks
-    full_text = ""
+    # Collect parts (text, function_call, thought, ...) and the last non-empty
+    # finish_reason across all chunks.
+    merged_parts: list = []
+    finish_reason: Optional[str] = None
+    fallback_text = ""
     last_chunk = None
 
     for chunk in all_chunks:
         try:
-            if hasattr(chunk, "text") and chunk.text:
-                full_text += chunk.text
+            chunk_dict = _chunk_to_dict(chunk)
+            candidates = (chunk_dict or {}).get("candidates") or []
+            if candidates:
+                candidate = candidates[0]
+                content = candidate.get("content") or {}
+                merged_parts.extend(content.get("parts") or [])
+                if candidate.get("finish_reason"):
+                    finish_reason = candidate["finish_reason"]
+            elif hasattr(chunk, "text") and chunk.text:
+                fallback_text += chunk.text
             last_chunk = chunk
         except Exception as e:
             logger.debug(f"Error processing chunk: {e}")
+
+    if merged_parts or finish_reason:
+        merged = {
+            "candidates": [
+                {
+                    "content": {"role": "model", "parts": _coalesce_text_parts(merged_parts)},
+                    "finish_reason": finish_reason,
+                }
+            ]
+        }
+        # Reuse the non-streamed conversion so both paths produce the same shape.
+        result = _process_generate_content_response(SimpleNamespace(model_dump=lambda: merged))
+        if "content" not in result:
+            result = {"content": fallback_text}
+    else:
+        result = {"content": fallback_text}
 
     # Extract usage metadata from the last chunk
     usage_metadata: UsageMetadata = UsageMetadata(input_tokens=0, output_tokens=0, total_tokens=0)
@@ -405,17 +464,13 @@ def _reduce_generate_content_chunks(all_chunks: list) -> dict:
                         "thoughts_token_count": getattr(last_chunk.usage_metadata, "thoughts_token_count", 0),
                         "total_token_count": getattr(last_chunk.usage_metadata, "total_token_count", 0),
                     }
-                # Add usage_metadata to both run.extra AND outputs
                 usage_metadata = _create_usage_metadata(usage_dict)
 
         except Exception as e:
             logger.debug(f"Error extracting metadata from last chunk: {e}")
 
-    # Return minimal structure with usage_metadata in outputs
-    return {
-        "content": full_text,
-        "usage_metadata": usage_metadata,
-    }
+    result["usage_metadata"] = usage_metadata
+    return result
 
 
 def _get_wrapper(

@@ -1,5 +1,6 @@
 """Unit tests for Gemini wrapper processing functions."""
 
+from google.genai import types as genai_types
 from langsmith.wrappers._gemini import (
     _create_usage_metadata,
     _infer_invocation_params,
@@ -729,3 +730,102 @@ class TestProcessGeminiInputsWithObjects:
         result = _process_gemini_inputs(inputs)
 
         assert result["messages"][0]["content"] == "from part object"
+
+
+def _resp(d: dict):
+    return genai_types.GenerateContentResponse.model_validate(d)
+
+
+_TEXT_CHUNK = {
+    "candidates": [{"content": {"role": "model", "parts": [{"text": "Checking the weather. "}]}, "index": 0}]
+}
+_CALL_CHUNK = {
+    "candidates": [
+        {
+            "content": {
+                "role": "model",
+                "parts": [{"function_call": {"name": "get_weather", "args": {"city": "Paris"}}}],
+            },
+            "finish_reason": "STOP",
+            "index": 0,
+        }
+    ],
+    "usage_metadata": {"prompt_token_count": 5, "candidates_token_count": 7, "total_token_count": 12},
+}
+_EXPECTED_TOOL_CALLS = [
+    {
+        "id": "call_0",
+        "type": "function",
+        "index": 0,
+        "function": {"name": "get_weather", "arguments": '{"city":"Paris"}'},
+    }
+]
+
+
+def test_reduce_chunks_keeps_tool_calls_and_finish_reason():
+    out = _reduce_generate_content_chunks([_resp(_TEXT_CHUNK), _resp(_CALL_CHUNK)])
+    assert out["content"] == "Checking the weather. "
+    assert out["role"] == "assistant"
+    assert out["finish_reason"] == genai_types.FinishReason.STOP
+    assert out["tool_calls"] == _EXPECTED_TOOL_CALLS
+
+
+def test_reduce_chunks_tool_call_only():
+    out = _reduce_generate_content_chunks([_resp(_CALL_CHUNK)])
+    assert out["content"] is None
+    assert out["tool_calls"] == _EXPECTED_TOOL_CALLS
+    assert out["finish_reason"] == genai_types.FinishReason.STOP
+
+
+def test_reduce_chunks_text_only():
+    chunks = [
+        _resp({"candidates": [{"content": {"role": "model", "parts": [{"text": "Hello "}]}, "index": 0}]}),
+        _resp(
+            {
+                "candidates": [
+                    {"content": {"role": "model", "parts": [{"text": "world"}]}, "finish_reason": "STOP", "index": 0}
+                ]
+            }
+        ),
+    ]
+    out = _reduce_generate_content_chunks(chunks)
+    assert out["content"] == "Hello world"
+    assert out["finish_reason"] == genai_types.FinishReason.STOP
+    assert "tool_calls" not in out
+
+
+def test_reduce_chunks_matches_non_streamed():
+    full = _resp(
+        {
+            **_CALL_CHUNK,
+            "candidates": [
+                {
+                    **_CALL_CHUNK["candidates"][0],
+                    "content": {
+                        "role": "model",
+                        "parts": [
+                            _TEXT_CHUNK["candidates"][0]["content"]["parts"][0],
+                            _CALL_CHUNK["candidates"][0]["content"]["parts"][0],
+                        ],
+                    },
+                }
+            ],
+        }
+    )
+    streamed = _reduce_generate_content_chunks([_resp(_TEXT_CHUNK), _resp(_CALL_CHUNK)])
+    non_streamed = _process_generate_content_response(full)
+    drop = {"usage_metadata"}
+    assert {k: v for k, v in streamed.items() if k not in drop} == {
+        k: v for k, v in non_streamed.items() if k not in drop
+    }
+
+
+def test_reduce_chunks_coalesces_text_around_tool_call():
+    chunks = [
+        _resp({"candidates": [{"content": {"role": "model", "parts": [{"text": "Check"}]}, "index": 0}]}),
+        _resp({"candidates": [{"content": {"role": "model", "parts": [{"text": "ing. "}]}, "index": 0}]}),
+        _resp(_CALL_CHUNK),
+    ]
+    out = _reduce_generate_content_chunks(chunks)
+    assert out["content"] == "Checking. "
+    assert out["tool_calls"] == _EXPECTED_TOOL_CALLS
