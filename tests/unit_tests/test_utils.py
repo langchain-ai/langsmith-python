@@ -3,6 +3,7 @@ import copy
 import dataclasses
 import functools
 import itertools
+import socket
 import threading
 import unittest
 import uuid
@@ -641,3 +642,29 @@ def test_an_empty_project_variable_falls_back_to_default(
 
     assert ls_utils.get_tracer_project() == ""
     assert _addressing.resolve()[0] == "default"
+
+
+@pytest.mark.parametrize(
+    "api_url,is_local,host_url",
+    [
+        ("http://[::2]:1984/api", False, "http://[::2]:1984"),
+        ("http://[::ffff:192.0.2.1]:1984/api", False, "http://[::ffff:192.0.2.1]:1984"),
+        ("http://[2001:db8::1]:1984/api", False, "http://[2001:db8::1]:1984"),
+        ("http://[2001:db8::2]:1984/api/v1", False, "http://[2001:db8::2]:1984"),
+        ("http://[::1]:1984", True, "http://localhost"),
+        ("http://[0:0:0:0:0:0:0:1]:1984", True, "http://localhost"),
+        ("http://synthetic-user@localhost:1984", True, "http://localhost"),
+        ("http://127.0.0.1:1984", True, "http://localhost"),
+    ],
+)
+def test_localhost_uses_url_hostname(api_url, is_local, host_url, monkeypatch):
+    def resolve(hostname):
+        # Match the platform resolver's empty-host behavior without doing DNS.
+        if hostname in ("", "0"):
+            return "0.0.0.0"
+        raise socket.gaierror("synthetic unresolved host")
+
+    monkeypatch.setattr(socket, "gethostbyname", resolve)
+    ls_utils.get_host_url.cache_clear()
+    assert ls_utils._is_localhost(api_url) is is_local
+    assert ls_utils.get_host_url(None, api_url) == host_url
