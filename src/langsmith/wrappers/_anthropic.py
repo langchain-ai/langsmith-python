@@ -20,6 +20,7 @@ from langsmith import run_helpers
 from langsmith._internal._orjson import dumps as _dumps
 from langsmith.anonymizer import SECRET_PLACEHOLDER
 from langsmith.schemas import InputTokenDetails, UsageMetadata
+from langsmith.wrappers._gateway import add_gateway_response_metadata, install_gateway_response_hook
 
 if TYPE_CHECKING:
     import httpx
@@ -338,6 +339,7 @@ def _get_stream_wrapper(
             def text_stream(self):
                 @configured_traceable_text
                 async def _text_stream(**_):
+                    add_gateway_response_metadata(getattr(self._wrapped, "response", None))
                     async for chunk in self._wrapped.text_stream:
                         yield chunk
                     run_tree = run_helpers.get_current_run_tree()
@@ -364,6 +366,7 @@ def _get_stream_wrapper(
             async def __aiter__(self) -> AsyncIterator[MessageStreamEvent]:
                 @configured_traceable
                 def traced_iter(**_):
+                    add_gateway_response_metadata(getattr(self._wrapped, "response", None))
                     return self._wrapped.__aiter__()
 
                 async for chunk in traced_iter(**self._kwargs):
@@ -428,6 +431,7 @@ def _get_stream_wrapper(
             def text_stream(self):
                 @configured_traceable_text
                 def _text_stream(**_):
+                    add_gateway_response_metadata(getattr(self._wrapped, "response", None))
                     yield from self._wrapped.text_stream
                     run_tree = run_helpers.get_current_run_tree()
                     final_message = self._wrapped.get_final_message()
@@ -444,6 +448,7 @@ def _get_stream_wrapper(
             def __iter__(self):
                 @configured_traceable
                 def traced_iter(**_):
+                    add_gateway_response_metadata(getattr(self._wrapped, "response", None))
                     return self._wrapped.__iter__()
 
                 return traced_iter(**self._kwargs)
@@ -555,6 +560,7 @@ def wrap_anthropic(
         ```
     """  # noqa: E501
     tracing_extra = tracing_extra or {}
+    install_gateway_response_hook(client)
 
     # Extract ls_invocation_params from metadata
     metadata = dict(tracing_extra.get("metadata") or {})

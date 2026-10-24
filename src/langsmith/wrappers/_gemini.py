@@ -19,7 +19,9 @@ from langsmith import client as ls_client
 from langsmith import run_helpers
 from langsmith._internal._beta_decorator import warn_beta
 from langsmith._internal._orjson import dumps as _dumps
+from langsmith.run_trees import RunTree
 from langsmith.schemas import InputTokenDetails, OutputTokenDetails, UsageMetadata
+from langsmith.wrappers._gateway import add_gateway_metadata
 
 if TYPE_CHECKING:
     from google import genai  # type: ignore[import-untyped, attr-defined]
@@ -418,6 +420,68 @@ def _reduce_generate_content_chunks(all_chunks: list) -> dict:
     }
 
 
+def _add_gateway_metadata(response: Any, run: Optional[RunTree] = None) -> None:
+    sdk_http_response = getattr(response, "sdk_http_response", None)
+    add_gateway_metadata(getattr(sdk_http_response, "headers", None), run)
+
+
+def _with_gateway_metadata(original_generate: Callable, is_streaming: bool) -> Callable:
+    """Read gateway metadata from the response while the LLM run is current.
+
+    google-genai can send async requests through aiohttp, so the response
+    object is read instead of installing an httpx hook.
+    """
+    if is_streaming and run_helpers.is_async(original_generate):
+
+        @functools.wraps(original_generate)
+        async def astream(*args, **kwargs):
+            stream = await original_generate(*args, **kwargs)
+            run = run_helpers.get_current_run_tree()
+
+            async def chunks():
+                first = True
+                async for chunk in stream:
+                    if first:
+                        _add_gateway_metadata(chunk, run)
+                        first = False
+                    yield chunk
+
+            return chunks()
+
+        return astream
+
+    if is_streaming:
+
+        @functools.wraps(original_generate)
+        def stream(*args, **kwargs):
+            first = True
+            for chunk in original_generate(*args, **kwargs):
+                if first:
+                    _add_gateway_metadata(chunk)
+                    first = False
+                yield chunk
+
+        return stream
+
+    if run_helpers.is_async(original_generate):
+
+        @functools.wraps(original_generate)
+        async def agenerate(*args, **kwargs):
+            response = await original_generate(*args, **kwargs)
+            _add_gateway_metadata(response)
+            return response
+
+        return agenerate
+
+    @functools.wraps(original_generate)
+    def generate(*args, **kwargs):
+        response = original_generate(*args, **kwargs)
+        _add_gateway_metadata(response)
+        return response
+
+    return generate
+
+
 def _get_wrapper(
     original_generate: Callable,
     name: str,
@@ -427,6 +491,7 @@ def _get_wrapper(
 ) -> Callable:
     """Create a wrapper for Gemini's `generate_content` methods."""
     textra = tracing_extra or {}
+    traced_generate = _with_gateway_metadata(original_generate, is_streaming)
 
     @functools.wraps(original_generate)
     def generate(*args, **kwargs):
@@ -443,7 +508,7 @@ def _get_wrapper(
             **textra,
         )
 
-        return decorator(original_generate)(*args, **kwargs)
+        return decorator(traced_generate)(*args, **kwargs)
 
     @functools.wraps(original_generate)
     async def agenerate(*args, **kwargs):
@@ -460,7 +525,7 @@ def _get_wrapper(
             **textra,
         )
 
-        return await decorator(original_generate)(*args, **kwargs)
+        return await decorator(traced_generate)(*args, **kwargs)
 
     return agenerate if run_helpers.is_async(original_generate) else generate
 
