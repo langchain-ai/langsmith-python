@@ -248,7 +248,8 @@ def _serialize_json_with_normalized_keys(obj: Any) -> Any:
 
 
 def _elide_surrogates(s: bytes) -> bytes:
-    return _SURROGATE_RE.sub(b"", s)
+    # Decode JSON first so valid pairs and escaped backslashes remain intact.
+    return json.dumps(json.loads(s), ensure_ascii=False).encode("utf-8", errors="ignore")
 
 
 def dumps_json(obj: Any) -> bytes:
