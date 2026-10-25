@@ -274,6 +274,14 @@ class Fix(BaseModel):
 
     pr_number: Optional[int] = None
 
+    provider: Literal["github", "gitlab"]
+
+    provider_web_base_url: Optional[str] = None
+    """
+    ProviderWebBaseURL is the GitLab instance a GitLab fix lives on; null for
+    GitHub.
+    """
+
     repo_url: str
 
     updated_at: datetime

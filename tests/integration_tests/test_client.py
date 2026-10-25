@@ -1543,6 +1543,61 @@ def test_slow_run_read_multipart(langchain_client: Client, caplog: pytest.LogCap
         assert not caplog.records
 
 
+def test_list_examples_exclude_default_fields(langchain_client: Client) -> None:
+    """Same cases the server pins: flag on returns select plus id, flag off keeps defaults."""
+    dataset_name = "__test_list_examples_exclude_default_fields" + uuid7().hex
+    dataset = _create_dataset(langchain_client, dataset_name)
+    example = langchain_client.create_example(
+        inputs={"input": "hello"},
+        outputs={"output": "hi"},
+        metadata={"key": "value"},
+        dataset_id=dataset.id,
+    )
+    # Example has no `name` field, so the server's name is not observable here.
+    default_fields = {"id", "created_at", "modified_at", "inputs", "dataset_id"}
+    # The client adds `attachments` to every row; everything else is what the server sent.
+    client_added = {"attachments"}
+
+    def rows(**kwargs):
+        return [
+            (e, e.model_fields_set - client_added)
+            for e in langchain_client.list_examples(dataset_id=dataset.id, **kwargs)
+        ]
+
+    # Flag on: the row is exactly the selected fields plus id.
+    for select in (["id"], ["id", "inputs"], ["outputs"]):
+        ((e, fields),) = rows(select=select, exclude_default_fields=True)
+        assert fields == {"id", *select}
+        assert e.id == example.id
+        if "inputs" in select:
+            assert e.inputs == {"input": "hello"}
+        if "outputs" in select:
+            assert e.outputs == {"output": "hi"}
+
+    # Flag on with include_attachments: its fields are selected, inputs is not.
+    ((e, fields),) = rows(include_attachments=True, exclude_default_fields=True)
+    assert e.id == example.id
+    assert e.outputs == {"output": "hi"}
+    assert e.metadata["key"] == "value"
+    assert "inputs" not in fields
+
+    # Flag on without select: the default fields still come back.
+    ((e, fields),) = rows(exclude_default_fields=True)
+    assert default_fields <= fields
+    assert e.inputs == {"input": "hello"}
+
+    # Flag off: every default field is present whatever select says.
+    for select in (None, ["id"], ["outputs"]):
+        ((e, fields),) = rows(select=select, exclude_default_fields=False)
+        assert default_fields <= fields
+        assert e.id == example.id
+        assert e.inputs == {"input": "hello"}
+        if select and "outputs" in select:
+            assert e.outputs == {"output": "hi"}
+
+    safe_delete_dataset(langchain_client, dataset_id=dataset.id)
+
+
 def test_list_examples_attachments_keys(langchain_client: Client) -> None:
     """Test list_examples returns same keys with and without attachments."""
     dataset_name = "__test_list_examples_attachments" + uuid7().hex

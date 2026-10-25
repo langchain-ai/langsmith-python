@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing_extensions import Literal, TypedDict
 
+from ..._types import SequenceNotStr
+
 __all__ = ["BoxGenerateServiceURLParams"]
 
 
@@ -17,6 +19,15 @@ class BoxGenerateServiceURLParams(TypedDict, total=False):
     member of the owning workspace. "off" — remove an existing LangSmith login grant
     and mint a token. A LangSmith login grant is durable; token mode is refused
     (409) while one exists.
+    """
+
+    embed_origins: SequenceNotStr[str]
+    """
+    EmbedOrigins are the pages allowed to show a LangSmith login service URL in an
+    iframe, besides LangSmith itself: at most 5 origins such as
+    https://app.example.com (http only for localhost). Valid only with access
+    "restricted" or "workspace". Each call sets the URL's whole list, so omitting
+    the field removes any origins set before.
     """
 
     expires_in_seconds: int

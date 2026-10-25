@@ -177,7 +177,9 @@ class TracesResource(SyncAPIResource):
         *,
         ai_search: str | Omit = omit,
         cursor: str | Omit = omit,
+        max_feedback_modified_at: Union[str, datetime] | Omit = omit,
         max_start_time: Union[str, datetime] | Omit = omit,
+        min_feedback_modified_at: Union[str, datetime] | Omit = omit,
         min_start_time: Union[str, datetime] | Omit = omit,
         page_size: int | Omit = omit,
         project_id: str | Omit = omit,
@@ -220,8 +222,20 @@ class TracesResource(SyncAPIResource):
 
           cursor: `cursor` is the opaque string returned in a previous response's `next_cursor`.
 
+          max_feedback_modified_at: `max_feedback_modified_at` is the exclusive upper bound (RFC3339) on feedback
+              `modified_at`, applied to the feedback conditions in `trace_filter` or
+              `tree_filter` (for example eq(feedback_key, "correctness")). Requires at least
+              one feedback condition. Root runs must still fall within the `start_time`
+              window.
+
           max_start_time: `max_start_time` is the exclusive upper bound for the root-run start time scan
               (RFC3339). Defaults to the request time when omitted.
+
+          min_feedback_modified_at: `min_feedback_modified_at` is the inclusive lower bound (RFC3339) on feedback
+              `modified_at`, applied to the feedback conditions in `trace_filter` or
+              `tree_filter` (for example eq(feedback_key, "correctness")). Requires at least
+              one feedback condition. Root runs must still fall within the `start_time`
+              window.
 
           min_start_time: `min_start_time` is the inclusive lower bound for the root-run start time scan
               (RFC3339). Defaults to 24 hours before the request when omitted.
@@ -266,7 +280,9 @@ class TracesResource(SyncAPIResource):
                 {
                     "ai_search": ai_search,
                     "cursor": cursor,
+                    "max_feedback_modified_at": max_feedback_modified_at,
                     "max_start_time": max_start_time,
+                    "min_feedback_modified_at": min_feedback_modified_at,
                     "min_start_time": min_start_time,
                     "page_size": page_size,
                     "project_id": project_id,
@@ -435,7 +451,9 @@ class AsyncTracesResource(AsyncAPIResource):
         *,
         ai_search: str | Omit = omit,
         cursor: str | Omit = omit,
+        max_feedback_modified_at: Union[str, datetime] | Omit = omit,
         max_start_time: Union[str, datetime] | Omit = omit,
+        min_feedback_modified_at: Union[str, datetime] | Omit = omit,
         min_start_time: Union[str, datetime] | Omit = omit,
         page_size: int | Omit = omit,
         project_id: str | Omit = omit,
@@ -478,8 +496,20 @@ class AsyncTracesResource(AsyncAPIResource):
 
           cursor: `cursor` is the opaque string returned in a previous response's `next_cursor`.
 
+          max_feedback_modified_at: `max_feedback_modified_at` is the exclusive upper bound (RFC3339) on feedback
+              `modified_at`, applied to the feedback conditions in `trace_filter` or
+              `tree_filter` (for example eq(feedback_key, "correctness")). Requires at least
+              one feedback condition. Root runs must still fall within the `start_time`
+              window.
+
           max_start_time: `max_start_time` is the exclusive upper bound for the root-run start time scan
               (RFC3339). Defaults to the request time when omitted.
+
+          min_feedback_modified_at: `min_feedback_modified_at` is the inclusive lower bound (RFC3339) on feedback
+              `modified_at`, applied to the feedback conditions in `trace_filter` or
+              `tree_filter` (for example eq(feedback_key, "correctness")). Requires at least
+              one feedback condition. Root runs must still fall within the `start_time`
+              window.
 
           min_start_time: `min_start_time` is the inclusive lower bound for the root-run start time scan
               (RFC3339). Defaults to 24 hours before the request when omitted.
@@ -524,7 +554,9 @@ class AsyncTracesResource(AsyncAPIResource):
                 {
                     "ai_search": ai_search,
                     "cursor": cursor,
+                    "max_feedback_modified_at": max_feedback_modified_at,
                     "max_start_time": max_start_time,
+                    "min_feedback_modified_at": min_feedback_modified_at,
                     "min_start_time": min_start_time,
                     "page_size": page_size,
                     "project_id": project_id,

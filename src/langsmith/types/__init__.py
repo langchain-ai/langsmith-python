@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from .run import Run as Run
+from .agent import Agent as Agent
 from .issue import Issue as Issue
 from .trace import Trace as Trace
 from .thread import Thread as Thread
 from .missing import Missing as Missing
 from .run_type import RunType as RunType
 from .data_type import DataType as DataType
+from .proxy_config import ProxyConfig as ProxyConfig
 from .thread_stats import ThreadStats as ThreadStats
 from .thread_trace import ThreadTrace as ThreadTrace
 from .missing_param import MissingParam as MissingParam
@@ -18,18 +20,24 @@ from .online_evaluator import OnlineEvaluator as OnlineEvaluator
 from .run_select_field import RunSelectField as RunSelectField
 from .sandbox_response import SandboxResponse as SandboxResponse
 from .trace_aggregates import TraceAggregates as TraceAggregates
+from .agent_list_params import AgentListParams as AgentListParams
 from .issue_list_params import IssueListParams as IssueListParams
 from .snapshot_response import SnapshotResponse as SnapshotResponse
 from .info_list_response import InfoListResponse as InfoListResponse
 from .online_spend_limit import OnlineSpendLimit as OnlineSpendLimit
+from .proxy_config_param import ProxyConfigParam as ProxyConfigParam
 from .run_get_url_params import RunGetURLParams as RunGetURLParams
 from .trace_query_params import TraceQueryParams as TraceQueryParams
+from .agent_create_params import AgentCreateParams as AgentCreateParams
+from .agent_update_params import AgentUpdateParams as AgentUpdateParams
 from .run_query_v2_params import RunQueryV2Params as RunQueryV2Params
 from .thread_query_params import ThreadQueryParams as ThreadQueryParams
 from .thread_stats_params import ThreadStatsParams as ThreadStatsParams
 from .online_llm_evaluator import OnlineLlmEvaluator as OnlineLlmEvaluator
 from .run_get_url_response import RunGetURLResponse as RunGetURLResponse
+from .sandbox_mount_config import SandboxMountConfig as SandboxMountConfig
 from .service_url_response import ServiceURLResponse as ServiceURLResponse
+from .agent_retrieve_params import AgentRetrieveParams as AgentRetrieveParams
 from .download_url_response import DownloadURLResponse as DownloadURLResponse
 from .issue_retrieve_params import IssueRetrieveParams as IssueRetrieveParams
 from .online_code_evaluator import OnlineCodeEvaluator as OnlineCodeEvaluator
@@ -49,6 +57,7 @@ from .online_evaluator_run_rule import OnlineEvaluatorRunRule as OnlineEvaluator
 from .thread_list_traces_params import ThreadListTracesParams as ThreadListTracesParams
 from .online_evaluator_spend_day import OnlineEvaluatorSpendDay as OnlineEvaluatorSpendDay
 from .prompt_webhook_test_params import PromptWebhookTestParams as PromptWebhookTestParams
+from .sandbox_mount_config_param import SandboxMountConfigParam as SandboxMountConfigParam
 from .annotation_queue_size_schema import AnnotationQueueSizeSchema as AnnotationQueueSizeSchema
 from .online_evaluator_list_params import OnlineEvaluatorListParams as OnlineEvaluatorListParams
 from .online_evaluator_spend_group import OnlineEvaluatorSpendGroup as OnlineEvaluatorSpendGroup

@@ -67,6 +67,12 @@ GATEWAY_PREFIXES = {
     "https://gateway.smith.langchain.com/openai/v1": "https://api.openai.com/v1",
     "https://gateway.smith.langchain.com/anthropic": "https://api.anthropic.com",
     "https://gateway.smith.langchain.com/gemini": "https://generativelanguage.googleapis.com",
+    "https://beta.gateway.smith.langchain.com/openai/v1": "https://api.openai.com/v1",
+    "https://beta.gateway.smith.langchain.com/anthropic": "https://api.anthropic.com",
+    "https://beta.gateway.smith.langchain.com/gemini": "https://generativelanguage.googleapis.com",
+    "https://dev.gateway.smith.langchain.com/openai/v1": "https://api.openai.com/v1",
+    "https://dev.gateway.smith.langchain.com/anthropic": "https://api.anthropic.com",
+    "https://dev.gateway.smith.langchain.com/gemini": "https://generativelanguage.googleapis.com",
 }
 
 

@@ -21,7 +21,7 @@ from langsmith import utils as ls_utils
 from langsmith._internal import _addressing, _context
 from langsmith._internal._uuid import uuid7_deterministic
 from langsmith._internal._v2_migration_utils import QueryBackend as _QueryBackend
-from langsmith.address import EnvAddressError
+from langsmith.address import EnvAddressError, resolve_destination
 from langsmith.client import Client
 from langsmith.run_helpers import get_current_run_tree, trace, traceable
 from langsmith.run_trees import RunTree, _Baggage
@@ -424,6 +424,45 @@ class TestPrecedence:
     def test_the_level_naming_both_is_reported(self, settle: Any) -> None:
         with pytest.raises(ls_utils.LangSmithUserError, match="precedence level 2"):
             settle((None, None), ("p", SUPPORT))
+
+
+class TestResolveDestination:
+    def test_a_named_project_wins(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        _set_env(monkeypatch, LANGSMITH_AGENT_ID="support", LANGSMITH_AGENT_ENVIRONMENT="staging")
+        assert resolve_destination("p") == ("p", None)
+
+    def test_a_named_address_is_validated_and_wins(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        _set_env(monkeypatch, LANGSMITH_PROJECT="env-project")
+        lowered = {"kind": "AGENT", "id": "support", "environment": "production"}
+        assert resolve_destination(address=lowered) == (None, SUPPORT)
+        with pytest.raises(ls_utils.LangSmithUserError):
+            resolve_destination(address={**lowered, "id": "Not Valid"})
+
+    def test_naming_both_raises(self) -> None:
+        with pytest.raises(ls_utils.LangSmithUserError, match="neither outranks the other"):
+            resolve_destination("p", SUPPORT)
+
+    def test_the_env_decides_when_nothing_is_named(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        assert resolve_destination() == ("default", None)
+        _set_env(monkeypatch, LANGSMITH_PROJECT="env-project")
+        assert resolve_destination() == ("env-project", None)
+        monkeypatch.delenv("LANGSMITH_PROJECT")
+        _set_env(monkeypatch, LANGSMITH_AGENT_ID="support", LANGSMITH_AGENT_ENVIRONMENT="production")
+        assert resolve_destination() == (None, SUPPORT)
+
+    @pytest.mark.parametrize(
+        "env",
+        [
+            {"LANGSMITH_PROJECT": "p", "LANGSMITH_AGENT_ID": "support", "LANGSMITH_AGENT_ENVIRONMENT": "production"},
+            {"LANGSMITH_AGENT_ID": "support"},
+        ],
+        ids=["project_and_address", "half_an_address"],
+    )
+    def test_a_bad_env_raises_only_when_it_decides(self, monkeypatch: pytest.MonkeyPatch, env: dict[str, str]) -> None:
+        _set_env(monkeypatch, **env)
+        with pytest.raises(EnvAddressError):
+            resolve_destination()
+        assert resolve_destination("p") == ("p", None)
 
 
 class TestConfigure:

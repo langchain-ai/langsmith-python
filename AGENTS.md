@@ -1,6 +1,6 @@
 # Instructions for code modifications in the Python SDK
 
-This repo holds the LangSmith Python SDK: the hand-written client (tracing, run trees, evaluation, sandbox, wrappers, integrations) on top of a Stainless-generated REST client. Both live under `src/langsmith/`.
+The LangSmith Python SDK source is `sdks/python` in langchainplus: the hand-written client (tracing, run trees, evaluation, sandbox, wrappers, integrations) on top of a Stainless-generated REST client. Both live under `src/langsmith/`. Edit it there. A merge to langchainplus main that changes `sdks/python` is pushed to `langsmith-python` main.
 
 ## External contributor PRs
 
@@ -28,13 +28,13 @@ Prefer CI over local runs when in doubt: shell or direnv `LANGSMITH_*` variables
 
 ## Generated files
 
-Files whose first line carries `File generated from our OpenAPI spec by Stainless.` are regenerated on every sync. Do not edit them. Change the OpenAPI spec or `stainless.yml` in `langchain-ai/langchainplus` instead. CI blocks PRs that touch them unless the PR has the `skip-stainless-generated-file-modification-check` label.
+Files whose first line carries `File generated from our OpenAPI spec by Stainless.` are regenerated in langchainplus. Do not edit them by hand. Change the OpenAPI spec or `stainless.yml`, then run `./langdev sdks gen python` from the langchainplus root and commit `sdks/python` with `smith-sdks/stainless/patches/python.files` and `python.patch`.
 
-Hand-written code is sealed as custom code by the `stlc-seal-custom-code` workflow on every push to `main`, so it survives regeneration.
+Hand-written files are everything not listed in `python.files`. `langdev sdks gen python` keeps edits to generated files in `python.patch`.
 
 ## Releasing
 
-Releases are cut by release-please from conventional commits on `main`. Do not hand-edit the version in `pyproject.toml`, `src/langsmith/_version.py` or `.release-please-manifest.json`, and do not push tags.
+Releases are cut by release-please from conventional commits on `langsmith-python` main. Dependency edits in `pyproject.toml` are exported. Do not change the version line in `pyproject.toml`, `src/langsmith/_version.py`, or `.release-please-manifest.json`, and do not push tags.
 
 ## Conventions
 

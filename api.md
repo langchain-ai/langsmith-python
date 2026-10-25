@@ -11,6 +11,22 @@ Methods:
 - <code title="post /api/v1/platform/product-feedbacks">client.product_feedback.<a href="./src/langsmith/resources/product_feedback.py">create</a>(\*\*<a href="src/langsmith/types/product_feedback_create_params.py">params</a>) -> <a href="./src/langsmith/types/product_feedback_create_response.py">ProductFeedbackCreateResponse</a></code>
 - <code title="get /api/v1/platform/product-feedbacks/{id}">client.product_feedback.<a href="./src/langsmith/resources/product_feedback.py">retrieve</a>(id) -> <a href="./src/langsmith/types/product_feedback_retrieve_response.py">ProductFeedbackRetrieveResponse</a></code>
 
+# Agents
+
+Types:
+
+```python
+from langsmith.types import Agent
+```
+
+Methods:
+
+- <code title="post /api/v1/agents">client.agents.<a href="./src/langsmith/resources/agents.py">create</a>(\*\*<a href="src/langsmith/types/agent_create_params.py">params</a>) -> <a href="./src/langsmith/types/agent.py">Agent</a></code>
+- <code title="get /api/v1/agents/{agent_id}">client.agents.<a href="./src/langsmith/resources/agents.py">retrieve</a>(agent_id, \*\*<a href="src/langsmith/types/agent_retrieve_params.py">params</a>) -> <a href="./src/langsmith/types/agent.py">Agent</a></code>
+- <code title="patch /api/v1/agents/{agent_id}">client.agents.<a href="./src/langsmith/resources/agents.py">update</a>(agent_id, \*\*<a href="src/langsmith/types/agent_update_params.py">params</a>) -> <a href="./src/langsmith/types/agent.py">Agent</a></code>
+- <code title="get /api/v1/agents">client.agents.<a href="./src/langsmith/resources/agents.py">list</a>(\*\*<a href="src/langsmith/types/agent_list_params.py">params</a>) -> <a href="./src/langsmith/types/agent.py">SyncItemsCursorGetPagination[Agent]</a></code>
+- <code title="delete /api/v1/agents/{agent_id}">client.agents.<a href="./src/langsmith/resources/agents.py">delete</a>(agent_id) -> None</code>
+
 # Fleet
 
 ## Threads
@@ -341,7 +357,9 @@ Types:
 ```python
 from langsmith.types import (
     DownloadURLResponse,
+    ProxyConfig,
     SandboxListResponse,
+    SandboxMountConfig,
     SandboxResponse,
     SandboxStatusResponse,
     ServiceURLResponse,

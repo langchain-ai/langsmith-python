@@ -39,6 +39,7 @@ if TYPE_CHECKING:
         info,
         runs,
         fleet,
+        agents,
         issues,
         public,
         traces,
@@ -52,6 +53,7 @@ if TYPE_CHECKING:
         online_evaluators,
     )
     from .resources.info import InfoResource, AsyncInfoResource
+    from .resources.agents import AgentsResource, AsyncAgentsResource
     from .resources.issues import IssuesResource, AsyncIssuesResource
     from .resources.traces import TracesResource, AsyncTracesResource
     from .resources.sessions import SessionsResource, AsyncSessionsResource
@@ -151,6 +153,12 @@ class Langsmith(SyncAPIClient):
         from .resources.product_feedback import ProductFeedbackResource
 
         return ProductFeedbackResource(self)
+
+    @cached_property
+    def agents(self) -> AgentsResource:
+        from .resources.agents import AgentsResource
+
+        return AgentsResource(self)
 
     @cached_property
     def fleet(self) -> FleetResource:
@@ -445,6 +453,12 @@ class AsyncLangsmith(AsyncAPIClient):
         return AsyncProductFeedbackResource(self)
 
     @cached_property
+    def agents(self) -> AsyncAgentsResource:
+        from .resources.agents import AsyncAgentsResource
+
+        return AsyncAgentsResource(self)
+
+    @cached_property
     def fleet(self) -> AsyncFleetResource:
         from .resources.fleet import AsyncFleetResource
 
@@ -675,6 +689,12 @@ class LangsmithWithRawResponse:
         return ProductFeedbackResourceWithRawResponse(self._client.product_feedback)
 
     @cached_property
+    def agents(self) -> agents.AgentsResourceWithRawResponse:
+        from .resources.agents import AgentsResourceWithRawResponse
+
+        return AgentsResourceWithRawResponse(self._client.agents)
+
+    @cached_property
     def fleet(self) -> fleet.FleetResourceWithRawResponse:
         from .resources.fleet import FleetResourceWithRawResponse
 
@@ -764,6 +784,12 @@ class AsyncLangsmithWithRawResponse:
         from .resources.product_feedback import AsyncProductFeedbackResourceWithRawResponse
 
         return AsyncProductFeedbackResourceWithRawResponse(self._client.product_feedback)
+
+    @cached_property
+    def agents(self) -> agents.AsyncAgentsResourceWithRawResponse:
+        from .resources.agents import AsyncAgentsResourceWithRawResponse
+
+        return AsyncAgentsResourceWithRawResponse(self._client.agents)
 
     @cached_property
     def fleet(self) -> fleet.AsyncFleetResourceWithRawResponse:
@@ -857,6 +883,12 @@ class LangsmithWithStreamedResponse:
         return ProductFeedbackResourceWithStreamingResponse(self._client.product_feedback)
 
     @cached_property
+    def agents(self) -> agents.AgentsResourceWithStreamingResponse:
+        from .resources.agents import AgentsResourceWithStreamingResponse
+
+        return AgentsResourceWithStreamingResponse(self._client.agents)
+
+    @cached_property
     def fleet(self) -> fleet.FleetResourceWithStreamingResponse:
         from .resources.fleet import FleetResourceWithStreamingResponse
 
@@ -946,6 +978,12 @@ class AsyncLangsmithWithStreamedResponse:
         from .resources.product_feedback import AsyncProductFeedbackResourceWithStreamingResponse
 
         return AsyncProductFeedbackResourceWithStreamingResponse(self._client.product_feedback)
+
+    @cached_property
+    def agents(self) -> agents.AsyncAgentsResourceWithStreamingResponse:
+        from .resources.agents import AsyncAgentsResourceWithStreamingResponse
+
+        return AsyncAgentsResourceWithStreamingResponse(self._client.agents)
 
     @cached_property
     def fleet(self) -> fleet.AsyncFleetResourceWithStreamingResponse:

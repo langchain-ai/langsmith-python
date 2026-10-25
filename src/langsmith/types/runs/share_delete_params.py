@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from typing_extensions import TypedDict
+from typing_extensions import Required, TypedDict
 
 __all__ = ["ShareDeleteParams"]
 
 
 class ShareDeleteParams(TypedDict, total=False):
-    session_id: str
+    session_id: Required[str]
     """session_id is the tracing project UUID containing the trace."""

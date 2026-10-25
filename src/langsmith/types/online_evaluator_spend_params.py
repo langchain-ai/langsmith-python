@@ -50,7 +50,7 @@ class OnlineEvaluatorSpendParams(TypedDict, total=False):
     """
 
     type: str
-    """Filter grouped results by evaluator type: 'llm' or 'code'.
+    """Filter grouped results by evaluator type: 'llm', 'code' or 'decision_model'.
 
     Only valid with group_by.
     """

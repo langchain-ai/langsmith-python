@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+import warnings
+from collections.abc import Iterator, Mapping
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
@@ -10,6 +11,7 @@ from html import escape as _html_escape
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
+    AbstractSet,
     Annotated,
     Any,
     NamedTuple,
@@ -30,7 +32,7 @@ from pydantic import (
     StrictInt,
     field_validator,
 )
-from typing_extensions import Literal, NotRequired, TypedDict
+from typing_extensions import Literal, NotRequired, Self, TypedDict, deprecated
 
 if TYPE_CHECKING:
     # Not imported at runtime: `address` imports `utils`, which imports this module.
@@ -110,7 +112,10 @@ class ExampleCreate(BaseModel):
     id: Optional[UUID] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     inputs: Optional[dict[str, Any]] = Field(default=None)
-    outputs: Optional[dict[str, Any]] = Field(default=None)
+    reference_outputs: Optional[dict[str, Any]] = Field(
+        default=None,
+        serialization_alias="outputs",
+    )
     metadata: Optional[dict[str, Any]] = Field(default=None)
     split: Optional[Union[str, list[str]]] = None
     attachments: Optional[dict[str, _AttachmentLike]] = None
@@ -120,7 +125,91 @@ class ExampleCreate(BaseModel):
 
     def __init__(self, **data):
         """Initialize from dict."""
+        self._normalize_reference_outputs(data)
         super().__init__(**data)
+
+    @staticmethod
+    def _normalize_reference_outputs(data: dict[str, Any]) -> None:
+        if "reference_outputs" in data and "outputs" in data:
+            raise ValueError("Cannot specify both 'reference_outputs' and 'outputs'.")
+        if "outputs" in data:
+            warnings.warn(
+                "'outputs' is deprecated for ExampleCreate. Use 'reference_outputs' instead.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
+            data["reference_outputs"] = data.pop("outputs")
+
+    def model_copy(self, *, update: Optional[Mapping[str, Any]] = None, deep: bool = False) -> Self:
+        """Copy the example, accepting the deprecated outputs update alias."""
+        if update is not None and "outputs" in update:
+            update = dict(update)
+            self._normalize_reference_outputs(update)
+        return super().model_copy(update=update, deep=deep)
+
+    @staticmethod
+    def _normalize_reference_outputs_selector(
+        selector: Optional[Union[AbstractSet[int], AbstractSet[str], Mapping[int, Any], Mapping[str, Any]]],
+    ) -> Optional[Union[AbstractSet[int], AbstractSet[str], Mapping[int, Any], Mapping[str, Any]]]:
+        if selector is None or "outputs" not in selector:
+            return selector
+        if isinstance(selector, Mapping):
+            normalized_mapping: dict[Any, Any] = dict(selector)
+            outputs_selector = normalized_mapping.pop("outputs")
+            normalized_mapping.setdefault("reference_outputs", outputs_selector)
+            return normalized_mapping
+        normalized_set: set[Any] = set(selector)
+        normalized_set.remove("outputs")
+        normalized_set.add("reference_outputs")
+        return normalized_set
+
+    def model_dump(self, **kwargs: Any) -> dict[str, Any]:
+        """Dump the example, accepting the deprecated outputs field selector."""
+        kwargs["include"] = self._normalize_reference_outputs_selector(kwargs.get("include"))
+        kwargs["exclude"] = self._normalize_reference_outputs_selector(kwargs.get("exclude"))
+        return super().model_dump(**kwargs)
+
+    def model_dump_json(self, **kwargs: Any) -> str:
+        """Dump the example as JSON, accepting the deprecated outputs field selector."""
+        kwargs["include"] = self._normalize_reference_outputs_selector(kwargs.get("include"))
+        kwargs["exclude"] = self._normalize_reference_outputs_selector(kwargs.get("exclude"))
+        return super().model_dump_json(**kwargs)
+
+    @deprecated(
+        "The `copy` method is deprecated; use `model_copy` instead. "
+        "See the docstring of `BaseModel.copy` for details about how to handle "
+        "`include` and `exclude`.",
+        category=None,
+    )
+    def copy(
+        self,
+        *,
+        include: Optional[Union[AbstractSet[int], AbstractSet[str], Mapping[int, Any], Mapping[str, Any]]] = None,
+        exclude: Optional[Union[AbstractSet[int], AbstractSet[str], Mapping[int, Any], Mapping[str, Any]]] = None,
+        update: Optional[dict[str, Any]] = None,
+        deep: bool = False,
+    ) -> Self:
+        """Copy the example, accepting the deprecated outputs update alias."""
+        if update is not None and "outputs" in update:
+            update = dict(update)
+            self._normalize_reference_outputs(update)
+        include = self._normalize_reference_outputs_selector(include)
+        exclude = self._normalize_reference_outputs_selector(exclude)
+        return super().copy(include=include, exclude=exclude, update=update, deep=deep)
+
+    @property
+    def outputs(self) -> Optional[dict[str, Any]]:
+        """Deprecated alias for reference_outputs."""
+        return self.reference_outputs
+
+    @outputs.setter
+    def outputs(self, value: Optional[dict[str, Any]]) -> None:
+        warnings.warn(
+            "'outputs' is deprecated for ExampleCreate. Use 'reference_outputs' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.reference_outputs = value
 
 
 ExampleUploadWithAttachments = ExampleCreate
@@ -1755,3 +1844,6 @@ class FeedbackConfigSchema(BaseModel):
     """When this feedback configuration was last modified."""
     is_lower_score_better: Optional[bool] = None
     """Whether a lower score is considered better for this feedback key."""
+    is_enforced: bool = False
+    """Whether this is its key's enforced configuration, which sets the rules
+    for the whole workspace. A key has at most one."""

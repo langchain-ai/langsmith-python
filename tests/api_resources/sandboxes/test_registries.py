@@ -181,9 +181,11 @@ class TestRegistries:
     @parametrize
     def test_method_list_with_all_params(self, client: Langsmith) -> None:
         registry = client.sandboxes.registries.list(
+            cursor="cursor",
             limit=0,
             name_contains="name_contains",
             offset=0,
+            page_size=1,
         )
         assert_matches_type(RegistryListResponse, registry, path=["response"])
 
@@ -420,9 +422,11 @@ class TestAsyncRegistries:
     @parametrize
     async def test_method_list_with_all_params(self, async_client: AsyncLangsmith) -> None:
         registry = await async_client.sandboxes.registries.list(
+            cursor="cursor",
             limit=0,
             name_contains="name_contains",
             offset=0,
+            page_size=1,
         )
         assert_matches_type(RegistryListResponse, registry, path=["response"])
 

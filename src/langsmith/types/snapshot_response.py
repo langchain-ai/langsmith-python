@@ -1,8 +1,11 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from typing import Dict, List, Optional
+from typing_extensions import Literal
 
 from .._models import BaseModel
+from .proxy_config import ProxyConfig
+from .sandbox_mount_config import SandboxMountConfig
 
 __all__ = ["SnapshotResponse", "RunConfig"]
 
@@ -42,6 +45,13 @@ class SnapshotResponse(BaseModel):
 
     image_digest: Optional[str] = None
 
+    included: Optional[List[Literal["mounts", "proxy_config", "env_vars", "resources", "lifecycle", "labels"]]] = None
+    """
+    The settings this snapshot carries, in include terms: sandboxes created from it
+    start with each one their create request leaves unset. Env var values are never
+    returned.
+    """
+
     labels: Optional[Dict[str, str]] = None
 
     memory_snapshot_size_bytes: Optional[int] = None
@@ -51,7 +61,21 @@ class SnapshotResponse(BaseModel):
     warm-restore from memory; nil means rootfs only.
     """
 
+    mount_config: Optional[SandboxMountConfig] = None
+    """
+    The mount_config sandboxes created from this snapshot start with when their
+    create request has none, with secret values redacted. Present only on snapshots
+    captured with include "mounts" or "all" from a sandbox that had mounts.
+    """
+
     name: Optional[str] = None
+
+    proxy_config: Optional[ProxyConfig] = None
+    """
+    The proxy_config sandboxes created from this snapshot start with when their
+    create request has none, with secret values redacted. Present only on snapshots
+    captured with include "proxy_config" or "all".
+    """
 
     registry_id: Optional[str] = None
 

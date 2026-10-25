@@ -24,6 +24,14 @@ from .fleet import (
     FleetResourceWithStreamingResponse,
     AsyncFleetResourceWithStreamingResponse,
 )
+from .agents import (
+    AgentsResource,
+    AsyncAgentsResource,
+    AgentsResourceWithRawResponse,
+    AsyncAgentsResourceWithRawResponse,
+    AgentsResourceWithStreamingResponse,
+    AsyncAgentsResourceWithStreamingResponse,
+)
 from .issues import (
     IssuesResource,
     AsyncIssuesResource,
@@ -120,6 +128,12 @@ __all__ = [
     "AsyncProductFeedbackResourceWithRawResponse",
     "ProductFeedbackResourceWithStreamingResponse",
     "AsyncProductFeedbackResourceWithStreamingResponse",
+    "AgentsResource",
+    "AsyncAgentsResource",
+    "AgentsResourceWithRawResponse",
+    "AsyncAgentsResourceWithRawResponse",
+    "AgentsResourceWithStreamingResponse",
+    "AsyncAgentsResourceWithStreamingResponse",
     "FleetResource",
     "AsyncFleetResource",
     "FleetResourceWithRawResponse",

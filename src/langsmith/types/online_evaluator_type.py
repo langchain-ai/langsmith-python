@@ -4,4 +4,4 @@ from typing_extensions import Literal, TypeAlias
 
 __all__ = ["OnlineEvaluatorType"]
 
-OnlineEvaluatorType: TypeAlias = Literal["llm", "code"]
+OnlineEvaluatorType: TypeAlias = Literal["llm", "code", "decision_model"]

@@ -112,34 +112,10 @@ def warn_is_beta() -> None:
 Tier = tuple[Optional[str], Optional[AgentAddress]]
 """One precedence level: the `(project, address)` it names, either may be unset."""
 
-
-def resolve(*tiers: Tier) -> tuple[Optional[str], Optional[AgentAddress]]:
-    """Settle a run's single destination, as `(project, address)`.
-
-    `tiers` are the levels named in code, highest precedence first; the env
-    vars are the last level, consulted here. The first level that names
-    anything decides, whichever mode it names -- an address in `tracing_context`
-    beats a project on the decorator, and the other way round.
-
-    Raises:
-        utils.LangSmithUserError: If one level named in code names both.
-        EnvAddressError: If the env vars are the deciding level and name both,
-            or half an address.
-    """
-    for level, (project, address) in enumerate(tiers, start=1):
-        if project and address is not None:
-            raise _both_at_one_level(project, address, f"at precedence level {level}")
-        if project:
-            return project, None
-        if address is not None:
-            return None, address
-    env_project = utils.get_tracer_project(return_default_value=False) or None
-    env_address = _address.address_from_env()
-    if env_project and env_address is not None:
-        raise EnvAddressError(str(_both_at_one_level(env_project, env_address, "in the environment")))
-    if env_address is not None:
-        return None, env_address
-    return env_project or "default", None
+# Defined in `langsmith.address`, whose public `resolve_destination` wraps them and which
+# this module imports, so it cannot import this module back.
+resolve = _address._resolve
+_both_at_one_level = _address._both_at_one_level
 
 
 def first_named(*tiers: Tier) -> Tier:
@@ -154,14 +130,6 @@ def first_named(*tiers: Tier) -> Tier:
         if project or address is not None:
             return project or None, address
     return None, None
-
-
-def _both_at_one_level(project: str, address: AgentAddress, where: str) -> utils.LangSmithUserError:
-    return utils.LangSmithUserError(
-        f"A project ({project!r}) and an address ({address!r}) are both set "
-        f"{where}, so neither outranks the other. Set only one there, or set "
-        "the one you want at a higher-precedence level."
-    )
 
 
 def otlp_destination_headers(project: Optional[str], address: Optional[AgentAddress]) -> dict[str, str]:

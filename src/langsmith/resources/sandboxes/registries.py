@@ -176,9 +176,11 @@ class RegistriesResource(SyncAPIResource):
     def list(
         self,
         *,
+        cursor: str | Omit = omit,
         limit: int | Omit = omit,
         name_contains: str | Omit = omit,
         offset: int | Omit = omit,
+        page_size: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -186,15 +188,24 @@ class RegistriesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RegistryListResponse:
-        """
-        List sandbox registries for pulling private images.
+        """List sandbox registries for pulling private images.
+
+        Page with page_size and
+        cursor, replaying next_cursor until it is null. Results are ordered newest
+        first, with stable ordering for equal creation times. Keep filters unchanged
+        between pages. Requests without page_size or cursor retain the legacy default of
+        50 results. Cursor requests default to 20 results, with a maximum of 100.
 
         Args:
-          limit: Maximum number of registries to return
+          cursor: Opaque cursor from a prior response's next_cursor
+
+          limit: Deprecated: use page_size. Maximum number of registries to return
 
           name_contains: Filter to registries whose name contains this substring
 
-          offset: Number of registries to skip
+          offset: Deprecated: use cursor. Number of registries to skip
+
+          page_size: Number of results per cursor page
 
           extra_headers: Send extra headers
 
@@ -213,9 +224,11 @@ class RegistriesResource(SyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "cursor": cursor,
                         "limit": limit,
                         "name_contains": name_contains,
                         "offset": offset,
+                        "page_size": page_size,
                     },
                     registry_list_params.RegistryListParams,
                 ),
@@ -411,9 +424,11 @@ class AsyncRegistriesResource(AsyncAPIResource):
     async def list(
         self,
         *,
+        cursor: str | Omit = omit,
         limit: int | Omit = omit,
         name_contains: str | Omit = omit,
         offset: int | Omit = omit,
+        page_size: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -421,15 +436,24 @@ class AsyncRegistriesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RegistryListResponse:
-        """
-        List sandbox registries for pulling private images.
+        """List sandbox registries for pulling private images.
+
+        Page with page_size and
+        cursor, replaying next_cursor until it is null. Results are ordered newest
+        first, with stable ordering for equal creation times. Keep filters unchanged
+        between pages. Requests without page_size or cursor retain the legacy default of
+        50 results. Cursor requests default to 20 results, with a maximum of 100.
 
         Args:
-          limit: Maximum number of registries to return
+          cursor: Opaque cursor from a prior response's next_cursor
+
+          limit: Deprecated: use page_size. Maximum number of registries to return
 
           name_contains: Filter to registries whose name contains this substring
 
-          offset: Number of registries to skip
+          offset: Deprecated: use cursor. Number of registries to skip
+
+          page_size: Number of results per cursor page
 
           extra_headers: Send extra headers
 
@@ -448,9 +472,11 @@ class AsyncRegistriesResource(AsyncAPIResource):
                 timeout=timeout,
                 query=await async_maybe_transform(
                     {
+                        "cursor": cursor,
                         "limit": limit,
                         "name_contains": name_contains,
                         "offset": offset,
+                        "page_size": page_size,
                     },
                     registry_list_params.RegistryListParams,
                 ),

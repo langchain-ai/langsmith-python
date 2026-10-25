@@ -406,8 +406,8 @@ class OnlineEvaluatorsResource(SyncAPIResource):
           tag_value_id: Filter grouped results to evaluators, projects, or datasets tagged with all
               supplied tag value IDs. Only valid with group_by.
 
-          type: Filter grouped results by evaluator type: 'llm' or 'code'. Only valid with
-              group_by.
+          type: Filter grouped results by evaluator type: 'llm', 'code' or 'decision_model'.
+              Only valid with group_by.
 
           extra_headers: Send extra headers
 
@@ -812,8 +812,8 @@ class AsyncOnlineEvaluatorsResource(AsyncAPIResource):
           tag_value_id: Filter grouped results to evaluators, projects, or datasets tagged with all
               supplied tag value IDs. Only valid with group_by.
 
-          type: Filter grouped results by evaluator type: 'llm' or 'code'. Only valid with
-              group_by.
+          type: Filter grouped results by evaluator type: 'llm', 'code' or 'decision_model'.
+              Only valid with group_by.
 
           extra_headers: Send extra headers
 

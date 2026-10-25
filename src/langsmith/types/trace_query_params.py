@@ -25,10 +25,28 @@ class TraceQueryParams(TypedDict, total=False):
     cursor: str
     """`cursor` is the opaque string returned in a previous response's `next_cursor`."""
 
+    max_feedback_modified_at: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
+    """
+    `max_feedback_modified_at` is the exclusive upper bound (RFC3339) on feedback
+    `modified_at`, applied to the feedback conditions in `trace_filter` or
+    `tree_filter` (for example eq(feedback_key, "correctness")). Requires at least
+    one feedback condition. Root runs must still fall within the `start_time`
+    window.
+    """
+
     max_start_time: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
     """
     `max_start_time` is the exclusive upper bound for the root-run start time scan
     (RFC3339). Defaults to the request time when omitted.
+    """
+
+    min_feedback_modified_at: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
+    """
+    `min_feedback_modified_at` is the inclusive lower bound (RFC3339) on feedback
+    `modified_at`, applied to the feedback conditions in `trace_filter` or
+    `tree_filter` (for example eq(feedback_key, "correctness")). Requires at least
+    one feedback condition. Root runs must still fall within the `start_time`
+    window.
     """
 
     min_start_time: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]

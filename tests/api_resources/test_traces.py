@@ -92,7 +92,9 @@ class TestTraces:
         trace = client.traces.query(
             ai_search="A run that contains a billing dispute",
             cursor="cursor",
+            max_feedback_modified_at=parse_datetime("2024-12-31T23:59:59Z"),
             max_start_time=parse_datetime("2024-12-31T23:59:59Z"),
+            min_feedback_modified_at=parse_datetime("2024-01-01T00:00:00Z"),
             min_start_time=parse_datetime("2024-01-01T00:00:00Z"),
             page_size=20,
             project_id="018e4c7e-a9fb-7ef0-a5b6-6ea3a82e9327",
@@ -206,7 +208,9 @@ class TestAsyncTraces:
         trace = await async_client.traces.query(
             ai_search="A run that contains a billing dispute",
             cursor="cursor",
+            max_feedback_modified_at=parse_datetime("2024-12-31T23:59:59Z"),
             max_start_time=parse_datetime("2024-12-31T23:59:59Z"),
+            min_feedback_modified_at=parse_datetime("2024-01-01T00:00:00Z"),
             min_start_time=parse_datetime("2024-01-01T00:00:00Z"),
             page_size=20,
             project_id="018e4c7e-a9fb-7ef0-a5b6-6ea3a82e9327",

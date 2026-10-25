@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.14.12](https://github.com/langchain-ai/langsmith-python/compare/v0.14.11...v0.14.12) (2026-10-21)
+
+
+### Features
+
+* **agents:** add agent registry CRUD to SDKs and CLI ([d3de1d5](https://github.com/langchain-ai/langsmith-python/commit/d3de1d5e012e92e9f585e43c2ed6bb2bc05703bc))
+* **authz:** add root_run_metadata policy conditions and compiled trace_filters ([64684e0](https://github.com/langchain-ai/langsmith-python/commit/64684e058ff7339501fb121920cb8d04a2517a43))
+* **cli:** expose runs share and get-url to the CLI ([fcfae7c](https://github.com/langchain-ai/langsmith-python/commit/fcfae7cde308b3962eb324bed7aa2772f116ea87))
+* **evaluators:** add trajectory input type for code evaluators ([9b6f6e5](https://github.com/langchain-ai/langsmith-python/commit/9b6f6e540ac7c2f6f9e96d26ab78c546cf15e6af))
+* **sandboxes:** let LangSmith login service URLs be embedded by named origins ([dcf7c3e](https://github.com/langchain-ai/langsmith-python/commit/dcf7c3e1e2278756d4528a21ac279be2446db95f))
+* **sdk-python:** create enforced feedback configs ([1e3cd15](https://github.com/langchain-ai/langsmith-python/commit/1e3cd1519115b805913c624239323c580fb14e2d))
+
+
+### Bug Fixes
+
+* **sandboxes:** add cursor pagination to registry listing ([1a44460](https://github.com/langchain-ai/langsmith-python/commit/1a444601f66ef1fe6ac53671b89177a8b2fc2992))
+* **sdk-python:** use reference outputs for example creation ([f995f42](https://github.com/langchain-ai/langsmith-python/commit/f995f42b7e7d51ff8f0dcd1acc823573558a482f))
+* **sdk-python:** use reference outputs for example creation ([7cbb508](https://github.com/langchain-ai/langsmith-python/commit/7cbb5087ab823fd1f3e97601d76a237a8e09a00b))
+* **sdk:** keep wrap_openai Responses stream output when it ends incomplete or failed ([e88c57c](https://github.com/langchain-ai/langsmith-python/commit/e88c57cd3f87ffec9dd6d46027026a6821ea8f03))
+* support Standard Units in sandbox cost breakdowns ([e9bee5c](https://github.com/langchain-ai/langsmith-python/commit/e9bee5c23eaf328998430a134318c5161dd02fcf))
+
+
+### Chores
+
+* remove langsmith-sdk and staging repo leftovers, update SDK docs ([459d4bd](https://github.com/langchain-ai/langsmith-python/commit/459d4bd46205d422b0466227cb431de73973c2ca))
+
+
+### Documentation
+
+* move sandbox auth options to the bottom of README.md ([#71](https://github.com/langchain-ai/langsmith-python/issues/71)) ([be8a4db](https://github.com/langchain-ai/langsmith-python/commit/be8a4dbd51dab7866d9d7791ae31e8f4d51af400))
+
 ## [0.14.11](https://github.com/langchain-ai/langsmith-python/compare/v0.14.10...v0.14.11) (2026-10-16)
 
 

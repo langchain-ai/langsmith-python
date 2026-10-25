@@ -824,6 +824,39 @@ def test_list_project_issues_uses_platform_issues_endpoint(api_url: str, expecte
     }
 
 
+# These check the query params the client sends, not what the server returns.
+@pytest.mark.parametrize(
+    ("kwargs", "expected_select", "expected_flag"),
+    [
+        ({"select": ["id"], "exclude_default_fields": True}, ["id"], True),
+        ({"select": "outputs"}, ["outputs"], None),
+        ({}, None, None),
+        ({"exclude_default_fields": False}, None, None),
+        (
+            {"select": ["id", "outputs"], "include_attachments": True},
+            ["id", "outputs", "attachment_urls", "metadata"],
+            None,
+        ),
+    ],
+)
+def test_list_examples_select_params(kwargs: dict, expected_select, expected_flag) -> None:
+    example_id = str(uuid.uuid4())
+    mock_session = MagicMock()
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = [{"id": example_id}]
+    mock_session.request.return_value = mock_response
+
+    client = Client(api_url="http://localhost:1984", api_key="test", session=mock_session)
+    examples = list(client.list_examples(dataset_id=str(uuid.uuid4()), **kwargs))
+
+    assert [str(e.id) for e in examples] == [example_id]
+    (examples_call,) = [c for c in mock_session.request.call_args_list if c.args[1].endswith("/examples")]
+    params = examples_call.kwargs["params"]
+    assert params.get("select") == expected_select
+    assert params.get("exclude_default_fields") == expected_flag
+
+
 @mock.patch("langsmith.client.requests.Session")
 def test_upload_csv(mock_session_cls: mock.Mock) -> None:
     _clear_env_cache()
@@ -979,7 +1012,7 @@ def test_annotation_queues_uses_generated_openapi_resource() -> None:
 def test_async_evaluators_uses_generated_openapi_resource() -> None:
     resource = object()
 
-    with mock.patch("langsmith.AsyncLangsmith") as openapi_client:
+    with mock.patch("langsmith.async_client._openapi_auth.AsyncClient") as openapi_client:
         openapi_client.return_value.online_evaluators = resource
 
         client = AsyncClient(
@@ -1004,7 +1037,7 @@ def test_async_evaluators_uses_generated_openapi_resource() -> None:
 def test_async_annotation_queues_uses_generated_openapi_resource() -> None:
     resource = object()
 
-    with mock.patch("langsmith.AsyncLangsmith") as openapi_client:
+    with mock.patch("langsmith.async_client._openapi_auth.AsyncClient") as openapi_client:
         openapi_client.return_value.annotation_queues = resource
 
         client = AsyncClient(
@@ -1145,8 +1178,20 @@ def test_create_run_mutate(use_multipart_endpoint: bool, monkeypatch: pytest.Mon
         assert outputs == {"messages": ["hi", "there"]}
 
 
+@pytest.mark.parametrize(
+    ("copy_method", "copy_argument"),
+    [
+        (None, None),
+        ("model_copy", "reference_outputs"),
+        ("model_copy", "outputs"),
+        ("copy", "reference_outputs"),
+        ("copy", "outputs"),
+    ],
+)
 @mock.patch("langsmith.client.requests.Session")
-def test_upsert_examples_multipart(mock_session_cls: mock.Mock) -> None:
+def test_upsert_examples_multipart(
+    mock_session_cls: mock.Mock, copy_method: Optional[str], copy_argument: Optional[str]
+) -> None:
     """Test that upsert_examples_multipart sends correct multipart data."""
     mock_session = MagicMock()
     mock_response = MagicMock()
@@ -1175,7 +1220,7 @@ def test_upsert_examples_multipart(mock_session_cls: mock.Mock) -> None:
         dataset_id=dataset_id,
         created_at=created_at,
         inputs={"input": "test input"},
-        outputs={"output": "test output"},
+        reference_outputs={"output": "test output"},
         metadata={"meta": "data"},
         split="train",
         attachments={
@@ -1183,6 +1228,14 @@ def test_upsert_examples_multipart(mock_session_cls: mock.Mock) -> None:
             "file2": ls_schemas.Attachment(mime_type="application/json", data=b'{"key": "value"}'),
         },
     )
+    if copy_argument:
+        assert copy_method is not None
+        example.reference_outputs = {"output": "stale"}
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter("always")
+            example = getattr(example, copy_method)(update={copy_argument: {"output": "test output"}})
+        alias_deprecations = [warning for warning in recorded if "'outputs' is deprecated" in str(warning.message)]
+        assert len(alias_deprecations) == (1 if copy_argument == "outputs" else 0)
     response = client.upsert_examples_multipart(upserts=[example])
 
     # Verify the response structure
@@ -1241,6 +1294,237 @@ def test_upsert_examples_multipart(mock_session_cls: mock.Mock) -> None:
             assert part.headers["Content-Type"] == "application/json"
 
 
+@pytest.mark.parametrize("reference_outputs", [{"answer": 42}, None])
+@pytest.mark.parametrize("deep", [False, True])
+@pytest.mark.parametrize("copy_method", ["model_copy", "copy"])
+def test_example_create_reference_outputs_alias(
+    reference_outputs: Optional[dict[str, Any]], deep: bool, copy_method: str
+) -> None:
+    canonical = ls_schemas.ExampleCreate(reference_outputs=reference_outputs)
+    assert canonical.reference_outputs == reference_outputs
+    assert canonical.outputs == reference_outputs
+    assert canonical.model_dump(exclude_none=True).get("reference_outputs") == reference_outputs
+    assert "outputs" not in canonical.model_dump()
+    assert canonical.model_dump(by_alias=True).get("outputs") == reference_outputs
+    assert "reference_outputs" not in canonical.model_dump(by_alias=True)
+
+    with pytest.warns(DeprecationWarning, match="Use 'reference_outputs' instead"):
+        legacy = ls_schemas.ExampleCreate(outputs=reference_outputs)
+    assert legacy.reference_outputs == reference_outputs
+    assert legacy.outputs == reference_outputs
+    assert legacy.model_dump(exclude_none=True).get("reference_outputs") == reference_outputs
+    assert "outputs" not in legacy.model_dump()
+
+    source = ls_schemas.ExampleCreate(inputs={"values": []}, reference_outputs={"answer": "old"})
+    for argument_name in ("reference_outputs", "outputs"):
+        update = {argument_name: reference_outputs}
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter("always")
+            copied = getattr(source, copy_method)(update=update, deep=deep)
+        alias_deprecations = [warning for warning in recorded if "'outputs' is deprecated" in str(warning.message)]
+        assert len(alias_deprecations) == (1 if argument_name == "outputs" else 0)
+        assert update == {argument_name: reference_outputs}
+        assert source.reference_outputs == {"answer": "old"}
+        assert copied.reference_outputs == reference_outputs
+        assert copied.outputs == reference_outputs
+        assert copied.model_dump(exclude_unset=True)["reference_outputs"] == reference_outputs
+        assert "outputs" not in copied.model_dump()
+        assert (copied.inputs is source.inputs) is not deep
+
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter("always")
+            setattr(source, argument_name, reference_outputs)
+        deprecations = [warning for warning in recorded if warning.category is DeprecationWarning]
+        assert len(deprecations) == (1 if argument_name == "outputs" else 0)
+        assert source.reference_outputs == reference_outputs
+        assert source.outputs == reference_outputs
+        source.reference_outputs = {"answer": "old"}
+
+    for outputs in ({"answer": 43}, None):
+        data = {"reference_outputs": reference_outputs, "outputs": outputs}
+        with pytest.raises(ValueError, match="both 'reference_outputs' and 'outputs'"):
+            ls_schemas.ExampleCreate(**data)
+        with pytest.raises(ValueError, match="both 'reference_outputs' and 'outputs'"):
+            getattr(source, copy_method)(update=data, deep=deep)
+
+
+@pytest.mark.parametrize(
+    ("selector", "included", "excluded"),
+    [
+        ({"outputs"}, {"answer": {"value": 42}, "other": 43}, None),
+        ({"outputs": {"answer"}}, {"answer": {"value": 42}}, {"other": 43}),
+    ],
+)
+def test_example_create_legacy_outputs_selectors(
+    selector: Union[set[str], dict[str, set[str]]],
+    included: dict[str, Any],
+    excluded: Optional[dict[str, Any]],
+) -> None:
+    source = ls_schemas.ExampleCreate(
+        inputs={"question": "meaning"},
+        reference_outputs={"answer": {"value": 42}, "other": 43},
+    )
+
+    included_copy = source.copy(include=selector)
+    assert included_copy.model_dump() == {"reference_outputs": included}
+    excluded_copy = source.copy(exclude=selector)
+    assert excluded_copy.model_dump().get("reference_outputs") == excluded
+
+    for method in ("model_dump", "dict"):
+        assert getattr(source, method)(include=selector) == {"reference_outputs": included}
+        assert getattr(source, method)(exclude=selector).get("reference_outputs") == excluded
+    for method in ("model_dump_json", "json"):
+        assert json.loads(getattr(source, method)(include=selector)) == {"reference_outputs": included}
+        assert json.loads(getattr(source, method)(exclude=selector)).get("reference_outputs") == excluded
+
+    assert selector in ({"outputs"}, {"outputs": {"answer"}})
+
+
+@pytest.mark.parametrize(
+    "argument_name, reference_outputs",
+    [
+        ("reference_outputs", {"answer": 42}),
+        ("outputs", {"answer": 42}),
+        ("reference_outputs", None),
+        ("outputs", None),
+        (None, None),
+    ],
+)
+@mock.patch("langsmith.client.requests.Session")
+def test_create_example_json_uses_legacy_outputs_wire_key(
+    mock_session_cls: mock.Mock,
+    argument_name: Optional[str],
+    reference_outputs: Optional[dict[str, Any]],
+) -> None:
+    example_id = uuid.uuid4()
+    dataset_id = uuid.uuid4()
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "id": str(example_id),
+        "dataset_id": str(dataset_id),
+        "inputs": {"question": "meaning"},
+        "outputs": reference_outputs,
+    }
+    mock_session = MagicMock()
+    mock_session.request.return_value = mock_response
+    mock_session_cls.return_value = mock_session
+    client = Client(
+        api_url="http://localhost:1984",
+        api_key="123",
+        info={},
+        auto_batch_tracing=False,
+    )
+
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        client.create_example(
+            inputs={"question": "meaning"},
+            dataset_id=dataset_id,
+            **({argument_name: reference_outputs} if argument_name else {}),
+        )
+
+    request = next(call for call in mock_session.request.call_args_list if call.args[0] == "POST")
+    payload = json.loads(request.kwargs["data"])
+    assert payload.get("outputs") == reference_outputs
+    assert "reference_outputs" not in payload
+    deprecations = [warning for warning in recorded if warning.category is DeprecationWarning]
+    assert len(deprecations) == (1 if argument_name == "outputs" else 0)
+
+
+@pytest.mark.parametrize("reference_outputs", [{"answer": 42}, None])
+@pytest.mark.parametrize("outputs", [{"answer": 43}, None])
+def test_create_example_rejects_reference_outputs_conflict(
+    reference_outputs: Optional[dict[str, Any]], outputs: Optional[dict[str, Any]]
+) -> None:
+    client = Client(api_url="http://localhost:1984", api_key="123", info={})
+
+    with (
+        mock.patch.object(Client, "read_dataset") as read_dataset,
+        mock.patch.object(Client, "request_with_retries") as request,
+    ):
+        with pytest.raises(ValueError, match="both 'reference_outputs' and 'outputs'"):
+            client.create_example(
+                inputs={"question": "meaning"},
+                dataset_name="example-dataset",
+                reference_outputs=reference_outputs,
+                outputs=outputs,
+            )
+
+    read_dataset.assert_not_called()
+    request.assert_not_called()
+
+
+@pytest.mark.parametrize("argument_name", ["reference_outputs", "outputs"])
+@pytest.mark.parametrize("copy_method", [None, "model_copy", "copy"])
+@mock.patch("langsmith.client.requests.Session")
+def test_create_examples_reference_outputs_alias(
+    mock_session_cls: mock.Mock, argument_name: str, copy_method: Optional[str]
+) -> None:
+    example_id = uuid.uuid4()
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = [{"id": str(example_id)}]
+    mock_session = MagicMock()
+    mock_session.request.return_value = mock_response
+    mock_session_cls.return_value = mock_session
+    client = Client(api_url="http://localhost:1984", api_key="123", info={}, auto_batch_tracing=False)
+    reference_outputs = [{"answer": 42}]
+
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        if copy_method:
+            example = ls_schemas.ExampleCreate(inputs={"question": "meaning"}, reference_outputs={"answer": "old"})
+            kwargs = {"examples": [getattr(example, copy_method)(update={argument_name: reference_outputs[0]})]}
+        else:
+            kwargs = {"inputs": [{"question": "meaning"}], argument_name: reference_outputs}
+        client.create_examples(dataset_id=uuid.uuid4(), **kwargs)
+
+    request = next(call for call in mock_session.request.call_args_list if call.args[0] == "POST")
+    payload = json.loads(request.kwargs["data"])
+    assert payload[0]["outputs"] == reference_outputs[0]
+    assert "reference_outputs" not in payload[0]
+    alias_deprecations = [warning for warning in recorded if "'outputs' is deprecated" in str(warning.message)]
+    assert len(alias_deprecations) == (1 if argument_name == "outputs" else 0)
+
+
+@pytest.mark.parametrize("use_examples", [False, True])
+@pytest.mark.parametrize("reference_outputs", [{"answer": 42}, None])
+@pytest.mark.parametrize("outputs", [{"answer": 43}, None])
+def test_create_examples_rejects_reference_outputs_conflict(
+    use_examples: bool, reference_outputs: Optional[dict[str, Any]], outputs: Optional[dict[str, Any]]
+) -> None:
+    client = Client(api_url="http://localhost:1984", api_key="123", info={})
+    kwargs = (
+        {
+            "examples": [
+                {"inputs": {"question": "valid"}, "reference_outputs": {"answer": 42}},
+                {
+                    "inputs": {"question": "meaning"},
+                    "reference_outputs": reference_outputs,
+                    "outputs": outputs,
+                },
+            ]
+        }
+        if use_examples
+        else {
+            "inputs": [{"question": "meaning"}],
+            "reference_outputs": [reference_outputs],
+            "outputs": [outputs],
+        }
+    )
+
+    with (
+        mock.patch.object(Client, "read_dataset") as read_dataset,
+        mock.patch.object(Client, "_upload_examples_batches_parallel") as upload,
+    ):
+        with pytest.raises(ValueError, match="both 'reference_outputs' and 'outputs'"):
+            client.create_examples(dataset_name="example-dataset", **kwargs)
+
+    read_dataset.assert_not_called()
+    upload.assert_not_called()
+
+
 @mock.patch("langsmith.client.requests.Session")
 def test_upsert_examples_multipart_missing_file(mock_session_cls: mock.Mock, tmp_path, caplog) -> None:
     """Attachment file paths that do not exist are skipped."""
@@ -1267,7 +1551,7 @@ def test_upsert_examples_multipart_missing_file(mock_session_cls: mock.Mock, tmp
         dataset_id=dataset_id,
         created_at=_CREATED_AT,
         inputs={"input": "test"},
-        outputs={"output": "out"},
+        reference_outputs={"output": "out"},
         attachments={
             "missing": ("text/plain", missing_path),
             "good": ("text/plain", b"data"),
@@ -8124,3 +8408,67 @@ class TestFeedbackAgentAddressing:
         assert body["address"] == "lrn:agents/my-agent/environments/staging"
         assert "agent_id" not in body
         assert "agent_environment" not in body
+
+
+@pytest.mark.parametrize("compressed", [False, True])
+def test_flush_waits_for_buffered_run_ops(compressed: bool) -> None:
+    """flush() must not return before the buffered run ops job has sent the runs."""
+    sent: list[str] = []
+
+    def request(method, url, **kwargs):
+        sent.append(url)
+        response = requests.Response()
+        response.status_code = 200
+        response._content = b"{}"
+        response.url = url
+        return response
+
+    def slow_processor(runs):
+        time.sleep(0.3)
+        return runs
+
+    session = mock.MagicMock(spec=requests.Session)
+    session.request.side_effect = request
+    info = ls_schemas.LangSmithInfo(
+        batch_ingest_config=ls_schemas.BatchIngestConfig(
+            use_multipart_endpoint=True,
+            size_limit=100,
+            size_limit_bytes=20971520,
+            scale_up_nthreads_limit=1,
+            scale_up_qsize_trigger=1000,
+            scale_down_nempty_trigger=4,
+        ),
+        instance_flags={"zstd_compression_enabled": compressed},
+    )
+    client = Client(
+        api_url="http://localhost:1984",
+        api_key="test",
+        session=session,
+        info=info,
+        auto_batch_tracing=True,
+        process_buffered_run_ops=slow_processor,
+        run_ops_buffer_size=1,
+    )
+    if compressed:
+        for _ in range(100):
+            if client.compressed_traces is not None:
+                break
+            time.sleep(0.02)
+        assert client.compressed_traces is not None
+
+    try:
+        run_id = uuid.uuid4()
+        now = datetime.now(timezone.utc)
+        client.create_run(
+            name="n",
+            inputs={"a": 1},
+            run_type="chain",
+            id=run_id,
+            trace_id=run_id,
+            dotted_order=now.strftime("%Y%m%dT%H%M%S%fZ") + str(run_id),
+            start_time=now,
+        )
+        client.flush()
+        assert len(sent) == 1
+    finally:
+        client.cleanup()

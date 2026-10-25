@@ -21,7 +21,7 @@ from typing import (
 )
 
 import langsmith
-import langsmith as _langsmith_api_module
+from langsmith._internal import _openapi_auth
 from langsmith._internal._beta_decorator import deprecated as _deprecated
 from langsmith._internal._beta_decorator import (
     suppress_deprecation_warning as _suppress_deprecation_warning,
@@ -30,6 +30,7 @@ from langsmith._httpx import httpx
 from langsmith.client import _get_openapi_base_url
 
 if TYPE_CHECKING:
+    from langsmith.resources.agents import AsyncAgentsResource
     from langsmith.resources.runs import AsyncRunsResource
 
 from langsmith import client as ls_client
@@ -302,12 +303,13 @@ class AsyncClient:
         else:
             self._cache = None
 
-        self._langsmith_api = _langsmith_api_module.AsyncLangsmith(
+        self._langsmith_api = _openapi_auth.AsyncClient(
+            header_provider=self._current_openapi_headers,
             api_key=self._api_key,
             tenant_id=self._workspace_id,
             base_url=_get_openapi_base_url(str(self._client.base_url)),
             timeout=self._client.timeout,
-            default_headers=_headers or None,
+            default_headers=_openapi_auth._normalize_headers(_headers) or None,
         )
 
     # ------------------------------------------------------------------
@@ -384,6 +386,14 @@ class AsyncClient:
         return self._langsmith_api.traces
 
     @property
+    def agents(self) -> AsyncAgentsResource:
+        """Manage workspace registry agents and their tracing destinations.
+
+        Deleting an agent also deletes its tracing history and linked runtimes.
+        """
+        return self._langsmith_api.agents
+
+    @property
     def public(self) -> AsyncPublicResource:
         """Access the public shared-run resource."""
         self._schedule_backend_version_check("0.16.0")
@@ -432,6 +442,10 @@ class AsyncClient:
         self._profile_auth_headers = auth_headers
         self._oauth_access_token = self._profile_auth.oauth_access_token
         self._client.headers = httpx.Headers(self._compute_headers())
+
+    async def _current_openapi_headers(self) -> dict[str, str]:
+        await self._ensure_profile_auth()
+        return _openapi_auth._normalize_headers(self._compute_headers())
 
     async def _arequest_with_retries(
         self,
@@ -1034,12 +1048,34 @@ class AsyncClient:
     async def create_example(
         self,
         inputs: dict[str, Any],
-        outputs: Optional[dict[str, Any]] = None,
+        reference_outputs: Optional[dict[str, Any]] = cast(Any, ls_client._UNSET),
         dataset_id: Optional[ls_client.ID_TYPE] = None,
         dataset_name: Optional[str] = None,
+        *,
+        outputs: Optional[dict[str, Any]] = cast(Any, ls_client._UNSET),
         **kwargs: Any,
     ) -> ls_schemas.Example:
-        """Create an example."""
+        """Create an example with optional reference outputs.
+
+        Args:
+            inputs: The input values for the example.
+            reference_outputs: The reference output values for the example.
+            dataset_id: The ID of the dataset.
+            dataset_name: The name of the dataset.
+            outputs: Deprecated alias for reference_outputs.
+            **kwargs: Additional example fields.
+        """
+        if reference_outputs is not ls_client._UNSET and outputs is not ls_client._UNSET:
+            raise ValueError("Cannot specify both 'reference_outputs' and 'outputs'.")
+        if outputs is not ls_client._UNSET:
+            warnings.warn(
+                "'outputs' is deprecated. Use 'reference_outputs' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            reference_outputs = outputs
+        elif reference_outputs is ls_client._UNSET:
+            reference_outputs = None
         if dataset_id is None and dataset_name is None:
             raise ValueError("Either dataset_id or dataset_name must be provided")
         if dataset_id is None:
@@ -1048,7 +1084,7 @@ class AsyncClient:
 
         data = {
             "inputs": inputs,
-            "outputs": outputs,
+            "outputs": reference_outputs,
             "dataset_id": str(dataset_id),
             **kwargs,
         }
@@ -1065,10 +1101,27 @@ class AsyncClient:
         *,
         dataset_id: Optional[ls_client.ID_TYPE] = None,
         dataset_name: Optional[str] = None,
+        select: Optional[Sequence[str]] = None,
+        exclude_default_fields: bool = False,
         **kwargs: Any,
     ) -> AsyncIterator[ls_schemas.Example]:
-        """List examples."""
+        """List examples.
+
+        Args:
+            dataset_id: The ID of the dataset to filter by.
+            dataset_name: The name of the dataset to filter by.
+            select: Fields to include in each example, such as "id" or "outputs".
+            exclude_default_fields: Return only the fields in ``select``, plus
+                ``id``. Other default fields (``created_at``, ``modified_at``,
+                ``inputs``, ``name``, ``dataset_id``) are absent unless selected.
+                Select ``dataset_id`` if you need ``Example.url``.
+            **kwargs: Additional query parameters.
+        """
         params = kwargs.copy()
+        if select:
+            params["select"] = [select] if isinstance(select, str) else list(select)
+        if exclude_default_fields:
+            params["exclude_default_fields"] = True
         if dataset_id:
             params["dataset"] = ls_client._as_uuid(dataset_id)
         elif dataset_name:
@@ -1645,7 +1698,8 @@ class AsyncClient:
         feedback_key: str,
         *,
         feedback_config: ls_schemas.FeedbackConfig,
-        is_lower_score_better: Optional[bool] = False,
+        is_lower_score_better: Optional[bool] = None,
+        is_enforced: bool = False,
     ) -> ls_schemas.FeedbackConfigSchema:
         """Create a feedback configuration.
 
@@ -1659,7 +1713,13 @@ class AsyncClient:
             feedback_config: The configuration defining type, bounds,
                 and categories.
             is_lower_score_better: Whether a lower score is considered
-                better. Defaults to False.
+                better. When omitted, a key that already has configs keeps its
+                direction, and a new key defaults to False.
+            is_enforced: Create the key's enforced configuration, which sets
+                the rules for the whole workspace. Requires the
+                feedback-configs:manage-enforced permission, which workspace
+                admins have. Fails if the key already has an enforced
+                configuration. Defaults to False.
 
         Returns:
             The created or existing feedback configuration.
@@ -1667,8 +1727,12 @@ class AsyncClient:
         body: dict[str, Any] = {
             "feedback_key": feedback_key,
             "feedback_config": feedback_config,
-            "is_lower_score_better": is_lower_score_better,
+            "is_enforced": is_enforced,
         }
+        # The direction is shared by every config of the key, so only send it
+        # when the caller sets it; otherwise the key keeps its own.
+        if is_lower_score_better is not None:
+            body["is_lower_score_better"] = is_lower_score_better
         response = await self._arequest_with_retries(
             "POST",
             "/feedback-configs",

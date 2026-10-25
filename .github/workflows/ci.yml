@@ -13,20 +13,6 @@ on:
     branches-ignore:
       - 'stl-preview-head/**'
       - 'stl-preview-base/**'
-  schedule:
-    # Nightly: every job, every environment, Slack on failure.
-    - cron: '17 3 * * *'
-  workflow_dispatch:
-    inputs:
-      integration-environment:
-        description: LangSmith environment for the integration suite
-        type: choice
-        default: beta
-        options: [beta, v16-ch-only, v16-dual, v16-smithdb-only, all]
-      exit-first:
-        description: Stop each shard at its first failure
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -47,9 +33,6 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --group dev --group lint --extra aiohttp
-
-      - name: Test mirror formatting
-        run: .github/scripts/test-format-mirror.sh
 
       - name: Run lints
         run: ./scripts/lint
@@ -149,109 +132,9 @@ jobs:
         # -o addopts= drops pyproject's `-n auto`; xdist is not in this venv.
         run: uv run --no-sync python -m pytest -o addopts= tests/external/test_deepagent_compat.py -v --noconftest
 
-  # Live suite against a LangSmith deployment: main pushes hit beta, the
-  # nightly hits every environment, a dispatch picks one. No doctest leg:
-  # langsmith-sdk lists one but its action never runs it, and the doctests fail.
-  integration-matrix:
-    name: "integration matrix"
-    runs-on: ubuntu-latest
-    # Staging only: the prod repo has no API-key secrets and receives promoted code.
-    if: github.repository == 'langchain-ai/langsmith-python-staging' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
-    outputs:
-      matrix: ${{ steps.build.outputs.matrix }}
-    steps:
-      - id: build
-        env:
-          SELECTED: ${{ github.event_name == 'schedule' && 'all' || github.event.inputs.integration-environment || 'beta' }}
-        run: |
-          python3 <<'EOF' >> "$GITHUB_OUTPUT"
-          import json, os
-          ENDPOINTS = {
-              "beta": "https://beta.api.smith.langchain.com",
-              "v16-ch-only": "https://aks.smith.langchain.dev/api",
-              "v16-dual": "https://stable-dual.eks.smith.langchain.dev/api",
-              "v16-smithdb-only": "https://stable-smithdb.eks.smith.langchain.dev/api",
-          }
-          # SmithDB-only backends lack the legacy ClickHouse endpoints; ClickHouse-only lacks v2.
-          EXCLUDED = {"v16-ch-only": ["require_v2"], "v16-smithdb-only": ["require_clickhouse"]}
-          SHARDS = 6
-          selected = os.environ["SELECTED"]
-          envs = list(ENDPOINTS) if selected == "all" else [selected if selected in ENDPOINTS else "beta"]
-          include = []
-          for env in envs:
-              markers = " and ".join(f"not {m}" for m in EXCLUDED.get(env, []))
-              base = {
-                  "environment": env,
-                  "endpoint": ENDPOINTS[env],
-                  "suffix": "" if env == "beta" else f" [{env}]",
-                  "addopts": f'-m "{markers}"' if markers else "",
-              }
-              include += [{**base, "type": "integration", "shard": i} for i in range(SHARDS)]
-              include.append({**base, "type": "evals", "shard": ""})
-          print("matrix=" + json.dumps({"include": include}))
-          EOF
-
-  integration:
-    name: "${{ matrix.type }} ${{ matrix.shard }}${{ matrix.suffix }}"
-    needs: integration-matrix
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.integration-matrix.outputs.matrix) }}
-    env:
-      LANGSMITH_TRACING_V2: "true"
-      LANGSMITH_TRACING: "true"
-      LANGSMITH_ENDPOINT: ${{ matrix.endpoint }}
-      LANGSMITH_API_KEY: >-
-        ${{ (matrix.environment == 'v16-ch-only' && secrets.LANGSMITH_API_KEY_AKS_V15)
-         || (matrix.environment == 'v16-dual' && secrets.LANGSMITH_API_KEY_STABLE_DUAL)
-         || (matrix.environment == 'v16-smithdb-only' && secrets.LANGSMITH_API_KEY_STABLE_SMITHDB)
-         || secrets.LANGSMITH_API_KEY_BETA }}
-      # Provider calls go through the prod LLM Gateway: its workspace holds all
-      # three provider secrets. The LangSmith deployment under test is separate.
-      OPENAI_BASE_URL: https://gateway.smith.langchain.com/openai/v1
-      ANTHROPIC_BASE_URL: https://gateway.smith.langchain.com/anthropic
-      GOOGLE_GEMINI_BASE_URL: https://gateway.smith.langchain.com/gemini
-      OPENAI_API_KEY: ${{ secrets.LANGSMITH_API_KEY_PROD }}
-      ANTHROPIC_API_KEY: ${{ secrets.LANGSMITH_API_KEY_PROD }}
-      GEMINI_API_KEY: ${{ secrets.LANGSMITH_API_KEY_PROD }}
-      GOOGLE_API_KEY: ${{ secrets.LANGSMITH_API_KEY_PROD }}
-      LANGSMITH_TEST_CACHE: tests/cassettes
-      PYTEST_ADDOPTS: ${{ matrix.addopts }}
-      PYTEST_SHARD_TOTAL: ${{ matrix.type == 'integration' && '6' || '' }}
-      PYTEST_SHARD_INDEX: ${{ matrix.shard }}
-      # Main pushes stop at the first failure; nightly and dispatch report them all.
-      PYTEST_EXIT_FIRST: ${{ (github.event_name == 'push' || github.event.inputs.exit-first == 'true') && '-x' || '' }}
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
-        with:
-          version: '0.10.2'
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: |
-          uv sync --group dev --group test
-          uv pip install langchain langchain-openai langchain-anthropic tiktoken rapidfuzz vcrpy numpy
-
-      - name: Check credentials
-        run: '[ -n "$LANGSMITH_API_KEY" ] || { echo "::error::No API key secret for ${{ matrix.environment }}"; exit 1; }'
-
-      - name: Run integration tests
-        if: matrix.type == 'integration'
-        # Beta ingest is eventually consistent; retry read-after-write flakes suite-wide.
-        run: uv run python -m pytest $PYTEST_EXIT_FIRST -n auto -v --durations=10 --reruns 2 --reruns-delay 10 tests/integration_tests
-
-      - name: Run evals
-        if: matrix.type == 'evals'
-        run: uv run python -m pytest $PYTEST_EXIT_FIRST -n auto --durations=10 --reruns 2 --reruns-delay 10 tests/evaluation
-
   ci-success:
     name: "CI Success"
-    needs: [lint, test, build, wheel-test, deepagent-compat, integration-matrix, integration]
+    needs: [lint, test, build, wheel-test, deepagent-compat]
     if: always()
     runs-on: ubuntu-latest
     env:
@@ -262,24 +145,3 @@ jobs:
           if echo "$RESULTS_JSON" | grep -qE '"(failure|cancelled)"'; then
             echo "CI failed"; exit 1
           fi
-
-  # Only the nightly posts: push and PR failures are visible to whoever pushed.
-  notify-slack-on-failure:
-    name: "Notify Slack on nightly failure"
-    needs: [ci-success]
-    if: ${{ always() && github.repository == 'langchain-ai/langsmith-python-staging' && github.event_name == 'schedule' && needs.ci-success.result != 'success' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
-        with:
-          method: chat.postMessage
-          token: ${{ secrets.INGESTION_CI_BOT_TOKEN }}
-          errors: true
-          payload: |
-            channel: ${{ toJSON(secrets.INGESTION_TEAM_SLACK_CHANNEL_ID) }}
-            text: |
-              *Nightly langsmith-python-staging CI failed*
-              *Run:* ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-              *Environments:* beta, v16-ch-only, v16-dual, v16-smithdb-only
-
-              <@U0AKDLKCV3J> please investigate the issue and explain simply what happens, add a TLDR at the end of your answer where you go straight to the point to explain to a non-focused reader with ADHD. If the root cause is flaky tests, mention it. Open a fix PR when confidence is high. Reply in this thread and tag <@U0BSQM2BQJ3> in your answer.
