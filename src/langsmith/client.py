@@ -11279,7 +11279,7 @@ def convert_prompt_to_anthropic_format(
         )
 
     model_kwargs = model_kwargs or {}
-    model_name = model_kwargs.pop("model_name", "claude-3-haiku-20240307")
+    model_name = model_kwargs.pop("model_name", "claude-haiku-4-5")
     stop = model_kwargs.pop("stop", None)
     timeout = model_kwargs.pop("timeout", None)
 
