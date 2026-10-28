@@ -31,6 +31,13 @@ class BoxCreateParams(TypedDict, total=False):
     env_vars: Dict[str, str]
 
     fs_capacity_bytes: int
+    """Disk for the sandbox, in bytes; defaults to the snapshot's and cannot be
+    smaller.
+
+    A sandbox with persistent=false gets at most 16 GiB of disk per vCPU, so at most
+    256 GiB: omit CPU and it is derived from the disk, set it and a larger disk is
+    rejected.
+    """
 
     idle_ttl_seconds: int
 

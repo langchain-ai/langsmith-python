@@ -106,6 +106,11 @@ class BoxesResource(SyncAPIResource):
               vCPU); takes precedence over VCPUs. Fractional (sub-vCPU) values are not
               available for every sandbox.
 
+          fs_capacity_bytes: Disk for the sandbox, in bytes; defaults to the snapshot's and cannot be
+              smaller. A sandbox with persistent=false gets at most 16 GiB of disk per vCPU,
+              so at most 256 GiB: omit CPU and it is derived from the disk, set it and a
+              larger disk is rejected.
+
           labels: Labels are free-form key/value metadata persisted with the sandbox and returned
               on reads. Labels from the source snapshot are inherited unless overridden here.
 
@@ -963,6 +968,11 @@ class AsyncBoxesResource(AsyncAPIResource):
           cpu_millicores: CPUMillicores optionally requests CPU at millicore granularity (e.g. 500 = 0.5
               vCPU); takes precedence over VCPUs. Fractional (sub-vCPU) values are not
               available for every sandbox.
+
+          fs_capacity_bytes: Disk for the sandbox, in bytes; defaults to the snapshot's and cannot be
+              smaller. A sandbox with persistent=false gets at most 16 GiB of disk per vCPU,
+              so at most 256 GiB: omit CPU and it is derived from the disk, set it and a
+              larger disk is rejected.
 
           labels: Labels are free-form key/value metadata persisted with the sandbox and returned
               on reads. Labels from the source snapshot are inherited unless overridden here.
