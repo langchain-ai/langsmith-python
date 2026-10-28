@@ -13,6 +13,10 @@ __all__ = [
     "FeedbackConfigFeedbackConfig",
     "FeedbackConfigFeedbackConfigCategory",
     "RegexValidator",
+    "RequiredIf",
+    "RequiredIfRule",
+    "VisibleIf",
+    "VisibleIfRule",
 ]
 
 
@@ -58,6 +62,34 @@ class FeedbackConfig(BaseModel):
 RegexValidator: TypeAlias = Union[str, Missing, None]
 
 
+class RequiredIfRule(BaseModel):
+    key: str
+
+    op: Literal["is", "is_one_of", "is_empty", "is_not_empty"]
+
+    values: Optional[List[float]] = None
+
+
+class RequiredIf(BaseModel):
+    join: Literal["all", "any"]
+
+    rules: List[RequiredIfRule]
+
+
+class VisibleIfRule(BaseModel):
+    key: str
+
+    op: Literal["is", "is_one_of", "is_empty", "is_not_empty"]
+
+    values: Optional[List[float]] = None
+
+
+class VisibleIf(BaseModel):
+    join: Literal["all", "any"]
+
+    rules: List[VisibleIfRule]
+
+
 class AnnotationQueueRubricItemSchema(BaseModel):
     feedback_key: str
 
@@ -73,6 +105,10 @@ class AnnotationQueueRubricItemSchema(BaseModel):
 
     regex_validator: Optional[RegexValidator] = None
 
+    required_if: Optional[RequiredIf] = None
+
     score_descriptions: Optional[Dict[str, str]] = None
 
     value_descriptions: Optional[Dict[str, str]] = None
+
+    visible_if: Optional[VisibleIf] = None

@@ -15,6 +15,10 @@ __all__ = [
     "FeedbackConfigFeedbackConfig",
     "FeedbackConfigFeedbackConfigCategory",
     "RegexValidator",
+    "RequiredIf",
+    "RequiredIfRule",
+    "VisibleIf",
+    "VisibleIfRule",
 ]
 
 
@@ -60,6 +64,34 @@ class FeedbackConfig(TypedDict, total=False):
 RegexValidator: TypeAlias = Union[str, MissingParam]
 
 
+class RequiredIfRule(TypedDict, total=False):
+    key: Required[str]
+
+    op: Required[Literal["is", "is_one_of", "is_empty", "is_not_empty"]]
+
+    values: Iterable[float]
+
+
+class RequiredIf(TypedDict, total=False):
+    join: Required[Literal["all", "any"]]
+
+    rules: Required[Iterable[RequiredIfRule]]
+
+
+class VisibleIfRule(TypedDict, total=False):
+    key: Required[str]
+
+    op: Required[Literal["is", "is_one_of", "is_empty", "is_not_empty"]]
+
+    values: Iterable[float]
+
+
+class VisibleIf(TypedDict, total=False):
+    join: Required[Literal["all", "any"]]
+
+    rules: Required[Iterable[VisibleIfRule]]
+
+
 class AnnotationQueueRubricItemSchemaParam(TypedDict, total=False):
     feedback_key: Required[str]
 
@@ -75,6 +107,10 @@ class AnnotationQueueRubricItemSchemaParam(TypedDict, total=False):
 
     regex_validator: Optional[RegexValidator]
 
+    required_if: Optional[RequiredIf]
+
     score_descriptions: Optional[Dict[str, str]]
 
     value_descriptions: Optional[Dict[str, str]]
+
+    visible_if: Optional[VisibleIf]

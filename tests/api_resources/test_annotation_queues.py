@@ -122,8 +122,28 @@ class TestAnnotationQueues:
                     "is_assertion": True,
                     "is_required": True,
                     "regex_validator": "string",
+                    "required_if": {
+                        "join": "all",
+                        "rules": [
+                            {
+                                "key": "key",
+                                "op": "is",
+                                "values": [0],
+                            }
+                        ],
+                    },
                     "score_descriptions": {"foo": "string"},
                     "value_descriptions": {"foo": "string"},
+                    "visible_if": {
+                        "join": "all",
+                        "rules": [
+                            {
+                                "key": "key",
+                                "op": "is",
+                                "values": [0],
+                            }
+                        ],
+                    },
                 }
             ],
         )
@@ -259,8 +279,28 @@ class TestAnnotationQueues:
                     "is_assertion": True,
                     "is_required": True,
                     "regex_validator": "string",
+                    "required_if": {
+                        "join": "all",
+                        "rules": [
+                            {
+                                "key": "key",
+                                "op": "is",
+                                "values": [0],
+                            }
+                        ],
+                    },
                     "score_descriptions": {"foo": "string"},
                     "value_descriptions": {"foo": "string"},
+                    "visible_if": {
+                        "join": "all",
+                        "rules": [
+                            {
+                                "key": "key",
+                                "op": "is",
+                                "values": [0],
+                            }
+                        ],
+                    },
                 }
             ],
             session_ids=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
@@ -896,8 +936,28 @@ class TestAsyncAnnotationQueues:
                     "is_assertion": True,
                     "is_required": True,
                     "regex_validator": "string",
+                    "required_if": {
+                        "join": "all",
+                        "rules": [
+                            {
+                                "key": "key",
+                                "op": "is",
+                                "values": [0],
+                            }
+                        ],
+                    },
                     "score_descriptions": {"foo": "string"},
                     "value_descriptions": {"foo": "string"},
+                    "visible_if": {
+                        "join": "all",
+                        "rules": [
+                            {
+                                "key": "key",
+                                "op": "is",
+                                "values": [0],
+                            }
+                        ],
+                    },
                 }
             ],
         )
@@ -1033,8 +1093,28 @@ class TestAsyncAnnotationQueues:
                     "is_assertion": True,
                     "is_required": True,
                     "regex_validator": "string",
+                    "required_if": {
+                        "join": "all",
+                        "rules": [
+                            {
+                                "key": "key",
+                                "op": "is",
+                                "values": [0],
+                            }
+                        ],
+                    },
                     "score_descriptions": {"foo": "string"},
                     "value_descriptions": {"foo": "string"},
+                    "visible_if": {
+                        "join": "all",
+                        "rules": [
+                            {
+                                "key": "key",
+                                "op": "is",
+                                "values": [0],
+                            }
+                        ],
+                    },
                 }
             ],
             session_ids=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
