@@ -119,14 +119,13 @@ class BoxesResource(SyncAPIResource):
               for the requested CPU, so a 1 vCPU sandbox accepts 2-6 GiB. Setting memory
               without CPU derives the CPU from the same ratio. Maximum 64 GiB.
 
-          persistent: Persistent (private beta) keeps the sandbox's filesystem across stops (the
-              default, true). Set it to false for a disposable sandbox: its writes are
-              discarded whenever it stops, the next start boots it fresh from its snapshot,
-              and it is never charged for storage. A sandbox that is not persistent cannot
-              preserve memory on stop or have its filesystem captured as a snapshot (exporting
-              a Docker image from it with docker_image still works), and some snapshots
-              captured from other sandboxes cannot start one; such a create is rejected.
-              Setting it to false requires the private beta to be enabled for your workspace.
+          persistent: Persistent keeps the sandbox's filesystem across stops (the default, true). Set
+              it to false for a disposable sandbox: its writes are discarded whenever it
+              stops, the next start boots it fresh from its snapshot, and it is never charged
+              for storage. A sandbox that is not persistent cannot preserve memory on stop or
+              have its filesystem captured as a snapshot (exporting a Docker image from it
+              with docker_image still works), and some snapshots captured from other sandboxes
+              cannot start one; such a create is rejected.
 
           preserve_memory_on_stop: PreserveMemoryOnStop, when true, suspends the sandbox's memory on a voluntary
               stop (idle timeout or explicit stop) so the next start resumes from where it
@@ -982,14 +981,13 @@ class AsyncBoxesResource(AsyncAPIResource):
               for the requested CPU, so a 1 vCPU sandbox accepts 2-6 GiB. Setting memory
               without CPU derives the CPU from the same ratio. Maximum 64 GiB.
 
-          persistent: Persistent (private beta) keeps the sandbox's filesystem across stops (the
-              default, true). Set it to false for a disposable sandbox: its writes are
-              discarded whenever it stops, the next start boots it fresh from its snapshot,
-              and it is never charged for storage. A sandbox that is not persistent cannot
-              preserve memory on stop or have its filesystem captured as a snapshot (exporting
-              a Docker image from it with docker_image still works), and some snapshots
-              captured from other sandboxes cannot start one; such a create is rejected.
-              Setting it to false requires the private beta to be enabled for your workspace.
+          persistent: Persistent keeps the sandbox's filesystem across stops (the default, true). Set
+              it to false for a disposable sandbox: its writes are discarded whenever it
+              stops, the next start boots it fresh from its snapshot, and it is never charged
+              for storage. A sandbox that is not persistent cannot preserve memory on stop or
+              have its filesystem captured as a snapshot (exporting a Docker image from it
+              with docker_image still works), and some snapshots captured from other sandboxes
+              cannot start one; such a create is rejected.
 
           preserve_memory_on_stop: PreserveMemoryOnStop, when true, suspends the sandbox's memory on a voluntary
               stop (idle timeout or explicit stop) so the next start resumes from where it
