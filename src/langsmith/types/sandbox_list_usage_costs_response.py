@@ -36,9 +36,28 @@ class SandboxListUsageCostsResponse(BaseModel):
     zero usage.
     """
 
+    memory_gib_hours: Optional[str] = None
+    """Memory usage in GiB-hours, as a decimal string.
+
+    Available with RESOURCE granularity; null means complete usage is unavailable.
+    """
+
+    storage_gib_hours: Optional[str] = None
+    """
+    Storage usage in GiB-hours from hourly attributed-byte samples, including
+    checkpoints. Available with RESOURCE granularity; null means complete usage is
+    unavailable.
+    """
+
     storage_standard_units: Optional[str] = None
     """
     Allocated storage usage in Standard Units, as a decimal string, separate from
     LSU. Null means complete Standard storage usage is unavailable; "0" means known
     zero usage.
+    """
+
+    vcpu_hours: Optional[str] = None
+    """CPU usage in vCPU-hours, as a decimal string.
+
+    Available with RESOURCE granularity; null means complete usage is unavailable.
     """

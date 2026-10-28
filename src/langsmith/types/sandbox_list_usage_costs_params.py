@@ -29,11 +29,18 @@ class SandboxListUsageCostsParams(TypedDict, total=False):
     start_time.
     """
 
+    include_daily: bool
+    """
+    Include bounded daily physical usage for the top 10 resources per metric and
+    Other. Requires RESOURCE and include_totals. Omitted when unrestricted access or
+    service support is unavailable. CLI: use --format raw to show this summary.
+    """
+
     include_totals: bool
     """Include usage totals across the filtered interval (RESOURCE only).
 
     Omitted when unrestricted resource access cannot be verified or the service does
-    not support totals.
+    not support totals. CLI: use --format raw to show this summary.
     """
 
     page_size: int
