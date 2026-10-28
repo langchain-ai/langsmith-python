@@ -297,7 +297,10 @@ def test_client_logs_where_api_url_came_from(monkeypatch: pytest.MonkeyPatch, tm
     ) in caplog.messages
 
 
-def test_profile_config_loads_api_key_and_workspace(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+@pytest.mark.parametrize("explicit_selection", [False, True])
+def test_profile_config_loads_api_key_and_workspace(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path, explicit_selection: bool
+) -> None:
     _clear_profile_env(monkeypatch)
     config_path = tmp_path / "config.json"
     config_path.write_text(
@@ -317,13 +320,112 @@ def test_profile_config_loads_api_key_and_workspace(monkeypatch: pytest.MonkeyPa
     )
     monkeypatch.setenv("LANGSMITH_CONFIG_FILE", str(config_path))
 
-    client = Client(auto_batch_tracing=False)
+    if explicit_selection:
+        monkeypatch.setenv("LANGSMITH_CONFIG_FILE", str(tmp_path / "missing.json"))
+        monkeypatch.setenv("LANGSMITH_PROFILE", "missing")
+    client = Client(
+        auto_batch_tracing=False,
+        **({"profile": "prod", "profile_config_path": str(config_path)} if explicit_selection else {}),
+    )
 
     assert client.api_url == "https://profile.example.com"
     assert client.api_key == "profile-key"
     assert client.workspace_id == "workspace-id"
     assert client._headers["x-api-key"] == "profile-key"
     assert client._headers["X-Tenant-Id"] == "workspace-id"
+
+
+@pytest.mark.parametrize("client_cls", [Client, AsyncClient])
+@pytest.mark.parametrize(
+    "options,expected_auth,expected_url,expected_workspace",
+    [
+        ({}, {"x-api-key": "env-key"}, "env", "env"),
+        ({"prefer_profile_auth": True}, {"Authorization": "Bearer env-profile-token"}, "profile", "profile"),
+        (
+            {"profile": "selected", "prefer_profile_auth": True},
+            {"Authorization": "Bearer selected-token"},
+            "profile",
+            "profile",
+        ),
+        ({"profile": "key", "prefer_profile_auth": True}, {"x-api-key": "profile-key"}, "profile", "profile"),
+        ({"profile": "keyless", "prefer_profile_auth": True}, {"x-api-key": "env-key"}, "env", "env"),
+        ({"profile": "missing", "prefer_profile_auth": True}, {"x-api-key": "env-key"}, "env", "env"),
+        # Profile without URL/workspace must not inherit env endpoint (credential leak).
+        (
+            {"profile": "minimal", "prefer_profile_auth": True},
+            {"Authorization": "Bearer minimal-token"},
+            "default",
+            None,
+        ),
+        ({"prefer_profile_auth": True, "api_key": "explicit-key"}, {"x-api-key": "explicit-key"}, "env", "env"),
+        (
+            {
+                "prefer_profile_auth": True,
+                "api_url": "https://explicit.example.com",
+                "workspace_id": "explicit-workspace",
+            },
+            {"Authorization": "Bearer env-profile-token"},
+            "explicit",
+            "explicit",
+        ),
+    ],
+)
+def test_client_profile_options(
+    client_cls: type,
+    options: dict,
+    expected_auth: dict,
+    expected_url: str,
+    expected_workspace: Optional[str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+) -> None:
+    _clear_profile_env(monkeypatch)
+    config_path = tmp_path / "chosen.json"
+    profiles = {
+        name: {
+            "api_url": "https://profile.example.com",
+            "workspace_id": "profile-workspace",
+            **auth,
+        }
+        for name, auth in {
+            "current": {"oauth": {"access_token": "current-token"}},
+            "env-profile": {"oauth": {"access_token": "env-profile-token"}},
+            "selected": {"oauth": {"access_token": "selected-token"}},
+            "key": {"api_key": "profile-key"},
+            "keyless": {},
+        }.items()
+    }
+    profiles["minimal"] = {"oauth": {"access_token": "minimal-token"}}
+    config_path.write_text(json.dumps({"current_profile": "current", "profiles": profiles}))
+    monkeypatch.setenv("LANGSMITH_CONFIG_FILE", str(tmp_path / "missing.json"))
+    monkeypatch.setenv("LANGSMITH_PROFILE", "env-profile")
+    monkeypatch.setenv("LANGSMITH_API_KEY", "env-key")
+    monkeypatch.setenv("LANGSMITH_ENDPOINT", "https://env.example.com")
+    monkeypatch.setenv("LANGSMITH_WORKSPACE_ID", "env-workspace")
+    _clear_env_cache()
+
+    client = client_cls(
+        profile_config_path=str(config_path),
+        **({"auto_batch_tracing": False} if client_cls is Client else {}),
+        **options,
+    )
+    try:
+        headers = client._headers if client_cls is Client else client._client.headers
+        url = client.api_url if client_cls is Client else str(client._client.base_url).rstrip("/")
+        expected_base = (
+            "https://api.smith.langchain.com" if expected_url == "default" else f"https://{expected_url}.example.com"
+        )
+        assert url == expected_base
+        assert headers.get("X-Tenant-Id") == (f"{expected_workspace}-workspace" if expected_workspace else None)
+        for name in ("x-api-key", "Authorization"):
+            assert headers.get(name) == expected_auth.get(name)
+        assert os.environ["LANGSMITH_API_KEY"] == "env-key"
+        assert os.environ["LANGSMITH_PROFILE"] == "env-profile"
+    finally:
+        if client_cls is Client:
+            client.close()
+        else:
+            asyncio.run(client.aclose())
 
 
 def test_profile_config_uses_api_key_before_oauth_access_token(

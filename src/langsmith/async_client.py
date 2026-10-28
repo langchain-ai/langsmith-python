@@ -185,6 +185,10 @@ class AsyncClient:
         workspace_id: Optional[str] = None,
         disable_prompt_cache: bool = False,
         cache: Optional[Union[bool, AsyncPromptCache]] = None,
+        *,
+        profile: Optional[str] = None,
+        profile_config_path: Optional[str] = None,
+        prefer_profile_auth: bool = False,
     ):
         """Initialize the async client.
 
@@ -200,6 +204,10 @@ class AsyncClient:
                 (Content-Type, x-api-key, etc.). Custom headers will not override
                 the default required headers.
             workspace_id: The workspace ID. Required for org-scoped API keys.
+            profile: CLI login profile to use instead of `LANGSMITH_PROFILE`.
+            profile_config_path: CLI config file to use instead of `LANGSMITH_CONFIG_FILE`.
+            prefer_profile_auth: Prefer profile credentials, endpoint and workspace over
+                environment values when profile credentials exist; explicit arguments win.
             disable_prompt_cache: Disable prompt caching for this client.
             cache: **[Deprecated]** Control prompt caching behavior.
 
@@ -216,8 +224,23 @@ class AsyncClient:
         env_api_url = ls_client._get_langsmith_env_var_uncached("ENDPOINT")
         env_api_key = ls_client._get_langsmith_env_var_uncached("API_KEY")
         env_workspace_id = ls_client._get_langsmith_env_var_uncached("WORKSPACE_ID")
-        profile_config = _profiles.load_profile_client_config()
-        api_url_ = api_url if api_url is not None else env_api_url or profile_config.api_url
+        profile_config = _profiles.load_profile_client_config(profile=profile, config_path=profile_config_path)
+        use_profile = (
+            prefer_profile_auth and api_key is None and (profile_config.has_oauth or profile_config.api_key is not None)
+        )
+        profile_api_url = profile_config.api_url
+        profile_workspace_id = profile_config.workspace_id
+        if use_profile:
+            # Profile credentials must only be sent to the profile's endpoint.
+            # Never mix in environment endpoint/workspace values, which may point
+            # at a different deployment; fall back to the default endpoint instead.
+            env_api_key = None
+            env_api_url = None
+            env_workspace_id = None
+            profile_api_url = profile_api_url or _profiles.DEFAULT_API_URL
+            # Empty string (rather than None) stops the env var fallback downstream.
+            profile_workspace_id = profile_workspace_id or ""
+        api_url_ = api_url if api_url is not None else env_api_url or profile_api_url
         explicit_or_env_api_key = api_key if api_key is not None else env_api_key
         profile_auth_enabled = api_key is None and env_api_key is None
         use_profile_oauth = profile_auth_enabled and profile_config.has_oauth
@@ -229,8 +252,8 @@ class AsyncClient:
             else profile_config.api_key
         )
         self._oauth_access_token = profile_config.oauth_access_token if use_profile_oauth else None
-        workspace_id_ = workspace_id if workspace_id is not None else env_workspace_id or profile_config.workspace_id
-        api_key = ls_utils.get_api_key(api_key_)
+        workspace_id_ = workspace_id if workspace_id is not None else env_workspace_id or profile_workspace_id
+        api_key = None if use_profile_oauth else ls_utils.get_api_key(api_key_)
         api_url_source = ls_client._api_url_source(api_url, env_api_url, profile_config.api_url)
         api_url = ls_utils.get_api_url(api_url_)
         logger.debug("LangSmith API URL %s resolved from %s", api_url, api_url_source)

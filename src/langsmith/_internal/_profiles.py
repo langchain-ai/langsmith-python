@@ -16,6 +16,7 @@ import requests
 
 from langsmith._internal._oauth_refresh_lock import oauth_refresh_lock
 
+DEFAULT_API_URL = "https://api.smith.langchain.com"
 _OAUTH_CLIENT_ID = "langsmith-cli"
 _TOKEN_REFRESH_LEEWAY = datetime.timedelta(minutes=1)
 _TOKEN_REFRESH_TIMEOUT = 10
@@ -68,8 +69,8 @@ def trim_auth_value(value: Optional[str]) -> Optional[str]:
     return trimmed or None
 
 
-def _profile_config_path() -> Optional[Path]:
-    if config_file := os.environ.get("LANGSMITH_CONFIG_FILE"):
+def _profile_config_path(config_path: Optional[str] = None) -> Optional[Path]:
+    if config_file := config_path or os.environ.get("LANGSMITH_CONFIG_FILE"):
         return Path(config_file)
     try:
         return Path.home() / ".langsmith" / "config.json"
@@ -77,8 +78,8 @@ def _profile_config_path() -> Optional[Path]:
         return None
 
 
-def _load_profile_state() -> Optional[ProfileState]:
-    path = _profile_config_path()
+def _load_profile_state(profile: Optional[str] = None, config_path: Optional[str] = None) -> Optional[ProfileState]:
+    path = _profile_config_path(config_path)
     if path is None or not path.exists():
         return None
     try:
@@ -90,7 +91,7 @@ def _load_profile_state() -> Optional[ProfileState]:
     profiles = raw.get("profiles")
     if not isinstance(profiles, dict):
         return None
-    profile_name = os.environ.get("LANGSMITH_PROFILE")
+    profile_name = profile or os.environ.get("LANGSMITH_PROFILE")
     if not profile_name:
         current_profile = raw.get("current_profile")
         if isinstance(current_profile, str) and current_profile:
@@ -110,18 +111,20 @@ def _profile_from_state(state: ProfileState) -> Optional[ProfileConfig]:
     return cast(ProfileConfig, profile)
 
 
-def load_profile_client_config() -> ProfileClientConfig:
-    state = _load_profile_state()
+def load_profile_client_config(
+    *, profile: Optional[str] = None, config_path: Optional[str] = None
+) -> ProfileClientConfig:
+    state = _load_profile_state(profile, config_path)
     if state is None:
         return ProfileClientConfig()
-    profile = _profile_from_state(state)
-    if profile is None:
+    selected_profile = _profile_from_state(state)
+    if selected_profile is None:
         return ProfileClientConfig()
-    oauth = profile.get("oauth") or {}
+    oauth = selected_profile.get("oauth") or {}
     return ProfileClientConfig(
-        api_url=profile.get("api_url"),
-        api_key=trim_auth_value(profile.get("api_key")),
-        workspace_id=profile.get("workspace_id"),
+        api_url=selected_profile.get("api_url"),
+        api_key=trim_auth_value(selected_profile.get("api_key")),
+        workspace_id=selected_profile.get("workspace_id"),
         oauth_access_token=trim_auth_value(oauth.get("access_token")),
         oauth_refresh_token=trim_auth_value(oauth.get("refresh_token")),
         oauth_expires_at=oauth.get("expires_at"),
@@ -259,7 +262,7 @@ def should_refresh_profile_token(profile: ProfileConfig) -> bool:
 def _refresh_profile_oauth_token(
     api_url: Optional[str], refresh_token: str, timeout: float = _TOKEN_REFRESH_TIMEOUT
 ) -> Optional[dict[str, Any]]:
-    token_endpoint = _resolve_token_endpoint(api_url or "https://api.smith.langchain.com")
+    token_endpoint = _resolve_token_endpoint(api_url or DEFAULT_API_URL)
     try:
         response = requests.post(
             token_endpoint,

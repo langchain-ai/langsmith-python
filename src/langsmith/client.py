@@ -1036,6 +1036,9 @@ class Client:
         otel_enabled: Optional[bool] = None,
         tracing_sampling_rate: Optional[float] = None,
         workspace_id: Optional[str] = None,
+        profile: Optional[str] = None,
+        profile_config_path: Optional[str] = None,
+        prefer_profile_auth: bool = False,
         max_batch_size_bytes: Optional[int] = None,
         headers: Optional[dict[str, str]] = None,
         tracing_error_callback: Optional[Callable[[Exception], None]] = None,
@@ -1157,6 +1160,10 @@ class Client:
             workspace_id: The workspace ID.
 
                 Required for org-scoped API keys.
+            profile: CLI login profile to use instead of `LANGSMITH_PROFILE`.
+            profile_config_path: CLI config file to use instead of `LANGSMITH_CONFIG_FILE`.
+            prefer_profile_auth: Prefer profile credentials, endpoint and workspace over
+                environment values when profile credentials exist; explicit arguments win.
             max_batch_size_bytes: The maximum size of a batch of runs in bytes.
 
                 If not provided, the default is set by the server.
@@ -1240,8 +1247,23 @@ class Client:
         env_api_url = _get_langsmith_env_var_uncached("ENDPOINT")
         env_api_key = _get_langsmith_env_var_uncached("API_KEY")
         env_workspace_id = _get_langsmith_env_var_uncached("WORKSPACE_ID")
-        profile_config = _profiles.load_profile_client_config()
-        api_url_ = api_url if api_url is not None else env_api_url or profile_config.api_url
+        profile_config = _profiles.load_profile_client_config(profile=profile, config_path=profile_config_path)
+        use_profile = (
+            prefer_profile_auth and api_key is None and (profile_config.has_oauth or profile_config.api_key is not None)
+        )
+        profile_api_url = profile_config.api_url
+        profile_workspace_id = profile_config.workspace_id
+        if use_profile:
+            # Profile credentials must only be sent to the profile's endpoint.
+            # Never mix in environment endpoint/workspace values, which may point
+            # at a different deployment; fall back to the default endpoint instead.
+            env_api_key = None
+            env_api_url = None
+            env_workspace_id = None
+            profile_api_url = profile_api_url or _profiles.DEFAULT_API_URL
+            # Empty string (rather than None) stops the env var fallback downstream.
+            profile_workspace_id = profile_workspace_id or ""
+        api_url_ = api_url if api_url is not None else env_api_url or profile_api_url
         explicit_or_env_api_key = api_key if api_key is not None else env_api_key
         profile_auth_enabled = api_key is None and env_api_key is None
         use_profile_oauth = profile_auth_enabled and profile_config.has_oauth
@@ -1252,7 +1274,7 @@ class Client:
             if use_profile_oauth
             else profile_config.api_key
         )
-        workspace_id_ = workspace_id if workspace_id is not None else env_workspace_id or profile_config.workspace_id
+        workspace_id_ = workspace_id if workspace_id is not None else env_workspace_id or profile_workspace_id
         self._oauth_access_token = profile_config.oauth_access_token if use_profile_oauth else None
         self._profile_auth: Optional[_profiles.ProfileAuth] = None
         self._profile_auth_headers: dict[str, str] = {}
@@ -1279,7 +1301,7 @@ class Client:
                 )
                 self._profile_auth_headers = self._profile_auth.current_auth_headers()
                 self._oauth_access_token = self._profile_auth.oauth_access_token
-            self.api_key = ls_utils.get_api_key(api_key_)
+            self.api_key = None if use_profile_oauth else ls_utils.get_api_key(api_key_)
             _validate_api_key_if_hosted(
                 self.api_url,
                 self.api_key
