@@ -34,6 +34,9 @@ class FeedbackConfigFeedbackConfig(TypedDict, total=False):
     type: Required[Literal["continuous", "categorical", "freeform"]]
     """Enum for feedback types."""
 
+    allows_multiple_categories: bool
+    """Whether a reviewer can pick several categories. Categorical feedback only."""
+
     categories: Optional[Iterable[FeedbackConfigFeedbackConfigCategory]]
 
     max: Optional[float]

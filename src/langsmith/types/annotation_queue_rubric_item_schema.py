@@ -32,6 +32,9 @@ class FeedbackConfigFeedbackConfig(BaseModel):
     type: Literal["continuous", "categorical", "freeform"]
     """Enum for feedback types."""
 
+    allows_multiple_categories: Optional[bool] = None
+    """Whether a reviewer can pick several categories. Categorical feedback only."""
+
     categories: Optional[List[FeedbackConfigFeedbackConfigCategory]] = None
 
     max: Optional[float] = None
