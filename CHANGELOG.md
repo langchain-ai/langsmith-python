@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.14.15](https://github.com/langchain-ai/langsmith-python/compare/v0.14.14...v0.14.15) (2026-10-29)
+
+
+### Features
+
+* add HTTPS destination rewrite rules for sandboxes ([3e27a3a](https://github.com/langchain-ai/langsmith-python/commit/3e27a3a405300aaca73df109c6fe900bb17a094c))
+* **annotation-queues:** rubric item required_if and visible_if conditions ([7af99d4](https://github.com/langchain-ai/langsmith-python/commit/7af99d4f24ba8ba1ed4aea5a184b7d77f7499bc2))
+* **feedback:** add allows_multiple_categories flag to categorical feedback configs ([ae2d72f](https://github.com/langchain-ai/langsmith-python/commit/ae2d72fb3b965f97c48865ff2400b485ec9abfe4))
+* **sandboxes:** allow non-persistent mode for all tenants ([8ff0144](https://github.com/langchain-ai/langsmith-python/commit/8ff01441a9f07e1ced19451c32b47d962ae16336))
+* **sandboxes:** show granular usage instead of dollar estimates ([8b48112](https://github.com/langchain-ai/langsmith-python/commit/8b481128795c22581e1d3612251507ab939376d1))
+* **sdk-py:** support CLI profile selection and preferred profile auth ([331fec0](https://github.com/langchain-ai/langsmith-python/commit/331fec0ccdbe7326784d053160ff25f920798d10))
+
+
+### Bug Fixes
+
+* **ci:** keep Co-authored-by trailers in SDK exports ([1702d37](https://github.com/langchain-ai/langsmith-python/commit/1702d37a9ede32578ea24944596afb9eb2284010))
+* **sandboxes:** cap non-persistent sandbox disk at 16 GiB per vCPU ([1171a82](https://github.com/langchain-ai/langsmith-python/commit/1171a82cd3a8bd277f8e72d76d538cdd07c9696f))
+* **sandboxes:** retain recorded storage across sampling gaps ([9e81d8e](https://github.com/langchain-ai/langsmith-python/commit/9e81d8ee06f628f191b5fdaf153a47aaace122a1))
+* **sdk-py:** show SmithDB migration deprecation warnings by default ([acfb537](https://github.com/langchain-ai/langsmith-python/commit/acfb5376dbfc4849576f0659024b2d23a1773f26))
+
+
+### Performance Improvements
+
+* provision disposable Engine sandboxes ([037ec1d](https://github.com/langchain-ai/langsmith-python/commit/037ec1d1fc44901aa0a13dcb49ed355459da44a1))
+
+
+### Chores
+
+* **sdks:** regenerate python.patch for tzdata 2026.6 ([d0678b8](https://github.com/langchain-ai/langsmith-python/commit/d0678b8ac40717266a65d225f54902a6d8ecabfd))
+
+
+### Documentation
+
+* **api:** describe the annotation queue, example and feedback token CLI flags ([b7ab19b](https://github.com/langchain-ai/langsmith-python/commit/b7ab19b9a6dba917df268149ea380bfc17621b71))
+
 ## [0.14.14](https://github.com/langchain-ai/langsmith-python/compare/v0.14.13...v0.14.14) (2026-10-27)
 
 
