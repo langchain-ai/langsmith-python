@@ -385,6 +385,10 @@ def wrap_openai(
         - `create` and `parse` methods
         - With and without streaming
         - `with_raw_response` API for accessing HTTP headers
+        - **BETA**: Agents API sessions (`client.beta.agents.sessions`): each
+          finished turn's trace, as published by OpenAI, with one run per model
+          call, tool call and subagent. Traces arrive a few seconds after the
+          turn ends, sent from a background thread.
 
     Args:
         client: The client to patch.
@@ -559,6 +563,15 @@ def wrap_openai(
                     True,
                 ),
             )
+
+    # Agents API: traced from OpenAI's OTLP export, since the loop runs on OpenAI's side.
+    try:
+        from langsmith.wrappers._openai_agents_api import wrap_agents_sessions
+
+        wrap_agents_sessions(client, dict(tracing_extra))
+    except Exception:
+        # Beta: must never break wrapping the rest of the client.
+        logger.debug("Failed to set up OpenAI Agents API tracing", exc_info=True)
 
     return client
 
