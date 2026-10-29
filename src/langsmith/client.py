@@ -1268,14 +1268,16 @@ class Client:
             profile_workspace_id = profile_workspace_id or ""
         api_url_ = api_url if api_url is not None else env_api_url or profile_api_url
         explicit_or_env_api_key = api_key if api_key is not None else env_api_key
+        # api_urls carries its own keys, so the profile key is only resolved without it.
+        self._write_api_urls: Mapping[str, Optional[str]] = _get_write_api_urls(api_urls)
         profile_auth_enabled = api_key is None and env_api_key is None
         use_profile_oauth = profile_auth_enabled and profile_config.has_oauth
         api_key_ = (
             explicit_or_env_api_key
             if explicit_or_env_api_key is not None
             else None
-            if use_profile_oauth
-            else profile_config.api_key
+            if use_profile_oauth or self._write_api_urls
+            else profile_config.resolve_api_key()
         )
         workspace_id_ = workspace_id if workspace_id is not None else env_workspace_id or profile_workspace_id
         self._oauth_access_token = profile_config.oauth_access_token if use_profile_oauth else None
@@ -1283,7 +1285,6 @@ class Client:
         self._profile_auth_headers: dict[str, str] = {}
 
         self.tracing_sample_rate = _get_tracing_sampling_rate(tracing_sampling_rate)
-        self._write_api_urls: Mapping[str, Optional[str]] = _get_write_api_urls(api_urls)
         # Initialize workspace attribute first
         self._workspace_id = ls_utils.get_workspace_id(workspace_id_)
         # Store custom headers

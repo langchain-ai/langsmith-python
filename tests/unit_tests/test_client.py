@@ -11,6 +11,7 @@ import logging
 import math
 import os
 import pathlib
+import re
 import ssl
 import subprocess
 import sys
@@ -454,6 +455,66 @@ def test_profile_config_uses_api_key_before_oauth_access_token(
     assert client.api_key is None
     assert client._headers["x-api-key"] == "profile-key"
     assert "Authorization" not in client._headers
+
+
+def _write_profile(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path, profile: dict) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(json.dumps({"current_profile": "prod", "profiles": {"prod": profile}}), encoding="utf-8")
+    monkeypatch.setenv("LANGSMITH_CONFIG_FILE", str(config_path))
+
+
+def test_profile_config_reads_api_key_env(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    _clear_profile_env(monkeypatch)
+    monkeypatch.setenv("MY_LANGSMITH_KEY", "  env-ref-key\n")
+    _write_profile(monkeypatch, tmp_path, {"api_key_env": "MY_LANGSMITH_KEY", "api_key_cmd": "never-run"})
+
+    client = Client(auto_batch_tracing=False)
+
+    assert client.api_key == "env-ref-key"
+    assert client._headers["x-api-key"] == "env-ref-key"
+
+    _write_profile(monkeypatch, tmp_path, {"api_key": "profile-key", "api_key_env": "MY_LANGSMITH_KEY"})
+    assert Client(auto_batch_tracing=False).api_key == "profile-key"
+
+
+@pytest.mark.parametrize(
+    ("profile", "message"),
+    [
+        (
+            {"api_key_env": "MY_UNSET_LANGSMITH_KEY"},
+            'LangSmith profile "prod" reads its API key from $MY_UNSET_LANGSMITH_KEY, which is not set',
+        ),
+        (
+            {"api_key_cmd": "op read op://vault/langsmith/key"},
+            'LangSmith profile "prod" gets its API key from a command (api_key_cmd), '
+            "which the Python SDK does not support yet",
+        ),
+    ],
+)
+def test_profile_config_unresolvable_api_key_ref_warns(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path, profile: dict, message: str
+) -> None:
+    _clear_profile_env(monkeypatch)
+    monkeypatch.delenv("MY_UNSET_LANGSMITH_KEY", raising=False)
+    _write_profile(monkeypatch, tmp_path, profile)
+
+    with pytest.warns(ls_utils.LangSmithMissingAPIKeyWarning, match=re.escape(message)) as record:
+        client = Client(auto_batch_tracing=False)
+    assert client.api_key is None
+    # The warning points at the code that created the client, not at the SDK.
+    assert [w.filename for w in record if issubclass(w.category, ls_utils.LangSmithMissingAPIKeyWarning)] == [__file__]
+
+    # Explicit, per-endpoint, environment and OAuth auth all take precedence over the reference.
+    assert Client(api_key="constructor-key", auto_batch_tracing=False).api_key == "constructor-key"
+    assert (
+        Client(api_urls={"https://api.smith.langchain.com": "endpoint-key"}, auto_batch_tracing=False).api_key
+        == "endpoint-key"
+    )
+    _write_profile(monkeypatch, tmp_path, {**profile, "oauth": {"access_token": "profile-access-token"}})
+    assert Client(auto_batch_tracing=False)._headers["Authorization"] == "Bearer profile-access-token"
+    monkeypatch.setenv("LANGSMITH_API_KEY", "env-key")
+    _clear_env_cache()
+    assert Client(auto_batch_tracing=False).api_key == "env-key"
 
 
 def test_profile_config_env_auth_suppresses_profile_auth(

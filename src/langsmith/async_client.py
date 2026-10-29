@@ -252,7 +252,7 @@ class AsyncClient:
             if explicit_or_env_api_key is not None
             else None
             if use_profile_oauth
-            else profile_config.api_key
+            else profile_config.resolve_api_key()
         )
         self._oauth_access_token = profile_config.oauth_access_token if use_profile_oauth else None
         workspace_id_ = workspace_id if workspace_id is not None else env_workspace_id or profile_workspace_id
