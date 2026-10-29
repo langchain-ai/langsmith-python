@@ -1955,11 +1955,21 @@ class Client:
         """
         self._ensure_profile_auth()
         request_kwargs = request_kwargs or {}
-        headers = {
-            **self._headers,
+        caller_headers = {
             **request_kwargs.get("headers", {}),
             **kwargs.get("headers", {}),
         }
+        headers = {**self._headers, **caller_headers}
+        url = _construct_url(self.api_url, pathname)
+        if (
+            self._workspace_id
+            and "X-Tenant-Id" not in caller_headers
+            and headers.get(X_API_KEY) != self.api_key
+            and urllib_parse.urlsplit(url).netloc != urllib_parse.urlsplit(self.api_url).netloc
+        ):
+            # Workspace ids are per instance: a replica with its own key on another host
+            # drops the inherited one.
+            headers.pop("X-Tenant-Id", None)
         if self._profile_auth is not None:
             headers = self._profile_auth.prepare_request_headers(headers)
         request_kwargs = {
@@ -1995,7 +2005,7 @@ class Client:
                     with ls_utils.filter_logs(_urllib3_logger, logging_filters):
                         response = self.session.request(
                             method,
-                            _construct_url(self.api_url, pathname),
+                            url,
                             stream=False,
                             **request_kwargs,
                         )
@@ -8447,10 +8457,7 @@ class Client:
                 f"{api_url}/feedback/tokens",
                 request_kwargs={
                     "data": body,
-                    "headers": {
-                        **self._headers,
-                        X_API_KEY: api_key or self.api_key,
-                    },
+                    "headers": {X_API_KEY: api_key or self.api_key},
                 },
             )
             ls_utils.raise_for_status_with_text(response)
@@ -11518,6 +11525,9 @@ def _apply_auth_overrides(
         headers["X-Service-Key"] = service_key
     if tenant_id is not None:
         headers["X-Tenant-Id"] = tenant_id
+    else:
+        # Inherited: request_with_retries re-adds it unless the host differs.
+        headers.pop("X-Tenant-Id", None)
     if authorization is not None:
         headers["Authorization"] = authorization
     if cookie is not None:

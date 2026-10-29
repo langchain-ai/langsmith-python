@@ -1455,6 +1455,7 @@ def _parse_write_replicas_from_env_var(env_var: Optional[str]) -> list[WriteRepl
                 api_url = item.get("api_url")
                 api_key = item.get("api_key")
                 project_name = item.get("project_name")
+                workspace_id = item.get("workspace_id")
                 primary = item.get("primary")
                 has_primary = "primary" in item
 
@@ -1479,6 +1480,13 @@ def _parse_write_replicas_from_env_var(env_var: Optional[str]) -> list[WriteRepl
                     )
                     continue
 
+                if workspace_id is not None and not isinstance(workspace_id, str):
+                    logger.warning(
+                        f"Invalid workspace_id type in LANGSMITH_RUNS_ENDPOINTS: "
+                        f"expected string, got {type(workspace_id).__name__}; ignoring it"
+                    )
+                    workspace_id = None
+
                 if has_primary and not isinstance(primary, bool):
                     logger.warning(
                         f"Invalid primary type in LANGSMITH_RUNS_ENDPOINTS: "
@@ -1486,9 +1494,12 @@ def _parse_write_replicas_from_env_var(env_var: Optional[str]) -> list[WriteRepl
                     )
                     continue
 
+                auth = AuthHeaders(api_key=api_key)
+                if workspace_id and workspace_id.strip():
+                    auth["tenant_id"] = workspace_id.strip()
                 replica = WriteReplica(
                     api_url=api_url.rstrip("/"),
-                    auth=AuthHeaders(api_key=api_key),
+                    auth=auth,
                     project_name=project_name,
                     updates=None,
                 )
