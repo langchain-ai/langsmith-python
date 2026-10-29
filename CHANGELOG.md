@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.14.16](https://github.com/langchain-ai/langsmith-python/compare/v0.14.15...v0.14.16) (2026-10-29)
+
+
+### Features
+
+* **py:** trace OpenAI Agents API sessions in wrap_openai ([dac7037](https://github.com/langchain-ai/langsmith-python/commit/dac7037c898ee39ea605ca47c8831d2653c06f0b))
+* **sdks:** add create_decision_model to the generated SDKs ([61afde1](https://github.com/langchain-ai/langsmith-python/commit/61afde1097584e69578330b97517b836975b942d))
+
+
+### Bug Fixes
+
+* **sdk:** drop the base workspace for write replicas on another instance ([1a255bb](https://github.com/langchain-ai/langsmith-python/commit/1a255bb0bbae6cbaba0f6e1a39baabc437929b7e))
+
+
+### Reverts
+
+* provision disposable Engine sandboxes ([d3a4a2c](https://github.com/langchain-ai/langsmith-python/commit/d3a4a2c4ca6413ffaea91e2d27eee5d32b29e49f))
+
 ## [0.14.15](https://github.com/langchain-ai/langsmith-python/compare/v0.14.14...v0.14.15) (2026-10-29)
 
 
