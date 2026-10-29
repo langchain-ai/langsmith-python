@@ -88,6 +88,14 @@ from .sandboxes import (
     SandboxesResourceWithStreamingResponse,
     AsyncSandboxesResourceWithStreamingResponse,
 )
+from .evaluators import (
+    EvaluatorsResource,
+    AsyncEvaluatorsResource,
+    EvaluatorsResourceWithRawResponse,
+    AsyncEvaluatorsResourceWithRawResponse,
+    EvaluatorsResourceWithStreamingResponse,
+    AsyncEvaluatorsResourceWithStreamingResponse,
+)
 from .prompt_webhooks import (
     PromptWebhooksResource,
     AsyncPromptWebhooksResource,
@@ -170,6 +178,12 @@ __all__ = [
     "AsyncTracesResourceWithRawResponse",
     "TracesResourceWithStreamingResponse",
     "AsyncTracesResourceWithStreamingResponse",
+    "EvaluatorsResource",
+    "AsyncEvaluatorsResource",
+    "EvaluatorsResourceWithRawResponse",
+    "AsyncEvaluatorsResourceWithRawResponse",
+    "EvaluatorsResourceWithStreamingResponse",
+    "AsyncEvaluatorsResourceWithStreamingResponse",
     "OnlineEvaluatorsResource",
     "AsyncOnlineEvaluatorsResource",
     "OnlineEvaluatorsResourceWithRawResponse",

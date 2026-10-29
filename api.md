@@ -218,6 +218,26 @@ Methods:
 
 - <code title="post /api/v2/traces/query">client.traces.streaming.<a href="./src/langsmith/resources/traces/streaming.py">query</a>(\*\*<a href="src/langsmith/types/traces/streaming_query_params.py">params</a>) -> <a href="./src/langsmith/types/traces/streaming_query_response.py">StreamingQueryResponse</a></code>
 
+# Evaluators
+
+Types:
+
+```python
+from langsmith.types import (
+    CodeEvaluatorTopLevel,
+    Evaluator,
+    EvaluatorPagerdutyAlert,
+    EvaluatorTopLevel,
+    EvaluatorWebhook,
+    EvaluatorListResponse,
+)
+```
+
+Methods:
+
+- <code title="get /api/v1/runs/rules">client.evaluators.<a href="./src/langsmith/resources/evaluators.py">list</a>(\*\*<a href="src/langsmith/types/evaluator_list_params.py">params</a>) -> <a href="./src/langsmith/types/evaluator_list_response.py">EvaluatorListResponse</a></code>
+- <code title="post /api/v1/runs/rules/decision-models">client.evaluators.<a href="./src/langsmith/resources/evaluators.py">create_decision_model</a>(\*\*<a href="src/langsmith/types/evaluator_create_decision_model_params.py">params</a>) -> <a href="./src/langsmith/types/evaluator.py">Evaluator</a></code>
+
 # OnlineEvaluators
 
 Types:

@@ -47,6 +47,7 @@ if TYPE_CHECKING:
         datasets,
         sessions,
         sandboxes,
+        evaluators,
         prompt_webhooks,
         product_feedback,
         annotation_queues,
@@ -57,6 +58,7 @@ if TYPE_CHECKING:
     from .resources.issues import IssuesResource, AsyncIssuesResource
     from .resources.sessions import SessionsResource, AsyncSessionsResource
     from .resources.runs.runs import RunsResource, AsyncRunsResource
+    from .resources.evaluators import EvaluatorsResource, AsyncEvaluatorsResource
     from .resources.fleet.fleet import FleetResource, AsyncFleetResource
     from .resources.public.public import PublicResource, AsyncPublicResource
     from .resources.traces.traces import TracesResource, AsyncTracesResource
@@ -197,6 +199,12 @@ class Langsmith(SyncAPIClient):
         from .resources.traces import TracesResource
 
         return TracesResource(self)
+
+    @cached_property
+    def evaluators(self) -> EvaluatorsResource:
+        from .resources.evaluators import EvaluatorsResource
+
+        return EvaluatorsResource(self)
 
     @cached_property
     def online_evaluators(self) -> OnlineEvaluatorsResource:
@@ -499,6 +507,12 @@ class AsyncLangsmith(AsyncAPIClient):
         return AsyncTracesResource(self)
 
     @cached_property
+    def evaluators(self) -> AsyncEvaluatorsResource:
+        from .resources.evaluators import AsyncEvaluatorsResource
+
+        return AsyncEvaluatorsResource(self)
+
+    @cached_property
     def online_evaluators(self) -> AsyncOnlineEvaluatorsResource:
         from .resources.online_evaluators import AsyncOnlineEvaluatorsResource
 
@@ -735,6 +749,12 @@ class LangsmithWithRawResponse:
         return TracesResourceWithRawResponse(self._client.traces)
 
     @cached_property
+    def evaluators(self) -> evaluators.EvaluatorsResourceWithRawResponse:
+        from .resources.evaluators import EvaluatorsResourceWithRawResponse
+
+        return EvaluatorsResourceWithRawResponse(self._client.evaluators)
+
+    @cached_property
     def online_evaluators(self) -> online_evaluators.OnlineEvaluatorsResourceWithRawResponse:
         from .resources.online_evaluators import OnlineEvaluatorsResourceWithRawResponse
 
@@ -830,6 +850,12 @@ class AsyncLangsmithWithRawResponse:
         from .resources.traces import AsyncTracesResourceWithRawResponse
 
         return AsyncTracesResourceWithRawResponse(self._client.traces)
+
+    @cached_property
+    def evaluators(self) -> evaluators.AsyncEvaluatorsResourceWithRawResponse:
+        from .resources.evaluators import AsyncEvaluatorsResourceWithRawResponse
+
+        return AsyncEvaluatorsResourceWithRawResponse(self._client.evaluators)
 
     @cached_property
     def online_evaluators(self) -> online_evaluators.AsyncOnlineEvaluatorsResourceWithRawResponse:
@@ -929,6 +955,12 @@ class LangsmithWithStreamedResponse:
         return TracesResourceWithStreamingResponse(self._client.traces)
 
     @cached_property
+    def evaluators(self) -> evaluators.EvaluatorsResourceWithStreamingResponse:
+        from .resources.evaluators import EvaluatorsResourceWithStreamingResponse
+
+        return EvaluatorsResourceWithStreamingResponse(self._client.evaluators)
+
+    @cached_property
     def online_evaluators(self) -> online_evaluators.OnlineEvaluatorsResourceWithStreamingResponse:
         from .resources.online_evaluators import OnlineEvaluatorsResourceWithStreamingResponse
 
@@ -1024,6 +1056,12 @@ class AsyncLangsmithWithStreamedResponse:
         from .resources.traces import AsyncTracesResourceWithStreamingResponse
 
         return AsyncTracesResourceWithStreamingResponse(self._client.traces)
+
+    @cached_property
+    def evaluators(self) -> evaluators.AsyncEvaluatorsResourceWithStreamingResponse:
+        from .resources.evaluators import AsyncEvaluatorsResourceWithStreamingResponse
+
+        return AsyncEvaluatorsResourceWithStreamingResponse(self._client.evaluators)
 
     @cached_property
     def online_evaluators(self) -> online_evaluators.AsyncOnlineEvaluatorsResourceWithStreamingResponse:
