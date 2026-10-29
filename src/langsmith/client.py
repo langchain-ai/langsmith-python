@@ -84,6 +84,9 @@ from langsmith._internal._background_thread import (
 from langsmith._internal._background_thread import (
     tracing_control_thread_func as _tracing_control_thread_func,
 )
+from langsmith._internal._beta_decorator import (
+    LangSmithDeprecationWarning as _LangSmithDeprecationWarning,
+)
 from langsmith._internal._beta_decorator import deprecated as _deprecated
 from langsmith._internal._beta_decorator import (
     suppress_deprecation_warning as _suppress_deprecation_warning,
@@ -7593,7 +7596,7 @@ class Client:
                     "Resolving a run from an ID without passing project_id is"
                     " deprecated and will raise an error in a future release."
                     " Pass project_id explicitly.",
-                    DeprecationWarning,
+                    _LangSmithDeprecationWarning,
                     stacklevel=3,
                 )
             # Suppressed: the caller passed a run ID to (a)evaluate_run(), which
@@ -8990,7 +8993,7 @@ class Client:
                 "The run_ids parameter of add_runs_to_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
                 "Use the runs parameter with RunKey objects instead. "
                 "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs for the migration guide.",
-                DeprecationWarning,
+                _LangSmithDeprecationWarning,
                 stacklevel=2,
             )
             path = f"/annotation-queues/{_as_uuid(queue_id, 'queue_id')}/runs"

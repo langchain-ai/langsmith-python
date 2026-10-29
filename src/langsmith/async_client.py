@@ -22,6 +22,9 @@ from typing import (
 
 import langsmith
 from langsmith._internal import _openapi_auth
+from langsmith._internal._beta_decorator import (
+    LangSmithDeprecationWarning as _LangSmithDeprecationWarning,
+)
 from langsmith._internal._beta_decorator import deprecated as _deprecated
 from langsmith._internal._beta_decorator import (
     suppress_deprecation_warning as _suppress_deprecation_warning,
@@ -1620,7 +1623,7 @@ class AsyncClient:
                 "The run_ids parameter of add_runs_to_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
                 "Use the runs parameter with RunKey objects instead. "
                 "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs for the migration guide.",
-                DeprecationWarning,
+                _LangSmithDeprecationWarning,
                 stacklevel=2,
             )
             path = base

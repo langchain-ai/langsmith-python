@@ -12,6 +12,7 @@ import math
 import os
 import pathlib
 import ssl
+import subprocess
 import sys
 import threading
 import time
@@ -7915,6 +7916,47 @@ def test_suppress_deprecation_warning_is_scoped() -> None:
 
     with pytest.warns(DeprecationWarning, match="list_runs\\(\\) is deprecated"):
         client.list_runs(project_id=uuid.uuid4())
+
+
+@pytest.mark.parametrize(
+    ("flags", "setup", "outcome"),
+    [
+        ([], "", "shown_once"),
+        (["-W", "ignore::ResourceWarning"], "", "shown_once"),
+        (["-W", "error::DeprecationWarning"], "", "raised"),
+        (["-W", "ignore::DeprecationWarning"], "", "hidden"),
+        ([], "import warnings; warnings.simplefilter('error'); ", "raised"),
+        ([], "import warnings; warnings.simplefilter('ignore'); ", "hidden"),
+    ],
+)
+def test_deprecation_warning_shown_outside_main(
+    tmp_path: pathlib.Path, flags: list[str], setup: str, outcome: str
+) -> None:
+    """Fresh interpreter, so pytest's filters don't apply."""
+    (tmp_path / "user_app.py").write_text(
+        "from langsmith._internal._beta_decorator import deprecated\n"
+        "@deprecated('old_method() is deprecated')\n"
+        "def old_method():\n"
+        "    pass\n"
+        "def run():\n"
+        "    for _ in range(3):\n"
+        "        old_method()\n"
+    )
+    env = {k: v for k, v in os.environ.items() if k not in ("PYTHONWARNINGS", "PYTHONDEVMODE")}
+    result = subprocess.run(
+        [sys.executable, *flags, "-c", setup + "import user_app; user_app.run()"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if outcome == "raised":
+        assert result.returncode != 0, result.stderr
+        assert "LangSmithDeprecationWarning: old_method() is deprecated" in result.stderr
+    else:
+        assert result.returncode == 0, result.stderr
+        expected = 1 if outcome == "shown_once" else 0
+        assert result.stderr.count("old_method() is deprecated") == expected, result.stderr
 
 
 _SHARE_TOKEN = uuid.UUID("22222222-2222-2222-2222-222222222222")
