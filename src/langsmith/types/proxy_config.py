@@ -27,6 +27,7 @@ __all__ = [
     "RuleGcpSandboxesProxyGcpServiceAccountConfig",
     "RuleGcpSandboxesProxyGcpServiceAccountConfigServiceAccountJson",
     "RuleHeader",
+    "RuleRewrite",
 ]
 
 
@@ -259,6 +260,28 @@ class RuleHeader(BaseModel):
     value: Optional[str] = None
 
 
+class RuleRewrite(BaseModel):
+    port: int
+
+    credentials: Optional[Literal["strip", "redact", "keep"]] = None
+    """
+    Credentials is what happens to credential headers the sandbox sent, such as
+    Authorization and Cookie: "strip" (the default) removes them, "redact" keeps
+    each with its value replaced by "redacted" (after an auth scheme such as "Bearer
+    "), and "keep" forwards them unchanged.
+    """
+
+    host: Optional[str] = None
+    """Host is an HTTPS destination. Exactly one of host and sandbox is set."""
+
+    sandbox: Optional[str] = None
+    """Sandbox is the name or ID of a sandbox to send requests to, over plain HTTP.
+
+    A sandbox link from this sandbox to that sandbox's port must exist. Exactly one
+    of host and sandbox is set.
+    """
+
+
 class Rule(BaseModel):
     name: str
 
@@ -290,19 +313,20 @@ class Rule(BaseModel):
 
     match_headers: Optional[List[str]] = None
     """
-    MatchHeaders restricts a header injection rule to requests carrying every listed
-    header, each written "name: value" with a lowercase name and an exact value.
-    Pair with headers of the same name to swap a placeholder the sandbox sends (e.g.
-    "authorization: Bearer account-b") for a real credential, so one host can serve
-    several accounts. Rules are evaluated in order and the first match wins.
+    MatchHeaders restricts a header injection or rewrite rule to requests carrying
+    every listed header, each written "name: value" with a lowercase name and an
+    exact value. Pair with headers of the same name to swap a placeholder the
+    sandbox sends (e.g. "authorization: Bearer account-b") for a real credential, so
+    one host can serve several accounts. Rules are evaluated in order and the first
+    match wins.
     """
 
     match_hosts: Optional[List[str]] = None
     """
-    MatchHosts is only accepted for header injection and relay rules. Provider auth
-    rules use built-in host matching. A relay rule may also list IP addresses and
-    CIDR blocks (10.0.0.0/8), which match connections the sandbox makes to an IP
-    address rather than a name.
+    MatchHosts is only accepted for header injection, rewrite, and relay rules.
+    Provider auth rules use built-in host matching. A relay rule may also list IP
+    addresses and CIDR blocks (10.0.0.0/8), which match connections the sandbox
+    makes to an IP address rather than a name.
     """
 
     match_paths: Optional[List[str]] = None
@@ -315,6 +339,8 @@ class Rule(BaseModel):
     Access control still applies first, the first enabled matching relay rule wins,
     and a matched host never falls back to a direct connection.
     """
+
+    rewrite: Optional[RuleRewrite] = None
 
     type: Optional[str] = None
 
