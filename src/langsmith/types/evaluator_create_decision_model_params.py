@@ -12,6 +12,7 @@ __all__ = ["EvaluatorCreateDecisionModelParams", "Questions"]
 
 class EvaluatorCreateDecisionModelParams(TypedDict, total=False):
     display_name: Required[str]
+    """The evaluator's name."""
 
     prompt: Required[Iterable[Iterable[object]]]
     """The prompt the model reads, as (role, template) pairs."""

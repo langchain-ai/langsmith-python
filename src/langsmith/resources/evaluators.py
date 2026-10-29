@@ -130,6 +130,8 @@ class EvaluatorsResource(SyncAPIResource):
         becomes a feedback key.
 
         Args:
+          display_name: The evaluator's name.
+
           prompt: The prompt the model reads, as (role, template) pairs.
 
           questions: The questions, keyed by feedback key, in the order to ask them.
@@ -308,6 +310,8 @@ class AsyncEvaluatorsResource(AsyncAPIResource):
         becomes a feedback key.
 
         Args:
+          display_name: The evaluator's name.
+
           prompt: The prompt the model reads, as (role, template) pairs.
 
           questions: The questions, keyed by feedback key, in the order to ask them.
