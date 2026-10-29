@@ -366,11 +366,14 @@ class TestAsyncSandboxOperations:
             status_code=204,
         )
 
-        async with await client.sandbox(snapshot_id="snap-1") as sandbox:
+        async with await client.sandbox(snapshot_id="snap-1", persistent=False) as sandbox:
             assert sandbox.name == "test-sandbox"
 
         # Verify delete was called
+        import json
+
         requests = httpx_mock.get_requests()
+        assert json.loads(requests[0].content)["persistent"] is False
         assert any(r.method == "DELETE" for r in requests)
 
     async def test_sandbox_timeout(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
@@ -617,7 +620,8 @@ class TestAsyncSandboxOperations:
 
         assert exc_info.value.last_status == "provisioning"
 
-    async def test_create_sandbox_with_retention(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
+    @pytest.mark.parametrize("persistent", [None, True, False])
+    async def test_create_sandbox_with_retention(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock, persistent):
         """Creating a sandbox with idle and delete-after-stop retention."""
         httpx_mock.add_response(
             method="POST",
@@ -636,6 +640,7 @@ class TestAsyncSandboxOperations:
             snapshot_id="snap-1",
             idle_ttl_seconds=600,
             delete_after_stop_seconds=86400,
+            persistent=persistent,
         )
 
         assert sandbox.idle_ttl_seconds == 600
@@ -646,6 +651,10 @@ class TestAsyncSandboxOperations:
 
         request = httpx_mock.get_request()
         payload = json.loads(request.content)
+        if persistent is None:
+            assert "persistent" not in payload
+        else:
+            assert payload["persistent"] is persistent
         assert payload["idle_ttl_seconds"] == 600
         assert payload["delete_after_stop_seconds"] == 86400
 
@@ -667,6 +676,7 @@ class TestAsyncSandboxOperations:
 
         request = httpx_mock.get_request()
         payload = json.loads(request.content)
+        assert "persistent" not in payload
         assert "idle_ttl_seconds" not in payload
         assert "delete_after_stop_seconds" not in payload
 

@@ -406,6 +406,7 @@ class SandboxClient:
         timeout: int = 30,
         idle_ttl_seconds: Optional[int] = None,
         delete_after_stop_seconds: Optional[int] = None,
+        persistent: Optional[bool] = None,
         vcpus: Optional[int] = None,
         mem_bytes: Optional[int] = None,
         fs_capacity_bytes: Optional[int] = None,
@@ -449,6 +450,8 @@ class SandboxClient:
                 permanently deleted. Must be a multiple of 60. ``0`` disables
                 stop-anchored deletion (manual cleanup required). When
                 omitted (``None``), the server applies its configured default.
+            persistent: Whether filesystem writes survive stops; false discards them on stop.
+                Omit to use the server default.
             vcpus: Number of vCPUs.
             mem_bytes: Memory in bytes.
             fs_capacity_bytes: Root filesystem capacity in bytes.
@@ -489,6 +492,7 @@ class SandboxClient:
             timeout=timeout,
             idle_ttl_seconds=idle_ttl_seconds,
             delete_after_stop_seconds=delete_after_stop_seconds,
+            persistent=persistent,
             vcpus=vcpus,
             mem_bytes=mem_bytes,
             fs_capacity_bytes=fs_capacity_bytes,
@@ -511,6 +515,7 @@ class SandboxClient:
         wait_for_ready: bool = True,
         idle_ttl_seconds: Optional[int] = None,
         delete_after_stop_seconds: Optional[int] = None,
+        persistent: Optional[bool] = None,
         vcpus: Optional[int] = None,
         mem_bytes: Optional[int] = None,
         fs_capacity_bytes: Optional[int] = None,
@@ -549,6 +554,8 @@ class SandboxClient:
                 permanently deleted. Must be a multiple of 60. ``0`` disables
                 stop-anchored deletion (manual cleanup required). When
                 omitted (``None``), the server applies its configured default.
+            persistent: Whether filesystem writes survive stops; false discards them on stop.
+                Omit to use the server default.
             vcpus: Number of vCPUs.
             mem_bytes: Memory in bytes.
             fs_capacity_bytes: Root filesystem capacity in bytes.
@@ -617,6 +624,8 @@ class SandboxClient:
             payload["idle_ttl_seconds"] = idle_ttl_seconds
         if delete_after_stop_seconds is not None:
             payload["delete_after_stop_seconds"] = delete_after_stop_seconds
+        if persistent is not None:
+            payload["persistent"] = persistent
         if vcpus is not None:
             payload["vcpus"] = vcpus
         if mem_bytes is not None:
