@@ -43,10 +43,10 @@ class SandboxListUsageCostsResponse(BaseModel):
     """
 
     storage_gib_hours: Optional[str] = None
-    """
-    Storage usage in GiB-hours from hourly attributed-byte samples, including
-    checkpoints. Available with RESOURCE granularity; null means complete usage is
-    unavailable.
+    """Recorded storage usage in GiB-hours from hourly samples, including checkpoints.
+
+    Available with RESOURCE granularity. Missing intervals are excluded; null means
+    no usable measurements are available.
     """
 
     storage_standard_units: Optional[str] = None
