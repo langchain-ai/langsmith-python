@@ -10,7 +10,17 @@ from .evaluator_top_level import EvaluatorTopLevel
 from .code_evaluator_top_level import CodeEvaluatorTopLevel
 from .evaluator_pagerduty_alert import EvaluatorPagerdutyAlert
 
-__all__ = ["Evaluator", "SpendLimit"]
+__all__ = ["Evaluator", "EffectiveSpendLimit", "SpendLimit"]
+
+
+class EffectiveSpendLimit(BaseModel):
+    """
+    spend_limit if set; otherwise the organization's default evaluator spend limit, once the rule has made its first evaluator call.
+    """
+
+    limit_usd: str
+
+    window: Literal["weekly"]
 
 
 class SpendLimit(BaseModel):
@@ -71,6 +81,12 @@ class Evaluator(BaseModel):
     dataset_id: Optional[str] = None
 
     dataset_name: Optional[str] = None
+
+    effective_spend_limit: Optional[EffectiveSpendLimit] = None
+    """
+    spend_limit if set; otherwise the organization's default evaluator spend limit,
+    once the rule has made its first evaluator call.
+    """
 
     evaluator_id: Optional[str] = None
 
