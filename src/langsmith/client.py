@@ -11037,10 +11037,7 @@ class Client:
                     tenant_id=self._get_tenant_id(),
                     host_url=self._host_url,
                 )
-                print(  # noqa: T201
-                    "Insights report completed! View the results at %s",
-                    job.link,
-                )
+                print(f"Insights report completed! View the results at {job.link}")  # noqa: T201
                 return job
             elif resp_json["status"] == "error":
                 raise ValueError(f"Failed to generate insights: {resp_json['error']}")
