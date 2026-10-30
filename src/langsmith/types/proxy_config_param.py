@@ -330,6 +330,18 @@ class Rule(TypedDict, total=False):
     """
 
     match_paths: SequenceNotStr[str]
+    """
+    MatchPaths restricts a header injection or rewrite rule to requests whose path
+    matches one of the patterns, so one host can use a different credential per
+    route. The path excludes the query string. A pattern is an exact path
+    (`/v1/runs`); a prefix, written as the prefix followed by a slash and `*` or
+    `**`, which matches any path starting with that prefix (the prefix `/v1` also
+    matches `/v10`); a suffix, written as `*`, a slash, and then the ending, which
+    matches any path that ends with that text (the ending `runs` also matches
+    `/v1/xruns`); or `*` alone for every path. A wildcard in the middle of a path is
+    not supported. An empty list matches every path. Rules are evaluated in order
+    and the first match wins. Rejected on aws, gcp, azure, and relay rules.
+    """
 
     relay_id: str
     """
