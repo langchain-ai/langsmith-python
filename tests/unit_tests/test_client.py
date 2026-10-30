@@ -1088,14 +1088,14 @@ def test_async_methods() -> None:
         for method in dir(Client)
         if not method.startswith("_")
         and callable(getattr(Client, method))
-        and not asyncio.iscoroutinefunction(getattr(Client, method))
+        and not inspect.iscoroutinefunction(getattr(Client, method))
     ]
     async_methods = [
         method
         for method in dir(Client)
         if not method.startswith("_")
         and callable(getattr(Client, method))
-        and asyncio.iscoroutinefunction(getattr(Client, method))
+        and inspect.iscoroutinefunction(getattr(Client, method))
     ]
 
     for async_method in async_methods:
