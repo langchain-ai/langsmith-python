@@ -81,6 +81,7 @@ from langsmith.client import (
     _parse_token_or_url,
     _reject_filesystem_attachments,
     _resolve_tracing_mode,
+    convert_prompt_to_anthropic_format,
 )
 from langsmith.evaluation.evaluator import RunEvaluator
 from langsmith.run_trees import RunTree
@@ -8677,3 +8678,26 @@ def test_flush_waits_for_buffered_run_ops(compressed: bool) -> None:
         assert len(sent) == 1
     finally:
         client.cleanup()
+
+
+def test_convert_prompt_to_anthropic_format_default_model(monkeypatch):
+    captured: dict = {}
+
+    class FakeChatAnthropic:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def _get_request_payload(self, messages, stop=None):
+            return {"model": captured["model_name"], "messages": messages}
+
+    monkeypatch.setitem(
+        sys.modules,
+        "langchain_anthropic",
+        SimpleNamespace(ChatAnthropic=FakeChatAnthropic),
+    )
+
+    payload = convert_prompt_to_anthropic_format([])
+    assert payload["model"] == "claude-haiku-4-5"
+
+    payload = convert_prompt_to_anthropic_format([], {"model_name": "claude-2"})
+    assert payload["model"] == "claude-2"
