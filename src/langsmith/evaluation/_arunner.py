@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures as cf
 import contextvars
+import inspect
 import io
 import logging
 import pathlib
@@ -491,7 +492,7 @@ async def _aevaluate(
     error_handling: Literal["log", "ignore"] = "log",
 ) -> AsyncExperimentResults:
     is_async_target = (
-        asyncio.iscoroutinefunction(target)
+        inspect.iscoroutinefunction(target)
         or (hasattr(target, "__aiter__") and asyncio.iscoroutine(target.__aiter__()))
         or _is_langchain_runnable(target)
     )
@@ -1319,7 +1320,7 @@ def _default_process_inputs(inputs: dict) -> dict:
 def _ensure_async_traceable(
     target: ATARGET_T,
 ) -> rh.SupportsLangsmithExtra[[dict], Awaitable]:
-    if not asyncio.iscoroutinefunction(target) and not _is_langchain_runnable(target):
+    if not inspect.iscoroutinefunction(target) and not _is_langchain_runnable(target):
         if callable(target):
             raise ValueError(
                 "Target must be an async function. For sync functions, use evaluate."
