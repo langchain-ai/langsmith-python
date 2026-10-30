@@ -2836,6 +2836,19 @@ def test__dumps_json_preserves_ints_larger_than_64_bits():
     assert deserialized["v"] == 2**70
 
 
+def test__dumps_json_preserves_valid_content_with_lone_surrogates():
+    payload = {
+        "bad": "x\ud800y",
+        "emoji": "😀",
+        "literal": r"\ud800",
+        "big": 2**70 + 1,
+    }
+
+    serialized = _dumps_json(payload)
+
+    assert json.loads(serialized) == {**payload, "bad": "xy"}
+
+
 def test__dumps_json_normalizes_unsupported_dict_keys():
     class TupleKeyedDict:
         def to_dict(self) -> Dict:
