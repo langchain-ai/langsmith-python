@@ -138,6 +138,7 @@ class TestBoxes:
                         "name": "name",
                         "aws": {
                             "role_arn": "x",
+                            "session_tags": {"foo": "string"},
                             "subject_scope": "tag:2fdcD1Dc-bbDb-2BBD-0Afa-1A3C33cFaADc",
                         },
                         "azure": {
@@ -311,6 +312,7 @@ class TestBoxes:
                         "name": "name",
                         "aws": {
                             "role_arn": "x",
+                            "session_tags": {"foo": "string"},
                             "subject_scope": "tag:2fdcD1Dc-bbDb-2BBD-0Afa-1A3C33cFaADc",
                         },
                         "azure": {
@@ -1029,6 +1031,7 @@ class TestAsyncBoxes:
                         "name": "name",
                         "aws": {
                             "role_arn": "x",
+                            "session_tags": {"foo": "string"},
                             "subject_scope": "tag:2fdcD1Dc-bbDb-2BBD-0Afa-1A3C33cFaADc",
                         },
                         "azure": {
@@ -1202,6 +1205,7 @@ class TestAsyncBoxes:
                         "name": "name",
                         "aws": {
                             "role_arn": "x",
+                            "session_tags": {"foo": "string"},
                             "subject_scope": "tag:2fdcD1Dc-bbDb-2BBD-0Afa-1A3C33cFaADc",
                         },
                         "azure": {

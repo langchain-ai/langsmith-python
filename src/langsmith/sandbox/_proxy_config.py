@@ -92,7 +92,7 @@ def _validate_proxy_provider_rule(rule: SandboxProxyRule) -> None:
     if rule.get("type") == "aws":
         aws = rule.get("aws")
         if isinstance(aws, dict):
-            _get_aws_role_arn(aws)
+            _get_aws_role_arn(aws, options=("session_tags",))
         return
     if rule.get("type") != "gcp":
         return
@@ -102,14 +102,34 @@ def _validate_proxy_provider_rule(rule: SandboxProxyRule) -> None:
     _require_non_empty_string_list(gcp["scopes"], "scopes")
 
 
-def _get_aws_role_arn(aws: dict[str, Any]) -> str | None:
-    """Validate role-only descriptors without tightening legacy static inputs."""
+def _get_aws_role_arn(aws: dict[str, Any], *, options: Sequence[str] = ()) -> str | None:
+    """Validate role-only descriptors without tightening legacy static inputs.
+
+    ``options`` are the role fields this caller accepts besides ``role_arn``.
+    """
     if "role_arn" not in aws or aws["role_arn"] == "":
+        if aws.get("session_tags"):
+            raise ValueError("session_tags requires role_arn")
         return None
     role_arn = _require_non_empty_string(aws["role_arn"], "role_arn")
-    if set(aws) != {"role_arn"}:
-        raise ValueError("AWS role auth must contain only role_arn")
+    if "session_tags" in aws and "session_tags" not in options:
+        raise ValueError("session_tags are only supported on a proxy_config AWS rule, not mount_config auth")
+    extra = set(aws) - {"role_arn", *options}
+    if extra:
+        raise ValueError("AWS role auth must contain only role_arn" + "".join(f" and {o}" for o in options))
+    if "session_tags" in aws:
+        _require_session_tags(aws["session_tags"])
     return role_arn
+
+
+def _require_session_tags(tags: Any) -> dict[str, str]:
+    # LangSmith validates AWS's tag rules; this only checks the shape.
+    if not isinstance(tags, Mapping):
+        raise ValueError("session_tags must be a mapping of tag keys to values")
+    for key, value in tags.items():
+        _require_non_empty_string(key, "session_tags key")
+        _require_non_empty_string(value, f"session_tags[{key!r}]")
+    return dict(tags)
 
 
 def proxy_config(
@@ -157,6 +177,7 @@ def aws_auth(
 def aws_auth(
     *,
     role_arn: str,
+    session_tags: Mapping[str, str] | None = None,
     access_key_id: None = None,
     secret_access_key: None = None,
     name: str = "aws",
@@ -170,6 +191,7 @@ def aws_auth(
     access_key_id: SandboxProxySecret | None = None,
     secret_access_key: SandboxProxySecret | None = None,
     role_arn: str | None = None,
+    session_tags: Mapping[str, str] | None = None,
     name: str = "aws",
     enabled: bool = True,
     env_vars: Mapping[str, str] | None = None,
@@ -188,6 +210,12 @@ def aws_auth(
     Role authentication is configured at sandbox creation, not through updates.
 
     Args:
+        session_tags: AWS session tags for the role session, so the role's own
+            policy can scope access per sandbox with ``${aws:PrincipalTag/<key>}``
+            (for example an S3 prefix per user). Requires ``role_arn``, and the
+            role's trust policy must allow ``sts:TagSession``. Only valid in
+            ``proxy_config``; a mount-scoped role in ``mount_config(auth=[...])``
+            cannot carry tags.
         env_vars: Plaintext environment variables set for every command in the
             sandbox while this rule is enabled, for tools that refuse to run
             unless a credential variable is present even though the proxy
@@ -197,13 +225,17 @@ def aws_auth(
     aws: dict[str, Any] = {}
     if role_arn is not None:
         aws["role_arn"] = role_arn
+    if session_tags is not None:
+        aws["session_tags"] = session_tags
     if access_key_id is not None:
         aws["access_key_id"] = access_key_id
     if secret_access_key is not None:
         aws["secret_access_key"] = secret_access_key
-    normalized_role = _get_aws_role_arn(aws)
+    normalized_role = _get_aws_role_arn(aws, options=("session_tags",))
     if normalized_role is not None:
         aws = {"role_arn": normalized_role}
+        if session_tags is not None:
+            aws["session_tags"] = _require_session_tags(session_tags)
     else:
         if access_key_id is None or secret_access_key is None:
             raise ValueError("AWS auth requires role_arn or both static credentials")

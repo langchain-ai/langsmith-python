@@ -88,6 +88,41 @@ def test_raw_role_descriptors_reject_extra_fields(extra: dict[str, Any]) -> None
         mount_config(auth=[rule], mounts=_mounts())
 
 
+def test_aws_role_helper_session_tags() -> None:
+    tags = {"env": "dev", "user": "u-1"}
+    rule = aws_auth(role_arn=ROLE_ARN, session_tags=tags)
+    assert rule["aws"] == {"role_arn": ROLE_ARN, "session_tags": tags}
+    assert proxy_config(rules=[rule])["rules"][0]["aws"]["session_tags"] == tags
+    # A shared proxy role with tags still supplies S3 mount auth.
+    proxy = proxy_config(rules=[rule])
+    assert mount_config(proxy_config=proxy, mounts=_mounts()) == {"auth": {}, "mounts": _mounts()}
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {
+            "session_tags": {"user": "u-1"},
+            "access_key_id": workspace_secret("K"),
+            "secret_access_key": workspace_secret("S"),
+        },
+        {"role_arn": ROLE_ARN, "session_tags": ["user"]},
+        {"role_arn": ROLE_ARN, "session_tags": {"user": ""}},
+        {"role_arn": ROLE_ARN, "session_tags": {"": "u-1"}},
+        {"role_arn": ROLE_ARN, "session_tags": {"user": 1}},
+    ],
+)
+def test_aws_role_helper_rejects_bad_session_tags(options: dict[str, Any]) -> None:
+    with pytest.raises(ValueError):
+        aws_auth(**options)
+
+
+def test_mount_scoped_role_rejects_session_tags() -> None:
+    rule = aws_auth(role_arn=ROLE_ARN, session_tags={"user": "u-1"})
+    with pytest.raises(ValueError, match="only supported on a proxy_config"):
+        mount_config(auth=[rule], mounts=_mounts())
+
+
 def test_mount_scoped_role_stays_in_mount_auth() -> None:
     config = mount_config(auth=[aws_auth(role_arn=ROLE_ARN)], mounts=_mounts())
     assert config["auth"] == {"aws": {"role_arn": ROLE_ARN}}
