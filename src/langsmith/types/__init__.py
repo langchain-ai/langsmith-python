@@ -18,6 +18,7 @@ from .thread_trace import ThreadTrace as ThreadTrace
 from .missing_param import MissingParam as MissingParam
 from .run_type_enum import RunTypeEnum as RunTypeEnum
 from .prompt_webhook import PromptWebhook as PromptWebhook
+from .tracer_session import TracerSession as TracerSession
 from .online_evaluator import OnlineEvaluator as OnlineEvaluator
 from .run_select_field import RunSelectField as RunSelectField
 from .sandbox_response import SandboxResponse as SandboxResponse
@@ -48,6 +49,8 @@ from .issue_retrieve_params import IssueRetrieveParams as IssueRetrieveParams
 from .online_code_evaluator import OnlineCodeEvaluator as OnlineCodeEvaluator
 from .online_evaluator_type import OnlineEvaluatorType as OnlineEvaluatorType
 from .sandbox_list_response import SandboxListResponse as SandboxListResponse
+from .session_create_params import SessionCreateParams as SessionCreateParams
+from .session_update_params import SessionUpdateParams as SessionUpdateParams
 from .run_retrieve_v2_params import RunRetrieveV2Params as RunRetrieveV2Params
 from .session_resolve_params import SessionResolveParams as SessionResolveParams
 from .snapshot_list_response import SnapshotListResponse as SnapshotListResponse
