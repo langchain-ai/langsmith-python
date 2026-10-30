@@ -58,6 +58,7 @@ from langsmith.utils import (
     LangSmithError,
     LangSmithNotFoundError,
     get_env_var,
+    is_version_greater_or_equal,
 )
 
 logger = logging.getLogger(__name__)
@@ -1543,8 +1544,13 @@ def test_slow_run_read_multipart(langchain_client: Client, caplog: pytest.LogCap
         assert not caplog.records
 
 
-def test_list_examples_exclude_default_fields(langchain_client: Client) -> None:
+def test_list_examples_exclude_default_fields() -> None:
     """Same cases the server pins: flag on returns select plus id, flag off keeps defaults."""
+    langchain_client = Client()
+    version = langchain_client.info.version
+    assert version, "Server /info must report a version"
+    if not is_version_greater_or_equal(version, "0.18.15rc1"):
+        pytest.skip("exclude_default_fields requires server >= 0.18.15rc1")
     dataset_name = "__test_list_examples_exclude_default_fields" + uuid7().hex
     dataset = _create_dataset(langchain_client, dataset_name)
     example = langchain_client.create_example(
