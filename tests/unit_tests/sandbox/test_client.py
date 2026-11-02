@@ -729,6 +729,49 @@ class TestSandboxOperations:
         assert "idle_ttl_seconds" not in payload
         assert "delete_after_stop_seconds" not in payload
 
+    def test_create_sandbox_memory_and_labels(self, client: SandboxClient, httpx_mock: HTTPXMock):
+        """Memory and label options are sent only when set and read back from the response."""
+        httpx_mock.add_response(
+            method="POST",
+            url="http://test-server:8080/boxes",
+            json={
+                "name": "test-sandbox",
+                "dataplane_url": "https://sandbox-router.example.com/sb-123",
+                "preserve_memory_on_stop": True,
+                "labels": {"env": "prod", "team": "agents"},
+            },
+            status_code=201,
+        )
+        httpx_mock.add_response(
+            method="POST",
+            url="http://test-server:8080/boxes",
+            json={
+                "name": "test-sandbox",
+                "dataplane_url": "https://sandbox-router.example.com/sb-123",
+                "preserve_memory_on_stop": False,
+            },
+            status_code=201,
+        )
+
+        sandbox = client.create_sandbox(
+            snapshot_id="snap-1",
+            preserve_memory_on_stop=True,
+            restore_memory=False,
+            labels={"team": "agents"},
+        )
+        client.create_sandbox(snapshot_id="snap-1")
+
+        import json
+
+        set_payload, unset_payload = (json.loads(r.content) for r in httpx_mock.get_requests())
+        assert set_payload["preserve_memory_on_stop"] is True
+        assert set_payload["restore_memory"] is False
+        assert set_payload["labels"] == {"team": "agents"}
+        for key in ("preserve_memory_on_stop", "restore_memory", "labels"):
+            assert key not in unset_payload
+        assert sandbox.preserve_memory_on_stop is True
+        assert sandbox.labels == {"env": "prod", "team": "agents"}
+
     def test_create_sandbox_retention_validation_negative(self, client: SandboxClient):
         """Negative retention values raise ValueError."""
         with pytest.raises(ValueError, match="must be >= 0"):

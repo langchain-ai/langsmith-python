@@ -516,9 +516,12 @@ class SandboxClient:
         idle_ttl_seconds: Optional[int] = None,
         delete_after_stop_seconds: Optional[int] = None,
         persistent: Optional[bool] = None,
+        preserve_memory_on_stop: Optional[bool] = None,
+        restore_memory: Optional[bool] = None,
         vcpus: Optional[int] = None,
         mem_bytes: Optional[int] = None,
         fs_capacity_bytes: Optional[int] = None,
+        labels: Optional[dict[str, str]] = None,
         mount_config: Optional[SandboxMountConfig] = None,
         proxy_config: Optional[SandboxProxyConfig] = None,
         run_config: Optional[Union[RunConfig, dict[str, Any]]] = None,
@@ -556,9 +559,21 @@ class SandboxClient:
                 omitted (``None``), the server applies its configured default.
             persistent: Whether filesystem writes survive stops; false discards them on stop.
                 Omit to use the server default.
+            preserve_memory_on_stop: If True, a voluntary stop (idle timeout
+                or ``stop_sandbox()``) suspends the sandbox's memory, so the
+                next start resumes running processes instead of cold-booting.
+                Requires a persistent sandbox. Omit to use the server default
+                (off).
+            restore_memory: How to handle memory captured in the snapshot,
+                for this create only. True always resumes from it (rejected if
+                the snapshot has none), False always cold-boots. Omit to
+                resume when the snapshot has memory and cold-boot otherwise.
             vcpus: Number of vCPUs.
             mem_bytes: Memory in bytes.
             fs_capacity_bytes: Root filesystem capacity in bytes.
+            labels: Free-form key/value metadata stored with the sandbox and
+                returned on reads. Labels from the source snapshot are
+                inherited unless overridden here.
             run_config: User, working directory and environment the sandbox
                 boots with, overriding the snapshot's: ``user`` and
                 ``work_dir`` replace, ``env_vars`` merge. The sandbox's own
@@ -626,12 +641,18 @@ class SandboxClient:
             payload["delete_after_stop_seconds"] = delete_after_stop_seconds
         if persistent is not None:
             payload["persistent"] = persistent
+        if preserve_memory_on_stop is not None:
+            payload["preserve_memory_on_stop"] = preserve_memory_on_stop
+        if restore_memory is not None:
+            payload["restore_memory"] = restore_memory
         if vcpus is not None:
             payload["vcpus"] = vcpus
         if mem_bytes is not None:
             payload["mem_bytes"] = mem_bytes
         if fs_capacity_bytes is not None:
             payload["fs_capacity_bytes"] = fs_capacity_bytes
+        if labels is not None:
+            payload["labels"] = labels
         if mount_config is not None:
             validate_mount_config_proxy_config(mount_config, proxy_config)
             payload["mount_config"] = mount_config

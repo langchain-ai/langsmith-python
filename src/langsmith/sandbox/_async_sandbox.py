@@ -120,6 +120,11 @@ class AsyncSandbox:
         run_config: User, working directory and environment the sandbox's
             commands run with. None on sandboxes created before the server
             recorded it.
+        preserve_memory_on_stop: Whether a voluntary stop suspends the
+            sandbox's memory so the next start resumes running processes.
+            None when the server response does not include it.
+        labels: Key/value metadata stored with the sandbox, including labels
+            inherited from its snapshot.
 
     Example:
         async with await client.sandbox(
@@ -146,6 +151,8 @@ class AsyncSandbox:
     fs_capacity_bytes: Optional[int] = None
     run_config: Optional[RunConfig] = None
     access_delegation: Optional[AccessDelegation] = None
+    preserve_memory_on_stop: Optional[bool] = None
+    labels: Optional[dict[str, str]] = None
 
     # Internal fields (not from API)
     _client: AsyncSandboxClient = field(repr=False, default=None)  # type: ignore
@@ -185,6 +192,8 @@ class AsyncSandbox:
             fs_capacity_bytes=data.get("fs_capacity_bytes"),
             run_config=_run_config_from_dict(data.get("run_config")),
             access_delegation=_access_delegation_from_dict(data.get("access_delegation")),
+            preserve_memory_on_stop=data.get("preserve_memory_on_stop"),
+            labels=data.get("labels"),
             _client=client,
             _auto_delete=auto_delete,
         )
@@ -223,6 +232,8 @@ class AsyncSandbox:
             fs_capacity_bytes=self.fs_capacity_bytes,
             run_config=self.run_config,
             access_delegation=self.access_delegation,
+            preserve_memory_on_stop=self.preserve_memory_on_stop,
+            labels=self.labels,
             _client=client if client is not None else self._client.to_sync(),
             _auto_delete=False,
         )
