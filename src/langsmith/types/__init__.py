@@ -61,6 +61,7 @@ from .trace_list_runs_params import TraceListRunsParams as TraceListRunsParams
 from .annotation_queue_schema import AnnotationQueueSchema as AnnotationQueueSchema
 from .evaluator_list_response import EvaluatorListResponse as EvaluatorListResponse
 from .sandbox_status_response import SandboxStatusResponse as SandboxStatusResponse
+from .session_retrieve_params import SessionRetrieveParams as SessionRetrieveParams
 from .code_evaluator_top_level import CodeEvaluatorTopLevel as CodeEvaluatorTopLevel
 from .run_stats_group_by_param import RunStatsGroupByParam as RunStatsGroupByParam
 from .session_dashboard_params import SessionDashboardParams as SessionDashboardParams

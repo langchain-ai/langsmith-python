@@ -10,6 +10,7 @@ from ..types import (
     session_create_params,
     session_update_params,
     session_resolve_params,
+    session_retrieve_params,
     session_dashboard_params,
 )
 from .._httpx import httpx
@@ -117,6 +118,53 @@ class SessionsResource(SyncAPIResource):
                 extra_body=extra_body,
                 timeout=timeout,
                 query=maybe_transform({"upsert": upsert}, session_create_params.SessionCreateParams),
+            ),
+            cast_to=TracerSession,
+        )
+
+    def retrieve(
+        self,
+        project_id: str,
+        *,
+        include_stats: bool | Omit = omit,
+        stats_start_time: Union[str, datetime, None] | Omit = omit,
+        accept: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> TracerSession:
+        """
+        Get a specific project.
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not project_id:
+            raise ValueError(f"Expected a non-empty value for `project_id` but received {project_id!r}")
+        extra_headers = {**strip_not_given({"accept": accept}), **(extra_headers or {})}
+        return self._get(
+            path_template("/api/v1/sessions/{project_id}", project_id=project_id),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "include_stats": include_stats,
+                        "stats_start_time": stats_start_time,
+                    },
+                    session_retrieve_params.SessionRetrieveParams,
+                ),
             ),
             cast_to=TracerSession,
         )
@@ -419,6 +467,53 @@ class AsyncSessionsResource(AsyncAPIResource):
             cast_to=TracerSession,
         )
 
+    async def retrieve(
+        self,
+        project_id: str,
+        *,
+        include_stats: bool | Omit = omit,
+        stats_start_time: Union[str, datetime, None] | Omit = omit,
+        accept: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> TracerSession:
+        """
+        Get a specific project.
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not project_id:
+            raise ValueError(f"Expected a non-empty value for `project_id` but received {project_id!r}")
+        extra_headers = {**strip_not_given({"accept": accept}), **(extra_headers or {})}
+        return await self._get(
+            path_template("/api/v1/sessions/{project_id}", project_id=project_id),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=await async_maybe_transform(
+                    {
+                        "include_stats": include_stats,
+                        "stats_start_time": stats_start_time,
+                    },
+                    session_retrieve_params.SessionRetrieveParams,
+                ),
+            ),
+            cast_to=TracerSession,
+        )
+
     async def update(
         self,
         project_id: str,
@@ -636,6 +731,9 @@ class SessionsResourceWithRawResponse:
         self.create = to_raw_response_wrapper(
             sessions.create,
         )
+        self.retrieve = to_raw_response_wrapper(
+            sessions.retrieve,
+        )
         self.update = to_raw_response_wrapper(
             sessions.update,
         )
@@ -656,6 +754,9 @@ class AsyncSessionsResourceWithRawResponse:
 
         self.create = async_to_raw_response_wrapper(
             sessions.create,
+        )
+        self.retrieve = async_to_raw_response_wrapper(
+            sessions.retrieve,
         )
         self.update = async_to_raw_response_wrapper(
             sessions.update,
@@ -678,6 +779,9 @@ class SessionsResourceWithStreamingResponse:
         self.create = to_streamed_response_wrapper(
             sessions.create,
         )
+        self.retrieve = to_streamed_response_wrapper(
+            sessions.retrieve,
+        )
         self.update = to_streamed_response_wrapper(
             sessions.update,
         )
@@ -698,6 +802,9 @@ class AsyncSessionsResourceWithStreamingResponse:
 
         self.create = async_to_streamed_response_wrapper(
             sessions.create,
+        )
+        self.retrieve = async_to_streamed_response_wrapper(
+            sessions.retrieve,
         )
         self.update = async_to_streamed_response_wrapper(
             sessions.update,

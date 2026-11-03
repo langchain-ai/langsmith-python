@@ -67,6 +67,7 @@ from langsmith.types import (
 Methods:
 
 - <code title="post /api/v1/sessions">client.sessions.<a href="./src/langsmith/resources/sessions.py">create</a>(\*\*<a href="src/langsmith/types/session_create_params.py">params</a>) -> <a href="./src/langsmith/types/tracer_session.py">TracerSession</a></code>
+- <code title="get /api/v1/sessions/{session_id}">client.sessions.<a href="./src/langsmith/resources/sessions.py">retrieve</a>(project_id, \*\*<a href="src/langsmith/types/session_retrieve_params.py">params</a>) -> <a href="./src/langsmith/types/tracer_session.py">TracerSession</a></code>
 - <code title="patch /api/v1/sessions/{session_id}">client.sessions.<a href="./src/langsmith/resources/sessions.py">update</a>(project_id, \*\*<a href="src/langsmith/types/session_update_params.py">params</a>) -> <a href="./src/langsmith/types/tracer_session.py">TracerSession</a></code>
 - <code title="delete /api/v1/sessions/{session_id}">client.sessions.<a href="./src/langsmith/resources/sessions.py">delete</a>(project_id) -> None</code>
 - <code title="post /api/v1/sessions/{session_id}/dashboard">client.sessions.<a href="./src/langsmith/resources/sessions.py">dashboard</a>(session_id, \*\*<a href="src/langsmith/types/session_dashboard_params.py">params</a>) -> <a href="./src/langsmith/types/custom_charts_section.py">CustomChartsSection</a></code>
