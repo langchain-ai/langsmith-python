@@ -11,6 +11,7 @@ from langsmith import Langsmith, AsyncLangsmith
 from tests.utils import assert_matches_type
 from langsmith.types import (
     TracerSession,
+    CustomChartsSection,
     SessionResolveResponse,
 )
 from langsmith._utils import parse_datetime
@@ -127,6 +128,72 @@ class TestSessions:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `project_id` but received ''"):
             client.sessions.with_raw_response.update(
                 project_id="",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_dashboard(self, client: Langsmith) -> None:
+        session = client.sessions.dashboard(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(CustomChartsSection, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_dashboard_with_all_params(self, client: Langsmith) -> None:
+        session = client.sessions.dashboard(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            end_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+            group_by={
+                "attribute": "name",
+                "max_groups": 0,
+                "path": "path",
+            },
+            omit_data=True,
+            start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+            stride={
+                "days": 0,
+                "hours": 0,
+                "minutes": 0,
+            },
+            timezone="timezone",
+            accept="accept",
+        )
+        assert_matches_type(CustomChartsSection, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_dashboard(self, client: Langsmith) -> None:
+
+        response = client.sessions.with_raw_response.dashboard(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        session = response.parse()
+        assert_matches_type(CustomChartsSection, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_dashboard(self, client: Langsmith) -> None:
+        with client.sessions.with_streaming_response.dashboard(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            session = response.parse()
+            assert_matches_type(CustomChartsSection, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_dashboard(self, client: Langsmith) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `session_id` but received ''"):
+            client.sessions.with_raw_response.dashboard(
+                session_id="",
             )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
@@ -286,6 +353,72 @@ class TestAsyncSessions:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `project_id` but received ''"):
             await async_client.sessions.with_raw_response.update(
                 project_id="",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_dashboard(self, async_client: AsyncLangsmith) -> None:
+        session = await async_client.sessions.dashboard(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(CustomChartsSection, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_dashboard_with_all_params(self, async_client: AsyncLangsmith) -> None:
+        session = await async_client.sessions.dashboard(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            end_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+            group_by={
+                "attribute": "name",
+                "max_groups": 0,
+                "path": "path",
+            },
+            omit_data=True,
+            start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+            stride={
+                "days": 0,
+                "hours": 0,
+                "minutes": 0,
+            },
+            timezone="timezone",
+            accept="accept",
+        )
+        assert_matches_type(CustomChartsSection, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_dashboard(self, async_client: AsyncLangsmith) -> None:
+
+        response = await async_client.sessions.with_raw_response.dashboard(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        session = await response.parse()
+        assert_matches_type(CustomChartsSection, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_dashboard(self, async_client: AsyncLangsmith) -> None:
+        async with async_client.sessions.with_streaming_response.dashboard(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            session = await response.parse()
+            assert_matches_type(CustomChartsSection, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_dashboard(self, async_client: AsyncLangsmith) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `session_id` but received ''"):
+            await async_client.sessions.with_raw_response.dashboard(
+                session_id="",
             )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
