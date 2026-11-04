@@ -19,7 +19,7 @@ async def test_session_write_uses_v1(async_client: bool, operation: str, include
         "start_time": "2026-10-26T00:00:00Z",
         "last_run_start_time": "2026-10-26T00:00:00Z",
         "run_count": 3 if include_stats else None,
-        "total_cost": "0.12" if include_stats else None,
+        "total_cost": 0.12 if include_stats else None,
     }
 
     def handle(request: httpx.Request) -> httpx.Response:

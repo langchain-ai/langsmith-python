@@ -24,7 +24,7 @@ class TracerSession(BaseModel):
 
     tenant_id: str
 
-    completion_cost: Optional[str] = None
+    completion_cost: Optional[float] = None
 
     completion_tokens: Optional[int] = None
 
@@ -56,7 +56,7 @@ class TracerSession(BaseModel):
 
     name: Optional[str] = None
 
-    prompt_cost: Optional[str] = None
+    prompt_cost: Optional[float] = None
 
     prompt_tokens: Optional[int] = None
 
@@ -74,7 +74,7 @@ class TracerSession(BaseModel):
 
     test_run_number: Optional[int] = None
 
-    total_cost: Optional[str] = None
+    total_cost: Optional[float] = None
 
     total_tokens: Optional[int] = None
 
