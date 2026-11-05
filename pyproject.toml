@@ -139,8 +139,16 @@ langsmith_plugin = "langsmith.pytest_plugin"
 managed = true
 required-version = ">=0.9"
 exclude-newer = "P7D"
-# livekit-agents pins an older json-repair; retain the source SDK's security floor.
-override-dependencies = ["json-repair>=0.60.1", "mcp>=2.2.0"]
+# Retain security floors over transitive pins (livekit-agents: json-repair;
+# strands-agents: mcp; pipecat-ai and strands-agents-tools: pillow<13, which needs Python 3.11).
+override-dependencies = [
+    "json-repair>=0.60.1",
+    "mcp>=2.2.0",
+    "nltk>=3.10.4",
+    "pillow>=12.0.0; python_version<'3.11'",
+    "pillow>=13.0.0; python_version>='3.11'",
+    "pyasn1>=0.6.5",
+]
 
 [dependency-groups]
 # version pins are in uv.lock
