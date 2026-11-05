@@ -9,7 +9,7 @@ from langsmith import uuid7
 from langsmith.async_client import AsyncClient
 from langsmith.schemas import DataType
 from langsmith.utils import LangSmithRateLimitError
-from tests.integration_tests.conftest import skip_if_rate_limited
+from tests.integration_tests.conftest import TEST_RUN_START, skip_if_rate_limited
 
 
 async def wait_for(condition, timeout=10, **kwargs):
@@ -87,7 +87,12 @@ async def test_list_runs(async_client: AsyncClient):
     filter_ = f'and(eq(metadata_key, "uid"), eq(metadata_value, "{meta_uid}"))'
 
     async def check_runs():
-        runs = [run async for run in async_client.list_runs(project_name=project_name, filter=filter_)]
+        runs = [
+            run
+            async for run in async_client.list_runs(
+                start_time=TEST_RUN_START, project_name=project_name, filter=filter_
+            )
+        ]
         return len(runs) == 2
 
     try:

@@ -1,3 +1,4 @@
+import datetime
 import functools
 import inspect
 import os
@@ -10,6 +11,12 @@ from langsmith import utils as ls_utils
 from langsmith._internal import _patch as patch_vcr
 
 patch_vcr.patch_vcr_aiohttp()
+
+# Lower bound for run queries: every run an integration test reads is created
+# after this module loads. LangSmith rate-limits API-key run queries without a
+# start_time to a few per workspace every ten seconds, and concurrent CI jobs
+# share that budget. Five minutes of margin absorbs clock skew.
+TEST_RUN_START = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=5)
 
 
 def skip_if_rate_limited(fn):

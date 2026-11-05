@@ -60,6 +60,7 @@ from langsmith.utils import (
     get_env_var,
     is_version_greater_or_equal,
 )
+from tests.integration_tests.conftest import TEST_RUN_START
 
 logger = logging.getLogger(__name__)
 
@@ -963,6 +964,7 @@ def test_batch_ingest_runs(langchain_client: Client, use_multipart_endpoint: boo
         try:
             runs = list(
                 langchain_client.list_runs(
+                    start_time=TEST_RUN_START,
                     project_name=_session,
                     run_ids=[str(trace_id), str(run_id_2), str(trace_id_2)],
                 )
@@ -3520,7 +3522,7 @@ def test_list_threads(langchain_client: Client) -> None:
         wait_for(
             lambda: (
                 next(
-                    langchain_client.list_runs(project_name=project_name, limit=1),
+                    langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, limit=1),
                     None,
                 )
                 is not None
@@ -3590,7 +3592,7 @@ def test_read_thread(langchain_client: Client) -> None:
         wait_for(
             lambda: (
                 next(
-                    langchain_client.list_runs(project_name=project_name, limit=1),
+                    langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, limit=1),
                     None,
                 )
                 is not None

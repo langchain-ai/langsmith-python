@@ -22,7 +22,7 @@ from langsmith.run_helpers import (
 )
 from langsmith.run_trees import RunTree
 from langsmith.schemas import Attachment
-from tests.integration_tests.conftest import skip_if_rate_limited
+from tests.integration_tests.conftest import TEST_RUN_START, skip_if_rate_limited
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,9 @@ def poll_runs_until_count(
     retries = 0
     while retries < max_retries:
         try:
-            runs = list(langchain_client.list_runs(project_name=project_name, filter=filter_))
+            runs = list(
+                langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=filter_)
+            )
             if len(runs) == count:
                 if not require_success or all([run.status == "success" for run in runs]):
                     return runs
@@ -90,6 +92,7 @@ def test_nested_runs(
         try:
             runs = list(
                 langchain_client.list_runs(
+                    start_time=TEST_RUN_START,
                     project_name=project_name,
                     filter=f"and(eq(metadata_key,'test_run'),eq(metadata_value,'{run_meta}'))",
                 )
@@ -136,6 +139,7 @@ async def test_list_runs_multi_project(langchain_client: Client):
     poll_runs_until_count(langchain_client, project_names[1], 1, filter_=filter_)
     runs = list(
         langchain_client.list_runs(
+            start_time=TEST_RUN_START,
             project_name=project_names,
             filter=filter_,
         )
@@ -203,7 +207,11 @@ async def test_nested_async_runs_with_threadpool(langchain_client: Client):
     executor.shutdown(wait=True)
     filter_ = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{meta}"))'
     runs = poll_runs_until_count(langchain_client, project_name, 17, filter_=filter_, max_retries=30)
-    trace_runs = list(langchain_client.list_runs(trace_id=runs[0].trace_id, project_name=project_name, filter=filter_))
+    trace_runs = list(
+        langchain_client.list_runs(
+            start_time=TEST_RUN_START, trace_id=runs[0].trace_id, project_name=project_name, filter=filter_
+        )
+    )
     assert len(trace_runs) == 17
     assert len(runs) == 17
     assert sum([run.run_type == "llm" for run in runs]) == 8
@@ -254,7 +262,7 @@ async def test_context_manager(langchain_client: Client) -> None:
         run_tree.end(outputs={"End val": "my_context2"})
     _filter = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{meta}"))'
     poll_runs_until_count(langchain_client, project_name, 8, filter_=_filter)
-    runs_ = list(langchain_client.list_runs(project_name=project_name, filter=_filter))
+    runs_ = list(langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=_filter))
     assert len(runs_) == 8
 
 
@@ -278,7 +286,7 @@ def test_sync_generator(langchain_client: Client):
     assert results == ["Yielded 0", "Yielded 1", "Yielded 2", "Yielded 3", "Yielded 4"]
     _filter = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{run_meta}"))'
     poll_runs_until_count(langchain_client, project_name, 1, max_retries=20, filter_=_filter)
-    runs = list(langchain_client.list_runs(project_name=project_name, filter=_filter))
+    runs = list(langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=_filter))
     run = runs[0]
     assert run.run_type == "chain"
     assert run.name == "my_generator"
@@ -308,7 +316,7 @@ def test_sync_generator_reduce_fn(langchain_client: Client):
     filter_ = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{run_meta}"))'
     assert results == ["Yielded 0", "Yielded 1", "Yielded 2", "Yielded 3", "Yielded 4"]
     poll_runs_until_count(langchain_client, project_name, 1, max_retries=20, filter_=filter_)
-    runs = list(langchain_client.list_runs(project_name=project_name, filter=filter_))
+    runs = list(langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=filter_))
     run = runs[0]
     assert run.run_type == "chain"
     assert run.name == "my_generator"
@@ -342,7 +350,7 @@ async def test_async_generator(langchain_client: Client):
     ]
     _filter = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{run_meta}"))'
     poll_runs_until_count(langchain_client, project_name, 1, max_retries=20, filter_=_filter)
-    runs = list(langchain_client.list_runs(project_name=project_name, filter=_filter))
+    runs = list(langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=_filter))
     run = runs[0]
     assert run.run_type == "chain"
     assert run.name == "my_async_generator"
@@ -388,7 +396,7 @@ async def test_async_generator_reduce_fn(langchain_client: Client):
     ]
     filter_ = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{run_meta}"))'
     poll_runs_until_count(langchain_client, project_name, 1, max_retries=30, sleep_time=5, filter_=filter_)
-    runs = list(langchain_client.list_runs(project_name=project_name, filter=filter_))
+    runs = list(langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=filter_))
     run = runs[0]
     assert run.run_type == "chain"
     assert run.name == "my_async_generator"
@@ -424,7 +432,7 @@ async def test_end_metadata_with_run_tree(langchain_client: Client):
     filter_ = f'eq(id, "{run_id}")'
     poll_runs_until_count(langchain_client, project_name, 1, filter_=filter_)
 
-    runs_ = list(langchain_client.list_runs(project_name=project_name, filter=filter_))
+    runs_ = list(langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=filter_))
     run = runs_[0]
     assert run.run_type == "chain"
     assert run.metadata["final_metadata"] == run_id.hex
@@ -459,7 +467,7 @@ def test_trace_file_path(langchain_client: Client) -> None:
     )
     _filter = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{run_meta}"))'
     poll_runs_until_count(langchain_client, project_name, 1, max_retries=30, filter_=_filter)
-    runs = list(langchain_client.list_runs(project_name=project_name, filter=_filter))
+    runs = list(langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=_filter))
     assert len(runs) == 1
     run = runs[0]
     assert run.attachments
@@ -585,7 +593,7 @@ def test_usage_metadata(langchain_client: Client):
         func("foo")
     _filter = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{run_meta}"))'
     poll_runs_until_count(langchain_client, project_name, len(funcs), max_retries=20, filter_=_filter)
-    runs = list(langchain_client.list_runs(project_name=project_name, filter=_filter))
+    runs = list(langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=_filter))
     for run in runs:
         assert run.input_tokens == 10
         assert run.output_tokens == 20
@@ -680,7 +688,7 @@ async def test_usage_metadata_async(langchain_client: Client):
 
     _filter = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{run_meta}"))'
     poll_runs_until_count(langchain_client, project_name, len(funcs), max_retries=20, filter_=_filter)
-    runs = list(langchain_client.list_runs(project_name=project_name, filter=_filter))
+    runs = list(langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=_filter))
 
     for run in runs:
         assert run.input_tokens == 10
@@ -809,6 +817,7 @@ def test_load_child_runs_populates_tree(langchain_client: Client):
     # Get the root run from the API — no child_runs yet.
     [parent] = list(
         langchain_client.list_runs(
+            start_time=TEST_RUN_START,
             project_name=project_name,
             filter=filter_,
             execution_order=1,
