@@ -107,6 +107,7 @@ class EvaluatorsResource(SyncAPIResource):
         base_url: Optional[str] | Omit = omit,
         dataset_id: Optional[str] | Omit = omit,
         filter: Optional[str] | Omit = omit,
+        group_by: Optional[Literal["thread_id"]] | Omit = omit,
         max_retries: Optional[int] | Omit = omit,
         model: Optional[str] | Omit = omit,
         model_headers: Optional[Dict[str, str]] | Omit = omit,
@@ -143,6 +144,9 @@ class EvaluatorsResource(SyncAPIResource):
           dataset_id: The dataset whose experiments to evaluate.
 
           filter: Only evaluate runs that match this filter.
+
+          group_by: Set to thread_id to evaluate each thread once it goes idle, instead of each run.
+              Requires session_id. Decision models don't support trajectory_id.
 
           max_retries: How many times to retry a failed model call. openai_decisions only.
 
@@ -184,6 +188,7 @@ class EvaluatorsResource(SyncAPIResource):
                     "base_url": base_url,
                     "dataset_id": dataset_id,
                     "filter": filter,
+                    "group_by": group_by,
                     "max_retries": max_retries,
                     "model": model,
                     "model_headers": model_headers,
@@ -287,6 +292,7 @@ class AsyncEvaluatorsResource(AsyncAPIResource):
         base_url: Optional[str] | Omit = omit,
         dataset_id: Optional[str] | Omit = omit,
         filter: Optional[str] | Omit = omit,
+        group_by: Optional[Literal["thread_id"]] | Omit = omit,
         max_retries: Optional[int] | Omit = omit,
         model: Optional[str] | Omit = omit,
         model_headers: Optional[Dict[str, str]] | Omit = omit,
@@ -323,6 +329,9 @@ class AsyncEvaluatorsResource(AsyncAPIResource):
           dataset_id: The dataset whose experiments to evaluate.
 
           filter: Only evaluate runs that match this filter.
+
+          group_by: Set to thread_id to evaluate each thread once it goes idle, instead of each run.
+              Requires session_id. Decision models don't support trajectory_id.
 
           max_retries: How many times to retry a failed model call. openai_decisions only.
 
@@ -364,6 +373,7 @@ class AsyncEvaluatorsResource(AsyncAPIResource):
                     "base_url": base_url,
                     "dataset_id": dataset_id,
                     "filter": filter,
+                    "group_by": group_by,
                     "max_retries": max_retries,
                     "model": model,
                     "model_headers": model_headers,

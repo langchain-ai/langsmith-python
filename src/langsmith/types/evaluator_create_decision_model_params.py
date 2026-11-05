@@ -33,6 +33,12 @@ class EvaluatorCreateDecisionModelParams(TypedDict, total=False):
     filter: Optional[str]
     """Only evaluate runs that match this filter."""
 
+    group_by: Optional[Literal["thread_id"]]
+    """Set to thread_id to evaluate each thread once it goes idle, instead of each run.
+
+    Requires session_id. Decision models don't support trajectory_id.
+    """
+
     max_retries: Optional[int]
     """How many times to retry a failed model call. openai_decisions only."""
 
