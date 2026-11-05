@@ -9,6 +9,7 @@ from typing_extensions import Literal
 from ..types import (
     session_create_params,
     session_update_params,
+    session_list_v2_params,
     session_resolve_params,
     session_retrieve_params,
     session_dashboard_params,
@@ -24,7 +25,9 @@ from .._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from .._base_client import make_request_options
+from ..pagination import SyncItemsCursorGetPagination, AsyncItemsCursorGetPagination
+from .._base_client import AsyncPaginator, make_request_options
+from ..types.session import Session
 from ..types.tracer_session import TracerSession
 from ..types.custom_charts_section import CustomChartsSection
 from ..types.timedelta_input_param import TimedeltaInputParam
@@ -317,6 +320,137 @@ class SessionsResource(SyncAPIResource):
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
             cast_to=CustomChartsSection,
+        )
+
+    def list_v2(
+        self,
+        *,
+        id: SequenceNotStr[str] | Omit = omit,
+        cursor: str | Omit = omit,
+        dataset_version: Union[str, datetime] | Omit = omit,
+        filter: str | Omit = omit,
+        include_facets: bool | Omit = omit,
+        include_stats: bool | Omit = omit,
+        metadata: str | Omit = omit,
+        name: str | Omit = omit,
+        name_contains: str | Omit = omit,
+        page_size: int | Omit = omit,
+        reference_dataset_id: SequenceNotStr[str] | Omit = omit,
+        reference_free: bool | Omit = omit,
+        sort_by: Literal[
+            "NAME", "START_TIME", "LAST_RUN_START_TIME", "ERROR_RATE", "LATENCY_P50", "LATENCY_P99", "FEEDBACK"
+        ]
+        | Omit = omit,
+        sort_by_feedback_key: str | Omit = omit,
+        sort_by_feedback_source: Literal["RUN", "SESSION"] | Omit = omit,
+        sort_order: Literal["asc", "desc"] | Omit = omit,
+        stats_filter: str | Omit = omit,
+        stats_select: SequenceNotStr[str] | Omit = omit,
+        stats_start_time: Union[str, datetime] | Omit = omit,
+        tag_value_id: SequenceNotStr[str] | Omit = omit,
+        use_approx_stats: bool | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncItemsCursorGetPagination[Session]:
+        """Returns a page of the workspace's tracing projects and experiments.
+
+        Pass the
+        response's next_cursor as cursor to fetch the next page; next_cursor is null on
+        the last page. A cursor is valid only with the same query parameters as the
+        request that returned it.
+
+        Args:
+          id: Only return projects with these IDs
+
+          cursor: next_cursor from the previous page; omit for the first page
+
+          dataset_version: Only return experiments run against this dataset version (RFC 3339 timestamp)
+
+          filter: Filter expression, for example eq(name, \\
+
+          include_facets: Include run facets
+
+          include_stats: Include run statistics
+
+          metadata: JSON object the project metadata must contain
+
+          name: Only return the project with this exact name
+
+          name_contains: Only return projects whose name contains this substring
+
+          page_size: Number of projects per page
+
+          reference_dataset_id: Only return experiments run against these dataset IDs
+
+          reference_free: true for tracing projects only, false for experiments only
+
+          sort_by: Sort column. FEEDBACK requires reference_dataset_id
+
+          sort_by_feedback_key: Feedback key to sort by; required when sort_by is FEEDBACK
+
+          sort_by_feedback_source: Where the sort feedback is recorded; defaults to RUN when sort_by is FEEDBACK
+
+          sort_order: Sort direction
+
+          stats_filter: Run filter expression that scopes the statistics
+
+          stats_select: Statistics to include when include_stats is true; defaults to all
+
+          stats_start_time: Only aggregate statistics at or after this time, within the last 31 days
+
+          tag_value_id: Only return projects tagged with all of these tag value IDs
+
+          use_approx_stats: Compute statistics from pre-aggregated data, which is faster but up to an hour
+              stale
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/api/v2/sessions",
+            page=SyncItemsCursorGetPagination[Session],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "id": id,
+                        "cursor": cursor,
+                        "dataset_version": dataset_version,
+                        "filter": filter,
+                        "include_facets": include_facets,
+                        "include_stats": include_stats,
+                        "metadata": metadata,
+                        "name": name,
+                        "name_contains": name_contains,
+                        "page_size": page_size,
+                        "reference_dataset_id": reference_dataset_id,
+                        "reference_free": reference_free,
+                        "sort_by": sort_by,
+                        "sort_by_feedback_key": sort_by_feedback_key,
+                        "sort_by_feedback_source": sort_by_feedback_source,
+                        "sort_order": sort_order,
+                        "stats_filter": stats_filter,
+                        "stats_select": stats_select,
+                        "stats_start_time": stats_start_time,
+                        "tag_value_id": tag_value_id,
+                        "use_approx_stats": use_approx_stats,
+                    },
+                    session_list_v2_params.SessionListV2Params,
+                ),
+            ),
+            model=Session,
         )
 
     def resolve(
@@ -664,6 +798,137 @@ class AsyncSessionsResource(AsyncAPIResource):
             cast_to=CustomChartsSection,
         )
 
+    def list_v2(
+        self,
+        *,
+        id: SequenceNotStr[str] | Omit = omit,
+        cursor: str | Omit = omit,
+        dataset_version: Union[str, datetime] | Omit = omit,
+        filter: str | Omit = omit,
+        include_facets: bool | Omit = omit,
+        include_stats: bool | Omit = omit,
+        metadata: str | Omit = omit,
+        name: str | Omit = omit,
+        name_contains: str | Omit = omit,
+        page_size: int | Omit = omit,
+        reference_dataset_id: SequenceNotStr[str] | Omit = omit,
+        reference_free: bool | Omit = omit,
+        sort_by: Literal[
+            "NAME", "START_TIME", "LAST_RUN_START_TIME", "ERROR_RATE", "LATENCY_P50", "LATENCY_P99", "FEEDBACK"
+        ]
+        | Omit = omit,
+        sort_by_feedback_key: str | Omit = omit,
+        sort_by_feedback_source: Literal["RUN", "SESSION"] | Omit = omit,
+        sort_order: Literal["asc", "desc"] | Omit = omit,
+        stats_filter: str | Omit = omit,
+        stats_select: SequenceNotStr[str] | Omit = omit,
+        stats_start_time: Union[str, datetime] | Omit = omit,
+        tag_value_id: SequenceNotStr[str] | Omit = omit,
+        use_approx_stats: bool | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[Session, AsyncItemsCursorGetPagination[Session]]:
+        """Returns a page of the workspace's tracing projects and experiments.
+
+        Pass the
+        response's next_cursor as cursor to fetch the next page; next_cursor is null on
+        the last page. A cursor is valid only with the same query parameters as the
+        request that returned it.
+
+        Args:
+          id: Only return projects with these IDs
+
+          cursor: next_cursor from the previous page; omit for the first page
+
+          dataset_version: Only return experiments run against this dataset version (RFC 3339 timestamp)
+
+          filter: Filter expression, for example eq(name, \\
+
+          include_facets: Include run facets
+
+          include_stats: Include run statistics
+
+          metadata: JSON object the project metadata must contain
+
+          name: Only return the project with this exact name
+
+          name_contains: Only return projects whose name contains this substring
+
+          page_size: Number of projects per page
+
+          reference_dataset_id: Only return experiments run against these dataset IDs
+
+          reference_free: true for tracing projects only, false for experiments only
+
+          sort_by: Sort column. FEEDBACK requires reference_dataset_id
+
+          sort_by_feedback_key: Feedback key to sort by; required when sort_by is FEEDBACK
+
+          sort_by_feedback_source: Where the sort feedback is recorded; defaults to RUN when sort_by is FEEDBACK
+
+          sort_order: Sort direction
+
+          stats_filter: Run filter expression that scopes the statistics
+
+          stats_select: Statistics to include when include_stats is true; defaults to all
+
+          stats_start_time: Only aggregate statistics at or after this time, within the last 31 days
+
+          tag_value_id: Only return projects tagged with all of these tag value IDs
+
+          use_approx_stats: Compute statistics from pre-aggregated data, which is faster but up to an hour
+              stale
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/api/v2/sessions",
+            page=AsyncItemsCursorGetPagination[Session],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "id": id,
+                        "cursor": cursor,
+                        "dataset_version": dataset_version,
+                        "filter": filter,
+                        "include_facets": include_facets,
+                        "include_stats": include_stats,
+                        "metadata": metadata,
+                        "name": name,
+                        "name_contains": name_contains,
+                        "page_size": page_size,
+                        "reference_dataset_id": reference_dataset_id,
+                        "reference_free": reference_free,
+                        "sort_by": sort_by,
+                        "sort_by_feedback_key": sort_by_feedback_key,
+                        "sort_by_feedback_source": sort_by_feedback_source,
+                        "sort_order": sort_order,
+                        "stats_filter": stats_filter,
+                        "stats_select": stats_select,
+                        "stats_start_time": stats_start_time,
+                        "tag_value_id": tag_value_id,
+                        "use_approx_stats": use_approx_stats,
+                    },
+                    session_list_v2_params.SessionListV2Params,
+                ),
+            ),
+            model=Session,
+        )
+
     async def resolve(
         self,
         *,
@@ -743,6 +1008,9 @@ class SessionsResourceWithRawResponse:
         self.dashboard = to_raw_response_wrapper(
             sessions.dashboard,
         )
+        self.list_v2 = to_raw_response_wrapper(
+            sessions.list_v2,
+        )
         self.resolve = to_raw_response_wrapper(
             sessions.resolve,
         )
@@ -766,6 +1034,9 @@ class AsyncSessionsResourceWithRawResponse:
         )
         self.dashboard = async_to_raw_response_wrapper(
             sessions.dashboard,
+        )
+        self.list_v2 = async_to_raw_response_wrapper(
+            sessions.list_v2,
         )
         self.resolve = async_to_raw_response_wrapper(
             sessions.resolve,
@@ -791,6 +1062,9 @@ class SessionsResourceWithStreamingResponse:
         self.dashboard = to_streamed_response_wrapper(
             sessions.dashboard,
         )
+        self.list_v2 = to_streamed_response_wrapper(
+            sessions.list_v2,
+        )
         self.resolve = to_streamed_response_wrapper(
             sessions.resolve,
         )
@@ -814,6 +1088,9 @@ class AsyncSessionsResourceWithStreamingResponse:
         )
         self.dashboard = async_to_streamed_response_wrapper(
             sessions.dashboard,
+        )
+        self.list_v2 = async_to_streamed_response_wrapper(
+            sessions.list_v2,
         )
         self.resolve = async_to_streamed_response_wrapper(
             sessions.resolve,

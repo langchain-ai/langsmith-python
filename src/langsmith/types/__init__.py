@@ -9,6 +9,7 @@ from .trace import Trace as Trace
 from .shared import QueryPatchEvent as QueryPatchEvent, QueryPatchOperation as QueryPatchOperation
 from .thread import Thread as Thread
 from .missing import Missing as Missing
+from .session import Session as Session
 from .run_type import RunType as RunType
 from .data_type import DataType as DataType
 from .evaluator import Evaluator as Evaluator
@@ -51,9 +52,11 @@ from .online_code_evaluator import OnlineCodeEvaluator as OnlineCodeEvaluator
 from .online_evaluator_type import OnlineEvaluatorType as OnlineEvaluatorType
 from .sandbox_list_response import SandboxListResponse as SandboxListResponse
 from .session_create_params import SessionCreateParams as SessionCreateParams
+from .session_feedback_stat import SessionFeedbackStat as SessionFeedbackStat
 from .session_update_params import SessionUpdateParams as SessionUpdateParams
 from .timedelta_input_param import TimedeltaInputParam as TimedeltaInputParam
 from .run_retrieve_v2_params import RunRetrieveV2Params as RunRetrieveV2Params
+from .session_list_v2_params import SessionListV2Params as SessionListV2Params
 from .session_resolve_params import SessionResolveParams as SessionResolveParams
 from .snapshot_list_response import SnapshotListResponse as SnapshotListResponse
 from .sort_by_dataset_column import SortByDatasetColumn as SortByDatasetColumn

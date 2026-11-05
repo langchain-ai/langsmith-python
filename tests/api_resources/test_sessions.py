@@ -10,11 +10,13 @@ import pytest
 from langsmith import Langsmith, AsyncLangsmith
 from tests.utils import assert_matches_type
 from langsmith.types import (
+    Session,
     TracerSession,
     CustomChartsSection,
     SessionResolveResponse,
 )
 from langsmith._utils import parse_datetime
+from langsmith.pagination import SyncItemsCursorGetPagination, AsyncItemsCursorGetPagination
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -292,6 +294,63 @@ class TestSessions:
             client.sessions.with_raw_response.dashboard(
                 session_id="",
             )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_list_v2(self, client: Langsmith) -> None:
+        session = client.sessions.list_v2()
+        assert_matches_type(SyncItemsCursorGetPagination[Session], session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_list_v2_with_all_params(self, client: Langsmith) -> None:
+        session = client.sessions.list_v2(
+            id=["string"],
+            cursor="cursor",
+            dataset_version=parse_datetime("2019-12-27T18:11:19.117Z"),
+            filter="filter",
+            include_facets=True,
+            include_stats=True,
+            metadata="metadata",
+            name="name",
+            name_contains="name_contains",
+            page_size=1,
+            reference_dataset_id=["string"],
+            reference_free=True,
+            sort_by="NAME",
+            sort_by_feedback_key="sort_by_feedback_key",
+            sort_by_feedback_source="RUN",
+            sort_order="asc",
+            stats_filter="stats_filter",
+            stats_select=["string"],
+            stats_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+            tag_value_id=["string"],
+            use_approx_stats=True,
+        )
+        assert_matches_type(SyncItemsCursorGetPagination[Session], session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_list_v2(self, client: Langsmith) -> None:
+
+        response = client.sessions.with_raw_response.list_v2()
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        session = response.parse()
+        assert_matches_type(SyncItemsCursorGetPagination[Session], session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_list_v2(self, client: Langsmith) -> None:
+        with client.sessions.with_streaming_response.list_v2() as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            session = response.parse()
+            assert_matches_type(SyncItemsCursorGetPagination[Session], session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -614,6 +673,63 @@ class TestAsyncSessions:
             await async_client.sessions.with_raw_response.dashboard(
                 session_id="",
             )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_list_v2(self, async_client: AsyncLangsmith) -> None:
+        session = await async_client.sessions.list_v2()
+        assert_matches_type(AsyncItemsCursorGetPagination[Session], session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_list_v2_with_all_params(self, async_client: AsyncLangsmith) -> None:
+        session = await async_client.sessions.list_v2(
+            id=["string"],
+            cursor="cursor",
+            dataset_version=parse_datetime("2019-12-27T18:11:19.117Z"),
+            filter="filter",
+            include_facets=True,
+            include_stats=True,
+            metadata="metadata",
+            name="name",
+            name_contains="name_contains",
+            page_size=1,
+            reference_dataset_id=["string"],
+            reference_free=True,
+            sort_by="NAME",
+            sort_by_feedback_key="sort_by_feedback_key",
+            sort_by_feedback_source="RUN",
+            sort_order="asc",
+            stats_filter="stats_filter",
+            stats_select=["string"],
+            stats_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+            tag_value_id=["string"],
+            use_approx_stats=True,
+        )
+        assert_matches_type(AsyncItemsCursorGetPagination[Session], session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_list_v2(self, async_client: AsyncLangsmith) -> None:
+
+        response = await async_client.sessions.with_raw_response.list_v2()
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        session = await response.parse()
+        assert_matches_type(AsyncItemsCursorGetPagination[Session], session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_list_v2(self, async_client: AsyncLangsmith) -> None:
+        async with async_client.sessions.with_streaming_response.list_v2() as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            session = await response.parse()
+            assert_matches_type(AsyncItemsCursorGetPagination[Session], session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
