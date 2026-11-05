@@ -91,9 +91,16 @@ from langsmith.types import (
 
 ## Examples
 
+Types:
+
+```python
+from langsmith.types.datasets import ExampleUpdateMetadataResponse
+```
+
 Methods:
 
 - <code title="delete /api/v1/platform/datasets/{dataset_id}/examples/{example_id}">client.datasets.examples.<a href="./src/langsmith/resources/datasets/examples.py">delete</a>(example_id, \*, dataset_id) -> None</code>
+- <code title="patch /api/v1/platform/datasets/{dataset_id}/examples/metadata">client.datasets.examples.<a href="./src/langsmith/resources/datasets/examples.py">update_metadata</a>(dataset_id, \*\*<a href="src/langsmith/types/datasets/example_update_metadata_params.py">params</a>) -> <a href="./src/langsmith/types/datasets/example_update_metadata_response.py">ExampleUpdateMetadataResponse</a></code>
 
 ## ExperimentRuns
 
