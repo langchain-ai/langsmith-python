@@ -431,15 +431,15 @@ wheels = [
 
 [[package]]
 name = "authlib"
-version = "1.8.0"
+version = "1.9.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
     { name = "joserfc" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f1/51/bc1729d3cfdc214b4935f4e886e4dd443c3065fd8e1e66423fe84b490f81/authlib-1.8.0.tar.gz", hash = "sha256:f3ecd5f1da737262fb53bf1a4d95c4ea1ad9dd509316587a255c99ab1838a4f0", size = 177759, upload-time = "2026-08-30T12:12:34.833Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c9/dc/087c08741a98d234c9b98beef8a28d3c309f814d14b6156422c5815bf6d6/authlib-1.9.1.tar.gz", hash = "sha256:5c7d9848f47cac340f060f76ae0bc09b59f5c8e89cc1bb032d4370a0c55b5974", size = 182700, upload-time = "2026-10-14T14:17:52.307Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b8/c6/6f124bcfbbfb20fba22c939b4e43a06dccfc0e1ca20e5634ca573cb1e271/authlib-1.8.0-py2.py3-none-any.whl", hash = "sha256:88aebbd9af6757e14e912d5dc007ae1dc1f3e27e3b2152ce7c552ee2c3b3c121", size = 260804, upload-time = "2026-08-30T12:12:33.162Z" },
+    { url = "https://files.pythonhosted.org/packages/39/44/a46089266de32a0d809023b6bf31b80a1f26a46954446a7ce695a565cbea/authlib-1.9.1-py2.py3-none-any.whl", hash = "sha256:8b9be8b1e5174dcbf5520e984f1a22dc2edae5b6e40a61d4cedbf86b97e9e69b", size = 266042, upload-time = "2026-10-14T14:17:50.695Z" },
 ]
 
 [[package]]
@@ -2059,12 +2059,12 @@ gemini-live = [
 ]
 google-adk = [
     { name = "google-adk", version = "2.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
-    { name = "google-adk", version = "2.9.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "google-adk", version = "2.9.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "wrapt" },
 ]
 google-adk-live = [
     { name = "google-adk", version = "2.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
-    { name = "google-adk", version = "2.9.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "google-adk", version = "2.9.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
 ]
 langsmith-pyo3 = [
     { name = "langsmith-pyo3" },
@@ -2072,11 +2072,11 @@ langsmith-pyo3 = [
 livekit = [
     { name = "cachetools" },
     { name = "livekit-agents" },
-    { name = "opentelemetry-api", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-api", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-api", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
-    { name = "opentelemetry-exporter-otlp-proto-http", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-exporter-otlp-proto-http", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-exporter-otlp-proto-http", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
-    { name = "opentelemetry-sdk", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-sdk", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-sdk", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
 ]
 openai-agents = [
@@ -2087,20 +2087,20 @@ openai-realtime = [
     { name = "openai-agents" },
 ]
 otel = [
-    { name = "opentelemetry-api", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-api", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-api", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
-    { name = "opentelemetry-exporter-otlp-proto-http", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-exporter-otlp-proto-http", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-exporter-otlp-proto-http", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
-    { name = "opentelemetry-sdk", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-sdk", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-sdk", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
 ]
 pipecat = [
     { name = "cachetools" },
-    { name = "opentelemetry-api", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-api", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-api", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
-    { name = "opentelemetry-exporter-otlp-proto-http", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-exporter-otlp-proto-http", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-exporter-otlp-proto-http", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
-    { name = "opentelemetry-sdk", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-sdk", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-sdk", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
     { name = "pipecat-ai", marker = "python_full_version >= '3.11'" },
 ]
@@ -2113,11 +2113,11 @@ sandbox-auth = [
     { name = "pyjwt", extra = ["crypto"] },
 ]
 strands-agents = [
-    { name = "opentelemetry-api", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-api", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-api", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
-    { name = "opentelemetry-exporter-otlp-proto-http", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-exporter-otlp-proto-http", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-exporter-otlp-proto-http", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
-    { name = "opentelemetry-sdk", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-sdk", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-sdk", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
     { name = "strands-agents" },
     { name = "strands-agents-tools" },
@@ -2141,7 +2141,7 @@ dev = [
     { name = "fastapi" },
     { name = "freezegun" },
     { name = "google-adk", version = "2.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
-    { name = "google-adk", version = "2.9.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "google-adk", version = "2.9.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "google-genai" },
     { name = "httpx" },
     { name = "importlib-metadata" },
@@ -2151,11 +2151,11 @@ dev = [
     { name = "multipart" },
     { name = "mypy" },
     { name = "openai-agents" },
-    { name = "opentelemetry-api", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-api", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-api", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
-    { name = "opentelemetry-exporter-otlp-proto-http", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-exporter-otlp-proto-http", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-exporter-otlp-proto-http", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
-    { name = "opentelemetry-sdk", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-sdk", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-sdk", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
     { name = "pandas-stubs", version = "2.3.3.260113", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "pandas-stubs", version = "3.0.5.260914", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -2528,11 +2528,11 @@ dependencies = [
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
     { name = "numpy", version = "2.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "openai" },
-    { name = "opentelemetry-api", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-api", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-api", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
-    { name = "opentelemetry-exporter-otlp", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-exporter-otlp", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-exporter-otlp", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
-    { name = "opentelemetry-sdk", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-sdk", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-sdk", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
     { name = "prometheus-client" },
     { name = "protobuf" },
@@ -2751,7 +2751,7 @@ dependencies = [
     { name = "httpx2" },
     { name = "jsonschema" },
     { name = "mcp-types" },
-    { name = "opentelemetry-api", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-api", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-api", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
     { name = "pydantic" },
     { name = "pyjwt", extra = ["crypto"] },
@@ -5729,11 +5729,11 @@ dependencies = [
     { name = "httpx" },
     { name = "jsonschema" },
     { name = "mcp" },
-    { name = "opentelemetry-api", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-api", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-api", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
-    { name = "opentelemetry-instrumentation-threading", version = "0.63b1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-instrumentation-threading", version = "0.63b1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-instrumentation-threading", version = "0.64b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
-    { name = "opentelemetry-sdk", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.11' and sys_platform != 'emscripten')" },
+    { name = "opentelemetry-sdk", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and python_full_version < '3.14') or (python_full_version >= '3.14' and sys_platform != 'emscripten')" },
     { name = "opentelemetry-sdk", version = "1.43.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (python_full_version >= '3.14' and sys_platform == 'emscripten')" },
     { name = "pydantic" },
     { name = "pyyaml" },
