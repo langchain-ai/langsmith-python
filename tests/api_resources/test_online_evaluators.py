@@ -56,6 +56,7 @@ class TestOnlineEvaluators:
                 "prompt_repo_handle": "prompt_repo_handle",
                 "variable_mapping": {},
             },
+            metadata={"foo": "bar"},
             name="name",
             type="llm",
         )
@@ -163,6 +164,7 @@ class TestOnlineEvaluators:
                 "use_corrections_dataset": True,
                 "variable_mapping": {},
             },
+            metadata={"foo": "bar"},
             name="name",
         )
         assert_matches_type(UpdateOnlineEvaluatorResponse, online_evaluator, path=["response"])
@@ -436,6 +438,7 @@ class TestAsyncOnlineEvaluators:
                 "prompt_repo_handle": "prompt_repo_handle",
                 "variable_mapping": {},
             },
+            metadata={"foo": "bar"},
             name="name",
             type="llm",
         )
@@ -543,6 +546,7 @@ class TestAsyncOnlineEvaluators:
                 "use_corrections_dataset": True,
                 "variable_mapping": {},
             },
+            metadata={"foo": "bar"},
             name="name",
         )
         assert_matches_type(UpdateOnlineEvaluatorResponse, online_evaluator, path=["response"])

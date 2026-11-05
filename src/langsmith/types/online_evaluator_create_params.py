@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Dict, Optional
 from typing_extensions import TypedDict
 
 from .online_evaluator_type import OnlineEvaluatorType
@@ -15,6 +16,8 @@ class OnlineEvaluatorCreateParams(TypedDict, total=False):
     code_evaluator: CreateOnlineCodeEvaluatorRequestParam
 
     llm_evaluator: CreateOnlineLlmEvaluatorRequestParam
+
+    metadata: Optional[Dict[str, object]]
 
     name: str
 

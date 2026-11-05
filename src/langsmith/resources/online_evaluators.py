@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Dict, Optional
+
 from ..types import (
     OnlineEvaluatorType,
     online_evaluator_list_params,
@@ -63,6 +65,7 @@ class OnlineEvaluatorsResource(SyncAPIResource):
         *,
         code_evaluator: CreateOnlineCodeEvaluatorRequestParam | Omit = omit,
         llm_evaluator: CreateOnlineLlmEvaluatorRequestParam | Omit = omit,
+        metadata: Optional[Dict[str, object]] | Omit = omit,
         name: str | Omit = omit,
         type: OnlineEvaluatorType | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -90,6 +93,7 @@ class OnlineEvaluatorsResource(SyncAPIResource):
                 {
                     "code_evaluator": code_evaluator,
                     "llm_evaluator": llm_evaluator,
+                    "metadata": metadata,
                     "name": name,
                     "type": type,
                 },
@@ -140,6 +144,7 @@ class OnlineEvaluatorsResource(SyncAPIResource):
         *,
         code_evaluator: UpdateOnlineCodeEvaluatorRequestParam | Omit = omit,
         llm_evaluator: UpdateOnlineLlmEvaluatorRequestParam | Omit = omit,
+        metadata: Optional[Dict[str, object]] | Omit = omit,
         name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -169,6 +174,7 @@ class OnlineEvaluatorsResource(SyncAPIResource):
                 {
                     "code_evaluator": code_evaluator,
                     "llm_evaluator": llm_evaluator,
+                    "metadata": metadata,
                     "name": name,
                 },
                 online_evaluator_update_params.OnlineEvaluatorUpdateParams,
@@ -469,6 +475,7 @@ class AsyncOnlineEvaluatorsResource(AsyncAPIResource):
         *,
         code_evaluator: CreateOnlineCodeEvaluatorRequestParam | Omit = omit,
         llm_evaluator: CreateOnlineLlmEvaluatorRequestParam | Omit = omit,
+        metadata: Optional[Dict[str, object]] | Omit = omit,
         name: str | Omit = omit,
         type: OnlineEvaluatorType | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -496,6 +503,7 @@ class AsyncOnlineEvaluatorsResource(AsyncAPIResource):
                 {
                     "code_evaluator": code_evaluator,
                     "llm_evaluator": llm_evaluator,
+                    "metadata": metadata,
                     "name": name,
                     "type": type,
                 },
@@ -546,6 +554,7 @@ class AsyncOnlineEvaluatorsResource(AsyncAPIResource):
         *,
         code_evaluator: UpdateOnlineCodeEvaluatorRequestParam | Omit = omit,
         llm_evaluator: UpdateOnlineLlmEvaluatorRequestParam | Omit = omit,
+        metadata: Optional[Dict[str, object]] | Omit = omit,
         name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -575,6 +584,7 @@ class AsyncOnlineEvaluatorsResource(AsyncAPIResource):
                 {
                     "code_evaluator": code_evaluator,
                     "llm_evaluator": llm_evaluator,
+                    "metadata": metadata,
                     "name": name,
                 },
                 online_evaluator_update_params.OnlineEvaluatorUpdateParams,

@@ -1,6 +1,6 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from .._models import BaseModel
 from .online_llm_evaluator import OnlineLlmEvaluator
@@ -30,6 +30,8 @@ class OnlineEvaluator(BaseModel):
 
     llm_evaluator: Optional[OnlineLlmEvaluator] = None
     """Embedded child evaluator (populated based on type)"""
+
+    metadata: Optional[Dict[str, object]] = None
 
     name: Optional[str] = None
 
