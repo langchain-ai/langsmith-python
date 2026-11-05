@@ -7932,7 +7932,8 @@ class Client:
             key (str):
                 The name of the feedback metric.
             score (Optional[Union[float, int, bool]]):
-                The score to rate this run on the metric or aspect.
+                The score to rate this run on the metric or aspect. Floats are
+                rounded to 4 decimal places, the most the API stores.
             value (Optional[Union[float, int, bool, str, dict]]):
                 The display value or non-numeric value for this feedback.
             run_id (Optional[Union[UUID, str]]):
@@ -8158,18 +8159,23 @@ class Client:
         self,
         feedback_id: ID_TYPE,
         *,
-        score: Union[float, int, bool, None] = None,
-        value: Union[float, int, bool, str, dict, None] = None,
-        correction: Union[dict, None] = None,
-        comment: Union[str, None] = None,
+        score: Union[float, int, bool, None] = cast(Any, _UNSET),
+        value: Union[float, int, bool, str, dict, None] = cast(Any, _UNSET),
+        correction: Union[dict, None] = cast(Any, _UNSET),
+        comment: Union[str, None] = cast(Any, _UNSET),
     ) -> None:
         """Update a feedback in the LangSmith API.
+
+        Only the fields you pass are changed. Pass ``None`` to clear a field;
+        omit it to keep its current value.
 
         Args:
             feedback_id (Union[UUID, str]):
                 The ID of the feedback to update.
             score (Optional[Union[float, int, bool]]):
-                The score to update the feedback with.
+                The score to update the feedback with. Floats are rounded to
+                4 decimal places, the most the API stores; the API rejects
+                more precise scores sent to it directly.
             value (Optional[Union[float, int, bool, str, dict]]):
                 The value to update the feedback with.
             correction (Optional[dict]):
@@ -8179,15 +8185,24 @@ class Client:
 
         Returns:
             None
+
+        Example:
+            .. code-block:: python
+
+                from langsmith import Client
+
+                client = Client()
+                # Change the score and remove the comment.
+                client.update_feedback(feedback_id, score=0.5, comment=None)
         """
         feedback_update: dict[str, Any] = {}
-        if score is not None:
+        if score is not _UNSET:
             feedback_update["score"] = _format_feedback_score(score)
-        if value is not None:
+        if value is not _UNSET:
             feedback_update["value"] = value
-        if correction is not None:
+        if correction is not _UNSET:
             feedback_update["correction"] = correction
-        if comment is not None:
+        if comment is not _UNSET:
             feedback_update["comment"] = comment
         response = self.request_with_retries(
             "PATCH",
@@ -8619,7 +8634,10 @@ class Client:
         Defines how feedback with a given key should be interpreted.
         If an identical configuration already exists for the key, it is
         returned unchanged. If a different configuration already exists
-        for the key, an error is raised.
+        for the key, the result depends on the workspace: with enforced
+        feedback configs on, the new configuration is added next to the
+        existing ones (unless the key has an enforced configuration);
+        otherwise an HTTP 400 "Feedback config already exists" is raised.
 
         Args:
             feedback_key (str):
@@ -8642,10 +8660,11 @@ class Client:
                 configuration.
 
         Raises:
-            requests.HTTPError: If a conflicting configuration already
-                exists for the given key (HTTP 400), or if is_enforced is
-                set and the caller lacks the
-                feedback-configs:manage-enforced permission (HTTP 403).
+            LangSmithError: If a different configuration already exists for
+                the key and the workspace does not allow a second one (HTTP
+                400), if is_enforced is set and the caller lacks the
+                feedback-configs:manage-enforced permission (HTTP 403), or if
+                the key already has an enforced configuration (HTTP 409).
 
         Example:
             .. code-block:: python
@@ -8659,6 +8678,18 @@ class Client:
                         "type": "continuous",
                         "min": 0.0,
                         "max": 5.0,
+                    },
+                )
+
+                tags = client.create_feedback_config(
+                    feedback_key="topics",
+                    feedback_config={
+                        "type": "categorical",
+                        "categories": [
+                            {"value": 0, "label": "billing"},
+                            {"value": 1, "label": "shipping"},
+                        ],
+                        "allows_multiple_categories": True,
                     },
                 )
         """
@@ -8686,8 +8717,13 @@ class Client:
         name_contains: Optional[str] = None,
         limit: Optional[int] = None,
         offset: int = 0,
+        include_all_configs: bool = False,
+        is_enforced: Optional[bool] = None,
     ) -> Iterator[ls_schemas.FeedbackConfigSchema]:
         """List feedback configurations.
+
+        By default this returns one configuration per key. A key can have
+        more than one; pass ``include_all_configs=True`` to see them all.
 
         Args:
             feedback_key (Optional[Sequence[str]]):
@@ -8698,6 +8734,15 @@ class Client:
                 The maximum number of configurations to return.
             offset (int):
                 The number of configurations to skip. Defaults to 0.
+            include_all_configs (bool):
+                Return every configuration of each key, deleted ones
+                included, instead of one per key. Defaults to False.
+            is_enforced (Optional[bool]):
+                Only enforced configurations when True, only unenforced
+                ones when False.
+
+        ``include_all_configs`` and ``is_enforced`` need LangSmith v0.18 or
+        later on self-hosted deployments.
 
         Yields:
             FeedbackConfigSchema: The feedback configurations.
@@ -8719,6 +8764,10 @@ class Client:
             params["key"] = feedback_key
         if name_contains is not None:
             params["name_contains"] = name_contains
+        if include_all_configs:
+            params["include_all_configs"] = True
+        if is_enforced is not None:
+            params["is_enforced"] = is_enforced
         for i, config in enumerate(self._get_paginated_list("/feedback-configs", params=params)):
             yield ls_schemas.FeedbackConfigSchema(**config)
             if limit is not None and i + 1 >= limit:
@@ -8730,6 +8779,7 @@ class Client:
         *,
         feedback_config: Optional[ls_schemas.FeedbackConfig] = None,
         is_lower_score_better: Optional[bool] = None,
+        config_id: Optional[ID_TYPE] = None,
     ) -> ls_schemas.FeedbackConfigSchema:
         """Update a feedback configuration.
 
@@ -8739,16 +8789,23 @@ class Client:
             feedback_key (str):
                 The feedback key of the configuration to update.
             feedback_config (Optional[FeedbackConfig]):
-                The new configuration values.
+                The new configuration values. Replaces the whole
+                configuration, so include ``allows_multiple_categories`` to
+                keep a multi-select tag multi-select.
             is_lower_score_better (Optional[bool]):
                 Whether a lower score is considered better.
+            config_id (Optional[Union[UUID, str]]):
+                The configuration to update, for keys with more than one.
+                When omitted, the key's enforced configuration is updated,
+                or else its first one, or else its most recently modified one.
+                Self-hosted deployments need LangSmith v0.18 or later.
 
         Returns:
             FeedbackConfigSchema: The updated feedback configuration.
 
         Raises:
             LangSmithNotFoundError: If no configuration exists for the
-                given feedback key (HTTP 404).
+                given feedback key or config_id (HTTP 404).
 
         Example:
             .. code-block:: python
@@ -8764,10 +8821,113 @@ class Client:
         body: dict[str, Any] = {
             "feedback_key": feedback_key,
         }
+        if config_id is not None:
+            body["id"] = str(_as_uuid(config_id, "config_id"))
         if feedback_config is not None:
             body["feedback_config"] = feedback_config
         if is_lower_score_better is not None:
             body["is_lower_score_better"] = is_lower_score_better
+        return self._patch_feedback_config(body)
+
+    def add_feedback_categories(
+        self,
+        feedback_key: str,
+        categories: Sequence[ls_schemas.FeedbackCategory],
+        *,
+        config_id: Optional[ID_TYPE] = None,
+    ) -> ls_schemas.FeedbackConfigSchema:
+        """Add categories to a categorical feedback configuration.
+
+        The existing categories and ``allows_multiple_categories`` are kept.
+        Self-hosted deployments need LangSmith v0.18 or later;
+        older versions ignore the change and return the configuration
+        unchanged.
+
+        Args:
+            feedback_key (str):
+                The feedback key of the configuration to update.
+            categories (Sequence[FeedbackCategory]):
+                The categories to add. Values and labels must not clash with
+                existing ones.
+            config_id (Optional[Union[UUID, str]]):
+                The configuration to update, for keys with more than one.
+                When omitted, the key's enforced configuration is updated,
+                or else its first one, or else its most recently modified one.
+
+        Returns:
+            FeedbackConfigSchema: The updated feedback configuration.
+
+        Raises:
+            LangSmithNotFoundError: If no configuration matches (HTTP 404).
+            LangSmithError: If the configuration is not categorical or a
+                value or label is duplicated (HTTP 422).
+
+        Example:
+            .. code-block:: python
+
+                from langsmith import Client
+
+                client = Client()
+                client.add_feedback_categories("topics", [{"value": 2, "label": "returns"}])
+        """
+        body: dict[str, Any] = {
+            "feedback_key": feedback_key,
+            "add_categories": list(categories),
+        }
+        if config_id is not None:
+            body["id"] = str(_as_uuid(config_id, "config_id"))
+        return self._patch_feedback_config(body)
+
+    def remove_feedback_categories(
+        self,
+        feedback_key: str,
+        values: Sequence[float],
+        *,
+        config_id: Optional[ID_TYPE] = None,
+    ) -> ls_schemas.FeedbackConfigSchema:
+        """Remove categories from a categorical feedback configuration.
+
+        Feedback already written with a removed value is unchanged. The other
+        categories and ``allows_multiple_categories`` are kept.
+        Self-hosted deployments need LangSmith v0.18 or later;
+        older versions ignore the change and return the configuration
+        unchanged.
+
+        Args:
+            feedback_key (str):
+                The feedback key of the configuration to update.
+            values (Sequence[float]):
+                The values (not labels) of the categories to remove.
+            config_id (Optional[Union[UUID, str]]):
+                The configuration to update, for keys with more than one.
+                When omitted, the key's enforced configuration is updated,
+                or else its first one, or else its most recently modified one.
+
+        Returns:
+            FeedbackConfigSchema: The updated feedback configuration.
+
+        Raises:
+            LangSmithNotFoundError: If no configuration matches (HTTP 404).
+            LangSmithError: If the configuration is not categorical or fewer
+                than two categories would remain (HTTP 422).
+
+        Example:
+            .. code-block:: python
+
+                from langsmith import Client
+
+                client = Client()
+                client.remove_feedback_categories("topics", [2])
+        """
+        body: dict[str, Any] = {
+            "feedback_key": feedback_key,
+            "remove_categories": list(values),
+        }
+        if config_id is not None:
+            body["id"] = str(_as_uuid(config_id, "config_id"))
+        return self._patch_feedback_config(body)
+
+    def _patch_feedback_config(self, body: dict[str, Any]) -> ls_schemas.FeedbackConfigSchema:
         response = self.request_with_retries(
             "PATCH",
             "/feedback-configs",
@@ -8776,15 +8936,24 @@ class Client:
         ls_utils.raise_for_status_with_text(response)
         return ls_schemas.FeedbackConfigSchema(**response.json())
 
-    def delete_feedback_config(self, feedback_key: str) -> None:
+    def delete_feedback_config(
+        self,
+        feedback_key: Optional[str] = None,
+        *,
+        config_id: Optional[ID_TYPE] = None,
+    ) -> None:
         """Delete a feedback configuration.
 
         This performs a soft delete. The configuration can be recreated
-        later with the same key.
+        later with the same key. Pass exactly one of ``feedback_key`` or
+        ``config_id``.
 
         Args:
-            feedback_key (str):
-                The feedback key of the configuration to delete.
+            feedback_key (Optional[str]):
+                Delete every configuration of this feedback key.
+            config_id (Optional[Union[UUID, str]]):
+                Delete only this configuration. Self-hosted deployments
+                need LangSmith v0.18 or later.
 
         Example:
             .. code-block:: python
@@ -8794,10 +8963,15 @@ class Client:
                 client = Client()
                 client.delete_feedback_config("user-rating")
         """
+        if (feedback_key is None) == (config_id is None):
+            raise ValueError("Pass exactly one of feedback_key or config_id.")
+        params = (
+            {"id": str(_as_uuid(config_id, "config_id"))} if config_id is not None else {"feedback_key": feedback_key}
+        )
         response = self.request_with_retries(
             "DELETE",
             "/feedback-configs",
-            params={"feedback_key": feedback_key},
+            params=params,
         )
         ls_utils.raise_for_status_with_text(response)
 
@@ -8865,9 +9039,13 @@ class Client:
                 The feedback configs to assign to this queue's rubric.
                 Each item specifies a feedback_key and optional per-queue
                 customization like description and value_descriptions.
+                Items read from another queue's ``rubric_items`` can be
+                passed as-is to copy its rubric.
 
         Returns:
-            AnnotationQueue: The created annotation queue object.
+            AnnotationQueueWithDetails: The created annotation queue. Its
+                ``rubric_items`` is not filled in; call ``read_annotation_queue``
+                to get the stored rubric.
         """
         body: dict[str, Any] = {
             "name": name,
@@ -8880,21 +9058,22 @@ class Client:
         response = self.request_with_retries(
             "POST",
             "/annotation-queues",
-            json={k: v for k, v in body.items() if v is not None},
+            data=_dumps_json({k: v for k, v in body.items() if v is not None}),
         )
         ls_utils.raise_for_status_with_text(response)
         return ls_schemas.AnnotationQueueWithDetails(
             **response.json(),
         )
 
-    def read_annotation_queue(self, queue_id: ID_TYPE) -> ls_schemas.AnnotationQueue:
+    def read_annotation_queue(self, queue_id: ID_TYPE) -> ls_schemas.AnnotationQueueWithDetails:
         """Read an annotation queue with the specified `queue_id`.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue to read.
 
         Returns:
-            AnnotationQueue: The annotation queue object.
+            AnnotationQueueWithDetails: The annotation queue, including its
+                rubric items and the feedback config each one uses.
         """
         base_url = f"/annotation-queues/{_as_uuid(queue_id, 'queue_id')}"
         response = self.request_with_retries(
@@ -8925,6 +9104,7 @@ class Client:
                 annotation queue.
             rubric_items (Optional[list[AnnotationQueueRubricItem]]):
                 The feedback configs to assign to this queue's rubric.
+                Replaces the existing rubric.
 
         Returns:
             None
@@ -8941,7 +9121,7 @@ class Client:
         response = self.request_with_retries(
             "PATCH",
             f"/annotation-queues/{_as_uuid(queue_id, 'queue_id')}",
-            json=body,
+            data=_dumps_json(body),
         )
         ls_utils.raise_for_status_with_text(response)
 

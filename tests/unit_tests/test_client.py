@@ -2539,6 +2539,17 @@ def test_create_feedback_can_opt_out_of_extending_trace_retention() -> None:
     assert payload["extend_trace_retention"] is False
 
 
+def test_update_feedback_clears_explicit_none_and_keeps_omitted() -> None:
+    session = mock.Mock()
+    client = Client(api_url="http://localhost:1984", api_key="123", session=session)
+
+    client.update_feedback(uuid.uuid4(), score=0.123456, comment=None)
+
+    payload = json.loads(session.request.call_args.kwargs["data"])
+    # comment is cleared; value and correction are left as they are.
+    assert payload == {"score": 0.1235, "comment": None}
+
+
 def test_create_feedback_opt_out_uses_direct_post_when_batching_available() -> None:
     """Opt-out must POST /feedback so extend_trace_retention reaches the API.
 

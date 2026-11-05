@@ -1495,7 +1495,7 @@ class AsyncClient:
         queue_id: Optional[ID_TYPE] = None,
         rubric_instructions: Optional[str] = None,
         rubric_items: Optional[list[ls_schemas.AnnotationQueueRubricItem]] = None,
-    ) -> ls_schemas.AnnotationQueue:
+    ) -> ls_schemas.AnnotationQueueWithDetails:
         """Create an annotation queue on the LangSmith API.
 
         Args:
@@ -1504,9 +1504,12 @@ class AsyncClient:
             queue_id (Optional[Union[UUID, str]]): The ID of the annotation queue.
             rubric_instructions: The rubric instructions for the annotation queue.
             rubric_items: The feedback configs to assign to this queue's rubric.
+                Items read from another queue's ``rubric_items`` can be passed
+                as-is to copy its rubric.
 
         Returns:
-            The created annotation queue object.
+            The created annotation queue. Its ``rubric_items`` is not filled
+            in; call ``read_annotation_queue`` to get the stored rubric.
         """
         body: dict[str, Any] = {
             "name": name,
@@ -1519,24 +1522,29 @@ class AsyncClient:
         response = await self._arequest_with_retries(
             "POST",
             "/annotation-queues",
-            json={k: v for k, v in body.items() if v is not None},
+            content=ls_client._dumps_json({k: v for k, v in body.items() if v is not None}),
         )
         ls_utils.raise_for_status_with_text(response)
-        return ls_schemas.AnnotationQueue(
+        return ls_schemas.AnnotationQueueWithDetails(
             **response.json(),
         )
 
-    async def read_annotation_queue(self, queue_id: ID_TYPE) -> ls_schemas.AnnotationQueue:
+    async def read_annotation_queue(self, queue_id: ID_TYPE) -> ls_schemas.AnnotationQueueWithDetails:
         """Read an annotation queue with the specified `queue_id`.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue to read.
 
         Returns:
-            The annotation queue object.
+            The annotation queue, including its rubric items and the feedback
+            config each one uses.
         """
-        # TODO: Replace when actual endpoint is added
-        return await self.list_annotation_queues(queue_ids=[queue_id]).__anext__()
+        response = await self._arequest_with_retries(
+            "GET",
+            f"/annotation-queues/{ls_client._as_uuid(queue_id, 'queue_id')}",
+        )
+        ls_utils.raise_for_status_with_text(response)
+        return ls_schemas.AnnotationQueueWithDetails(**response.json())
 
     async def update_annotation_queue(
         self,
@@ -1555,6 +1563,7 @@ class AsyncClient:
             description: The new description for the annotation queue.
             rubric_instructions: The new rubric instructions for the queue.
             rubric_items: The feedback configs to assign to this queue's rubric.
+                Replaces the existing rubric.
         """
         body: dict[str, Any] = {}
         if name is not None:
@@ -1568,7 +1577,7 @@ class AsyncClient:
         response = await self._arequest_with_retries(
             "PATCH",
             f"/annotation-queues/{ls_client._as_uuid(queue_id, 'queue_id')}",
-            json=body,
+            content=ls_client._dumps_json(body),
         )
         ls_utils.raise_for_status_with_text(response)
 
@@ -1716,7 +1725,10 @@ class AsyncClient:
         Defines how feedback with a given key should be interpreted.
         If an identical configuration already exists for the key, it is
         returned unchanged. If a different configuration already exists
-        for the key, an error is raised.
+        for the key, the result depends on the workspace: with enforced
+        feedback configs on, the new configuration is added next to the
+        existing ones (unless the key has an enforced configuration);
+        otherwise an HTTP 400 "Feedback config already exists" is raised.
 
         Args:
             feedback_key: The feedback key to configure.
@@ -1733,6 +1745,13 @@ class AsyncClient:
 
         Returns:
             The created or existing feedback configuration.
+
+        Raises:
+            LangSmithError: If a different configuration already exists for
+                the key and the workspace does not allow a second one (HTTP
+                400), if is_enforced is set and the caller lacks the
+                feedback-configs:manage-enforced permission (HTTP 403), or if
+                the key already has an enforced configuration (HTTP 409).
         """
         body: dict[str, Any] = {
             "feedback_key": feedback_key,
@@ -1758,14 +1777,27 @@ class AsyncClient:
         name_contains: Optional[str] = None,
         limit: Optional[int] = None,
         offset: int = 0,
+        include_all_configs: bool = False,
+        is_enforced: Optional[bool] = None,
     ) -> AsyncIterator[ls_schemas.FeedbackConfigSchema]:
         """List feedback configurations.
+
+        By default this returns one configuration per key. A key can have
+        more than one; pass ``include_all_configs=True`` to see them all.
 
         Args:
             feedback_key: Filter by specific feedback keys.
             name_contains: Filter by substring match on the feedback key.
             limit: The maximum number of configurations to return.
             offset: The number of configurations to skip. Defaults to 0.
+            include_all_configs: Return every configuration of each key,
+                deleted ones included, instead of one per key. Defaults to
+                False.
+            is_enforced: Only enforced configurations when True, only
+                unenforced ones when False.
+
+        ``include_all_configs`` and ``is_enforced`` need LangSmith v0.18 or
+        later on self-hosted deployments.
 
         Yields:
             The feedback configurations.
@@ -1778,6 +1810,10 @@ class AsyncClient:
             params["key"] = feedback_key
         if name_contains is not None:
             params["name_contains"] = name_contains
+        if include_all_configs:
+            params["include_all_configs"] = True
+        if is_enforced is not None:
+            params["is_enforced"] = is_enforced
         ix = 0
         async for config in self._aget_paginated_list("/feedback-configs", params=params):
             yield ls_schemas.FeedbackConfigSchema(**config)
@@ -1791,6 +1827,7 @@ class AsyncClient:
         *,
         feedback_config: Optional[ls_schemas.FeedbackConfig] = None,
         is_lower_score_better: Optional[bool] = None,
+        config_id: Optional[ID_TYPE] = None,
     ) -> ls_schemas.FeedbackConfigSchema:
         """Update a feedback configuration.
 
@@ -1798,9 +1835,15 @@ class AsyncClient:
 
         Args:
             feedback_key: The feedback key of the configuration to update.
-            feedback_config: The new configuration values.
+            feedback_config: The new configuration values. Replaces the whole
+                configuration, so include ``allows_multiple_categories`` to
+                keep a multi-select tag multi-select.
             is_lower_score_better: Whether a lower score is considered
                 better.
+            config_id: The configuration to update, for keys with more than
+                one. When omitted, the key's enforced configuration is
+                updated, or else its first one, or else its most recently modified one.
+                Self-hosted deployments need LangSmith v0.18 or later.
 
         Returns:
             The updated feedback configuration.
@@ -1808,10 +1851,81 @@ class AsyncClient:
         body: dict[str, Any] = {
             "feedback_key": feedback_key,
         }
+        if config_id is not None:
+            body["id"] = str(ls_client._as_uuid(config_id, "config_id"))
         if feedback_config is not None:
             body["feedback_config"] = feedback_config
         if is_lower_score_better is not None:
             body["is_lower_score_better"] = is_lower_score_better
+        return await self._patch_feedback_config(body)
+
+    async def add_feedback_categories(
+        self,
+        feedback_key: str,
+        categories: Sequence[ls_schemas.FeedbackCategory],
+        *,
+        config_id: Optional[ID_TYPE] = None,
+    ) -> ls_schemas.FeedbackConfigSchema:
+        """Add categories to a categorical feedback configuration.
+
+        The existing categories and ``allows_multiple_categories`` are kept.
+        Self-hosted deployments need LangSmith v0.18 or later;
+        older versions ignore the change and return the configuration
+        unchanged.
+
+        Args:
+            feedback_key: The feedback key of the configuration to update.
+            categories: The categories to add. Values and labels must not
+                clash with existing ones.
+            config_id: The configuration to update, for keys with more than
+                one. When omitted, the key's enforced configuration is
+                updated, or else its first one, or else its most recently modified one.
+
+        Returns:
+            The updated feedback configuration.
+        """
+        body: dict[str, Any] = {
+            "feedback_key": feedback_key,
+            "add_categories": list(categories),
+        }
+        if config_id is not None:
+            body["id"] = str(ls_client._as_uuid(config_id, "config_id"))
+        return await self._patch_feedback_config(body)
+
+    async def remove_feedback_categories(
+        self,
+        feedback_key: str,
+        values: Sequence[float],
+        *,
+        config_id: Optional[ID_TYPE] = None,
+    ) -> ls_schemas.FeedbackConfigSchema:
+        """Remove categories from a categorical feedback configuration.
+
+        Feedback already written with a removed value is unchanged. The other
+        categories and ``allows_multiple_categories`` are kept. At least two
+        categories must remain. Self-hosted deployments need LangSmith v0.18
+        or later; older versions ignore the change and return the
+        configuration unchanged.
+
+        Args:
+            feedback_key: The feedback key of the configuration to update.
+            values: The values (not labels) of the categories to remove.
+            config_id: The configuration to update, for keys with more than
+                one. When omitted, the key's enforced configuration is
+                updated, or else its first one, or else its most recently modified one.
+
+        Returns:
+            The updated feedback configuration.
+        """
+        body: dict[str, Any] = {
+            "feedback_key": feedback_key,
+            "remove_categories": list(values),
+        }
+        if config_id is not None:
+            body["id"] = str(ls_client._as_uuid(config_id, "config_id"))
+        return await self._patch_feedback_config(body)
+
+    async def _patch_feedback_config(self, body: dict[str, Any]) -> ls_schemas.FeedbackConfigSchema:
         response = await self._arequest_with_retries(
             "PATCH",
             "/feedback-configs",
@@ -1820,19 +1934,34 @@ class AsyncClient:
         ls_utils.raise_for_status_with_text(response)
         return ls_schemas.FeedbackConfigSchema(**response.json())
 
-    async def delete_feedback_config(self, feedback_key: str) -> None:
+    async def delete_feedback_config(
+        self,
+        feedback_key: Optional[str] = None,
+        *,
+        config_id: Optional[ID_TYPE] = None,
+    ) -> None:
         """Delete a feedback configuration.
 
         This performs a soft delete. The configuration can be recreated
-        later with the same key.
+        later with the same key. Pass exactly one of ``feedback_key`` or
+        ``config_id``.
 
         Args:
-            feedback_key: The feedback key of the configuration to delete.
+            feedback_key: Delete every configuration of this feedback key.
+            config_id: Delete only this configuration. Self-hosted
+                deployments need LangSmith v0.18 or later.
         """
+        if (feedback_key is None) == (config_id is None):
+            raise ValueError("Pass exactly one of feedback_key or config_id.")
+        params = (
+            {"id": str(ls_client._as_uuid(config_id, "config_id"))}
+            if config_id is not None
+            else {"feedback_key": feedback_key}
+        )
         response = await self._arequest_with_retries(
             "DELETE",
             "/feedback-configs",
-            params={"feedback_key": feedback_key},
+            params=params,
         )
         ls_utils.raise_for_status_with_text(response)
 

@@ -762,6 +762,9 @@ class FeedbackConfig(TypedDict, total=False):
     categories: Optional[list[FeedbackCategory]]
     """If feedback is categorical, this defines the valid categories the server will accept.
     Not applicable to continuous or freeform feedback types."""  # noqa
+    allows_multiple_categories: bool
+    """Whether a reviewer can pick several categories. Categorical feedback only.
+    Defaults to False."""
 
 
 class FeedbackCreate(FeedbackBase):
@@ -928,10 +931,33 @@ class DatasetShareSchema(TypedDict, total=False):
     """The URL of the shared dataset."""
 
 
+class RubricItemConditionRule(TypedDict, total=False):
+    """One rule in a rubric item's ``required_if`` or ``visible_if`` conditions."""
+
+    key: str
+    """The feedback key of an item earlier in the same rubric."""
+    op: Literal["is", "is_one_of", "is_empty", "is_not_empty"]
+    """How to test that item's feedback. ``is`` takes exactly one value,
+    ``is_one_of`` at least one, and ``is_empty`` / ``is_not_empty`` none."""
+    values: list[float]
+    """Category values, not labels."""
+
+
+class RubricItemConditions(TypedDict):
+    """Rules on earlier rubric items that decide when an item applies."""
+
+    join: Literal["all", "any"]
+    """Whether all rules or any rule must hold."""
+    rules: list[RubricItemConditionRule]
+    """At least one rule."""
+
+
 class AnnotationQueueRubricItem(TypedDict, total=False):
     """Represents a rubric item assigned to an annotation queue.
 
     Links a feedback config to a queue with optional per-queue customization.
+    A rubric item read from one queue can be passed as-is to another queue's
+    ``rubric_items`` to copy it, keeping the same feedback config.
     """
 
     feedback_key: str
@@ -943,7 +969,26 @@ class AnnotationQueueRubricItem(TypedDict, total=False):
     score_descriptions: Optional[dict[str, str]]
     """Display text for score ranges."""
     is_required: Optional[bool]
-    """Whether feedback for this rubric item is required before submission."""
+    """Whether feedback for this rubric item is required whenever it is shown."""
+    required_if: Optional[RubricItemConditions]
+    """Required only while these rules on earlier items hold. On update, omit to
+    keep the current conditions, or pass None to clear them."""
+    visible_if: Optional[RubricItemConditions]
+    """Shown only while these rules on earlier items hold. On update, omit to
+    keep the current conditions, or pass None to clear them."""
+    is_assertion: Optional[bool]
+    """Whether this rubric item is an assertion (used in curation mode)."""
+    regex_validator: Optional[str]
+    """Regex a freeform feedback value must match (searched, not anchored) to
+    be accepted. At most 500 characters."""
+    feedback_config_id: Optional[UUID]
+    """The feedback config this item uses, for keys with more than one. On
+    create or update, the key's enforced config wins over this, and an item
+    that already has a config keeps it."""
+    feedback_config: Optional[FeedbackConfigSchema]
+    """Read-only. The config this item uses, or the key's first config when the
+    item has none yet. None when the config is deleted. Creates and updates
+    ignore it; set ``feedback_config_id`` to choose the config."""
 
 
 class AnnotationQueue(BaseModel):
@@ -968,6 +1013,8 @@ class AnnotationQueueWithDetails(AnnotationQueue):
 
     rubric_instructions: Optional[str] = None
     """The rubric instructions for the annotation queue."""
+    rubric_items: Optional[list[AnnotationQueueRubricItem]] = None
+    """The rubric items for the annotation queue, in order."""
 
 
 class RunKey(TypedDict):
@@ -1834,8 +1881,10 @@ class FeedbackConfigSchema(BaseModel):
     scoring bounds, and valid categories.
     """
 
+    id: Optional[UUID] = None
+    """The ID of this feedback configuration. A key can have more than one."""
     feedback_key: str
-    """The unique key identifying this feedback configuration."""
+    """The feedback key this configuration belongs to."""
     feedback_config: FeedbackConfig
     """The configuration specifying the type, bounds, and categories."""
     tenant_id: UUID
@@ -1847,3 +1896,9 @@ class FeedbackConfigSchema(BaseModel):
     is_enforced: bool = False
     """Whether this is its key's enforced configuration, which sets the rules
     for the whole workspace. A key has at most one."""
+    is_first: bool = False
+    """Whether this is its key's first configuration. Feedback that doesn't
+    name a configuration was written against it."""
+    is_deleted: bool = False
+    """Whether this configuration is deleted. Listed only with
+    ``include_all_configs``."""
