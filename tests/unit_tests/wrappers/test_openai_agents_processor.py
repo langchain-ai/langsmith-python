@@ -9,10 +9,16 @@ pytest.importorskip("agents")
 
 from agents import tracing  # noqa: E402
 
-from langsmith import Client  # noqa: E402
+from langsmith import Client, tracing_context  # noqa: E402
 from langsmith.integrations.openai_agents_sdk import (  # noqa: E402
     OpenAIAgentsTracingProcessor,
 )
+
+
+@pytest.fixture(autouse=True)
+def isolated_tracing_context():
+    with tracing_context(parent=False):
+        yield
 
 
 def _fake_trace(metadata=None, name="workflow", trace_id="trace-1"):
