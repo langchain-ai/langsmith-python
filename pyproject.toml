@@ -140,7 +140,7 @@ managed = true
 required-version = ">=0.9"
 exclude-newer = "P7D"
 # livekit-agents pins an older json-repair; retain the source SDK's security floor.
-override-dependencies = ["json-repair>=0.60.1"]
+override-dependencies = ["json-repair>=0.60.1", "mcp>=2.2.0"]
 
 [dependency-groups]
 # version pins are in uv.lock
