@@ -191,6 +191,7 @@ class OnlineEvaluatorsResource(SyncAPIResource):
         agent_id: str | Omit = omit,
         feedback_key: str | Omit = omit,
         limit: int | Omit = omit,
+        metadata: str | Omit = omit,
         name_contains: str | Omit = omit,
         offset: int | Omit = omit,
         resource_id: SequenceNotStr[str] | Omit = omit,
@@ -216,6 +217,8 @@ class OnlineEvaluatorsResource(SyncAPIResource):
           feedback_key: Filter by feedback key
 
           limit: Maximum number of results (1-100)
+
+          metadata: Filter by metadata containment using a JSON object
 
           name_contains: Filter by name substring (also searches creator names)
 
@@ -252,6 +255,7 @@ class OnlineEvaluatorsResource(SyncAPIResource):
                         "agent_id": agent_id,
                         "feedback_key": feedback_key,
                         "limit": limit,
+                        "metadata": metadata,
                         "name_contains": name_contains,
                         "offset": offset,
                         "resource_id": resource_id,
@@ -601,6 +605,7 @@ class AsyncOnlineEvaluatorsResource(AsyncAPIResource):
         agent_id: str | Omit = omit,
         feedback_key: str | Omit = omit,
         limit: int | Omit = omit,
+        metadata: str | Omit = omit,
         name_contains: str | Omit = omit,
         offset: int | Omit = omit,
         resource_id: SequenceNotStr[str] | Omit = omit,
@@ -626,6 +631,8 @@ class AsyncOnlineEvaluatorsResource(AsyncAPIResource):
           feedback_key: Filter by feedback key
 
           limit: Maximum number of results (1-100)
+
+          metadata: Filter by metadata containment using a JSON object
 
           name_contains: Filter by name substring (also searches creator names)
 
@@ -662,6 +669,7 @@ class AsyncOnlineEvaluatorsResource(AsyncAPIResource):
                         "agent_id": agent_id,
                         "feedback_key": feedback_key,
                         "limit": limit,
+                        "metadata": metadata,
                         "name_contains": name_contains,
                         "offset": offset,
                         "resource_id": resource_id,
