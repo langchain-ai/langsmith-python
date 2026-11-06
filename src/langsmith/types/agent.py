@@ -36,6 +36,12 @@ class Agent(BaseModel):
 
     agent_type: Literal["CUSTOM", "CODING"]
 
+    agent_uuid: str
+    """
+    The agent's permanent identifier, assigned by LangSmith and never reused;
+    workload identity subjects name the agent by it.
+    """
+
     created_at: datetime
 
     environments: List[Environment]
