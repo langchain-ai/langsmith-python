@@ -20,6 +20,15 @@ class SessionUpdateParams(TypedDict, total=False):
 
     extra: Optional[Dict[str, object]]
 
+    longlived_ttl_days: Optional[int]
+    """Retention in days for traces while trace_tier is longlived.
+
+    One of 30, 60, 90, 120, 150, 180, 240, 300, 365 or 400, up to the maximum of the
+    deployment. Self-hosted also accepts its configured retention. The value is kept
+    while trace_tier is shortlived. Null means the project uses the workspace
+    retention. Omit the field to keep the current value.
+    """
+
     name: Optional[str]
 
     trace_tier: Optional[Literal["longlived", "shortlived"]]

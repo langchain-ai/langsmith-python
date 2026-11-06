@@ -42,6 +42,7 @@ class TestSessions:
             evaluator_keys=["string"],
             extra={"foo": "bar"},
             kicked_off_by="kicked_off_by",
+            longlived_ttl_days=0,
             name="name",
             num_examples=0,
             num_repetitions=0,
@@ -146,6 +147,7 @@ class TestSessions:
             description="description",
             end_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             extra={"foo": "bar"},
+            longlived_ttl_days=0,
             name="name",
             trace_tier="longlived",
         )
@@ -421,6 +423,7 @@ class TestAsyncSessions:
             evaluator_keys=["string"],
             extra={"foo": "bar"},
             kicked_off_by="kicked_off_by",
+            longlived_ttl_days=0,
             name="name",
             num_examples=0,
             num_repetitions=0,
@@ -525,6 +528,7 @@ class TestAsyncSessions:
             description="description",
             end_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             extra={"foo": "bar"},
+            longlived_ttl_days=0,
             name="name",
             trace_tier="longlived",
         )

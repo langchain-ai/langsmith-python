@@ -68,6 +68,7 @@ class SessionsResource(SyncAPIResource):
         evaluator_keys: Optional[SequenceNotStr[str]] | Omit = omit,
         extra: Optional[Dict[str, object]] | Omit = omit,
         kicked_off_by: Optional[str] | Omit = omit,
+        longlived_ttl_days: Optional[int] | Omit = omit,
         name: str | Omit = omit,
         num_examples: Optional[int] | Omit = omit,
         num_repetitions: Optional[int] | Omit = omit,
@@ -86,6 +87,11 @@ class SessionsResource(SyncAPIResource):
         Create a new project.
 
         Args:
+          longlived_ttl_days: Retention in days for traces while trace_tier is longlived. One of 30, 60, 90,
+              120, 150, 180, 240, 300, 365 or 400, up to the maximum of the deployment.
+              Self-hosted also accepts its configured retention. The value is kept while
+              trace_tier is shortlived. Null means the project uses the workspace retention.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -105,6 +111,7 @@ class SessionsResource(SyncAPIResource):
                     "evaluator_keys": evaluator_keys,
                     "extra": extra,
                     "kicked_off_by": kicked_off_by,
+                    "longlived_ttl_days": longlived_ttl_days,
                     "name": name,
                     "num_examples": num_examples,
                     "num_repetitions": num_repetitions,
@@ -180,6 +187,7 @@ class SessionsResource(SyncAPIResource):
         description: Optional[str] | Omit = omit,
         end_time: Union[str, datetime, None] | Omit = omit,
         extra: Optional[Dict[str, object]] | Omit = omit,
+        longlived_ttl_days: Optional[int] | Omit = omit,
         name: Optional[str] | Omit = omit,
         trace_tier: Optional[Literal["longlived", "shortlived"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -193,6 +201,12 @@ class SessionsResource(SyncAPIResource):
         Update a project.
 
         Args:
+          longlived_ttl_days: Retention in days for traces while trace_tier is longlived. One of 30, 60, 90,
+              120, 150, 180, 240, 300, 365 or 400, up to the maximum of the deployment.
+              Self-hosted also accepts its configured retention. The value is kept while
+              trace_tier is shortlived. Null means the project uses the workspace retention.
+              Omit the field to keep the current value.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -211,6 +225,7 @@ class SessionsResource(SyncAPIResource):
                     "description": description,
                     "end_time": end_time,
                     "extra": extra,
+                    "longlived_ttl_days": longlived_ttl_days,
                     "name": name,
                     "trace_tier": trace_tier,
                 },
@@ -544,6 +559,7 @@ class AsyncSessionsResource(AsyncAPIResource):
         evaluator_keys: Optional[SequenceNotStr[str]] | Omit = omit,
         extra: Optional[Dict[str, object]] | Omit = omit,
         kicked_off_by: Optional[str] | Omit = omit,
+        longlived_ttl_days: Optional[int] | Omit = omit,
         name: str | Omit = omit,
         num_examples: Optional[int] | Omit = omit,
         num_repetitions: Optional[int] | Omit = omit,
@@ -562,6 +578,11 @@ class AsyncSessionsResource(AsyncAPIResource):
         Create a new project.
 
         Args:
+          longlived_ttl_days: Retention in days for traces while trace_tier is longlived. One of 30, 60, 90,
+              120, 150, 180, 240, 300, 365 or 400, up to the maximum of the deployment.
+              Self-hosted also accepts its configured retention. The value is kept while
+              trace_tier is shortlived. Null means the project uses the workspace retention.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -581,6 +602,7 @@ class AsyncSessionsResource(AsyncAPIResource):
                     "evaluator_keys": evaluator_keys,
                     "extra": extra,
                     "kicked_off_by": kicked_off_by,
+                    "longlived_ttl_days": longlived_ttl_days,
                     "name": name,
                     "num_examples": num_examples,
                     "num_repetitions": num_repetitions,
@@ -656,6 +678,7 @@ class AsyncSessionsResource(AsyncAPIResource):
         description: Optional[str] | Omit = omit,
         end_time: Union[str, datetime, None] | Omit = omit,
         extra: Optional[Dict[str, object]] | Omit = omit,
+        longlived_ttl_days: Optional[int] | Omit = omit,
         name: Optional[str] | Omit = omit,
         trace_tier: Optional[Literal["longlived", "shortlived"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -669,6 +692,12 @@ class AsyncSessionsResource(AsyncAPIResource):
         Update a project.
 
         Args:
+          longlived_ttl_days: Retention in days for traces while trace_tier is longlived. One of 30, 60, 90,
+              120, 150, 180, 240, 300, 365 or 400, up to the maximum of the deployment.
+              Self-hosted also accepts its configured retention. The value is kept while
+              trace_tier is shortlived. Null means the project uses the workspace retention.
+              Omit the field to keep the current value.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -687,6 +716,7 @@ class AsyncSessionsResource(AsyncAPIResource):
                     "description": description,
                     "end_time": end_time,
                     "extra": extra,
+                    "longlived_ttl_days": longlived_ttl_days,
                     "name": name,
                     "trace_tier": trace_tier,
                 },
