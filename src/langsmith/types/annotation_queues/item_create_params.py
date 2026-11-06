@@ -13,7 +13,11 @@ __all__ = ["ItemCreateParams", "Item"]
 
 class ItemCreateParams(TypedDict, total=False):
     extend_trace_retention: bool
-    """Extend trace retention for added run items"""
+    """Defaults to false.
+
+    When true, upgrade the traces of added runs from base to extended retention.
+    Thread items are not upgraded.
+    """
 
     items: Iterable[Item]
 
