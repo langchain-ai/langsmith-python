@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Union, Optional
+from typing import Dict, List, Union, Optional
 from datetime import datetime
 from typing_extensions import Literal
 
@@ -351,7 +351,6 @@ class SessionsResource(SyncAPIResource):
         name_contains: str | Omit = omit,
         page_size: int | Omit = omit,
         reference_dataset_id: SequenceNotStr[str] | Omit = omit,
-        reference_free: bool | Omit = omit,
         sort_by: Literal[
             "NAME", "START_TIME", "LAST_RUN_START_TIME", "ERROR_RATE", "LATENCY_P50", "LATENCY_P99", "FEEDBACK"
         ]
@@ -363,6 +362,7 @@ class SessionsResource(SyncAPIResource):
         stats_select: SequenceNotStr[str] | Omit = omit,
         stats_start_time: Union[str, datetime] | Omit = omit,
         tag_value_id: SequenceNotStr[str] | Omit = omit,
+        type: List[Literal["PROJECT", "AGENT", "EXPERIMENT"]] | Omit = omit,
         use_approx_stats: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -385,7 +385,7 @@ class SessionsResource(SyncAPIResource):
 
           dataset_version: Only return experiments run against this dataset version (RFC 3339 timestamp)
 
-          filter: Filter expression, for example eq(name, \\
+          filter: Filter expression, for example eq(name, 'my-project')
 
           include_facets: Include run facets
 
@@ -400,8 +400,6 @@ class SessionsResource(SyncAPIResource):
           page_size: Number of projects per page
 
           reference_dataset_id: Only return experiments run against these dataset IDs
-
-          reference_free: true for tracing projects only, false for experiments only
 
           sort_by: Sort column. FEEDBACK requires reference_dataset_id
 
@@ -418,6 +416,8 @@ class SessionsResource(SyncAPIResource):
           stats_start_time: Only aggregate statistics at or after this time, within the last 31 days
 
           tag_value_id: Only return projects tagged with all of these tag value IDs
+
+          type: Only return projects of these types
 
           use_approx_stats: Compute statistics from pre-aggregated data, which is faster but up to an hour
               stale
@@ -451,7 +451,6 @@ class SessionsResource(SyncAPIResource):
                         "name_contains": name_contains,
                         "page_size": page_size,
                         "reference_dataset_id": reference_dataset_id,
-                        "reference_free": reference_free,
                         "sort_by": sort_by,
                         "sort_by_feedback_key": sort_by_feedback_key,
                         "sort_by_feedback_source": sort_by_feedback_source,
@@ -460,6 +459,7 @@ class SessionsResource(SyncAPIResource):
                         "stats_select": stats_select,
                         "stats_start_time": stats_start_time,
                         "tag_value_id": tag_value_id,
+                        "type": type,
                         "use_approx_stats": use_approx_stats,
                     },
                     session_list_v2_params.SessionListV2Params,
@@ -842,7 +842,6 @@ class AsyncSessionsResource(AsyncAPIResource):
         name_contains: str | Omit = omit,
         page_size: int | Omit = omit,
         reference_dataset_id: SequenceNotStr[str] | Omit = omit,
-        reference_free: bool | Omit = omit,
         sort_by: Literal[
             "NAME", "START_TIME", "LAST_RUN_START_TIME", "ERROR_RATE", "LATENCY_P50", "LATENCY_P99", "FEEDBACK"
         ]
@@ -854,6 +853,7 @@ class AsyncSessionsResource(AsyncAPIResource):
         stats_select: SequenceNotStr[str] | Omit = omit,
         stats_start_time: Union[str, datetime] | Omit = omit,
         tag_value_id: SequenceNotStr[str] | Omit = omit,
+        type: List[Literal["PROJECT", "AGENT", "EXPERIMENT"]] | Omit = omit,
         use_approx_stats: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -876,7 +876,7 @@ class AsyncSessionsResource(AsyncAPIResource):
 
           dataset_version: Only return experiments run against this dataset version (RFC 3339 timestamp)
 
-          filter: Filter expression, for example eq(name, \\
+          filter: Filter expression, for example eq(name, 'my-project')
 
           include_facets: Include run facets
 
@@ -891,8 +891,6 @@ class AsyncSessionsResource(AsyncAPIResource):
           page_size: Number of projects per page
 
           reference_dataset_id: Only return experiments run against these dataset IDs
-
-          reference_free: true for tracing projects only, false for experiments only
 
           sort_by: Sort column. FEEDBACK requires reference_dataset_id
 
@@ -909,6 +907,8 @@ class AsyncSessionsResource(AsyncAPIResource):
           stats_start_time: Only aggregate statistics at or after this time, within the last 31 days
 
           tag_value_id: Only return projects tagged with all of these tag value IDs
+
+          type: Only return projects of these types
 
           use_approx_stats: Compute statistics from pre-aggregated data, which is faster but up to an hour
               stale
@@ -942,7 +942,6 @@ class AsyncSessionsResource(AsyncAPIResource):
                         "name_contains": name_contains,
                         "page_size": page_size,
                         "reference_dataset_id": reference_dataset_id,
-                        "reference_free": reference_free,
                         "sort_by": sort_by,
                         "sort_by_feedback_key": sort_by_feedback_key,
                         "sort_by_feedback_source": sort_by_feedback_source,
@@ -951,6 +950,7 @@ class AsyncSessionsResource(AsyncAPIResource):
                         "stats_select": stats_select,
                         "stats_start_time": stats_start_time,
                         "tag_value_id": tag_value_id,
+                        "type": type,
                         "use_approx_stats": use_approx_stats,
                     },
                     session_list_v2_params.SessionListV2Params,

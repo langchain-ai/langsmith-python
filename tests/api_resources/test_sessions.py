@@ -318,7 +318,6 @@ class TestSessions:
             name_contains="name_contains",
             page_size=1,
             reference_dataset_id=["string"],
-            reference_free=True,
             sort_by="NAME",
             sort_by_feedback_key="sort_by_feedback_key",
             sort_by_feedback_source="RUN",
@@ -327,6 +326,7 @@ class TestSessions:
             stats_select=["string"],
             stats_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             tag_value_id=["string"],
+            type=["PROJECT"],
             use_approx_stats=True,
         )
         assert_matches_type(SyncItemsCursorGetPagination[Session], session, path=["response"])
@@ -699,7 +699,6 @@ class TestAsyncSessions:
             name_contains="name_contains",
             page_size=1,
             reference_dataset_id=["string"],
-            reference_free=True,
             sort_by="NAME",
             sort_by_feedback_key="sort_by_feedback_key",
             sort_by_feedback_source="RUN",
@@ -708,6 +707,7 @@ class TestAsyncSessions:
             stats_select=["string"],
             stats_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             tag_value_id=["string"],
+            type=["PROJECT"],
             use_approx_stats=True,
         )
         assert_matches_type(AsyncItemsCursorGetPagination[Session], session, path=["response"])

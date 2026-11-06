@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Union
+from typing import List, Union
 from datetime import datetime
 from typing_extensions import Literal, Annotated, TypedDict
 
@@ -23,7 +23,7 @@ class SessionListV2Params(TypedDict, total=False):
     """Only return experiments run against this dataset version (RFC 3339 timestamp)"""
 
     filter: str
-    """Filter expression, for example eq(name, \\"""
+    """Filter expression, for example eq(name, 'my-project')"""
 
     include_facets: bool
     """Include run facets"""
@@ -45,9 +45,6 @@ class SessionListV2Params(TypedDict, total=False):
 
     reference_dataset_id: SequenceNotStr[str]
     """Only return experiments run against these dataset IDs"""
-
-    reference_free: bool
-    """true for tracing projects only, false for experiments only"""
 
     sort_by: Literal[
         "NAME", "START_TIME", "LAST_RUN_START_TIME", "ERROR_RATE", "LATENCY_P50", "LATENCY_P99", "FEEDBACK"
@@ -74,6 +71,9 @@ class SessionListV2Params(TypedDict, total=False):
 
     tag_value_id: SequenceNotStr[str]
     """Only return projects tagged with all of these tag value IDs"""
+
+    type: List[Literal["PROJECT", "AGENT", "EXPERIMENT"]]
+    """Only return projects of these types"""
 
     use_approx_stats: bool
     """

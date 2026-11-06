@@ -29,6 +29,12 @@ class Session(BaseModel):
 
     tenant_id: str
 
+    type: Literal["PROJECT", "AGENT", "EXPERIMENT"]
+    """
+    `PROJECT` for a tracing project, `AGENT` for an Agent's tracing project, or
+    `EXPERIMENT` for an evaluation run against a dataset.
+    """
+
     completion_cost: Optional[float] = None
 
     completion_tokens: Optional[int] = None
