@@ -403,6 +403,12 @@ class Issue(BaseModel):
 
     traces: Optional[object] = None
 
+    type: Optional[Literal["actionable", "finding"]] = None
+    """
+    "actionable" (there is something to do; it may carry PRs or LangSmith assets) or
+    "finding" (an observation only). Defaults to "actionable".
+    """
+
     updated_at: Optional[str] = None
 
     validation_result: Optional[ValidationResult] = None
