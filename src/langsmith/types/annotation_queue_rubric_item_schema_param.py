@@ -4,17 +4,15 @@ from __future__ import annotations
 
 from typing import Dict, Union, Iterable, Optional
 from datetime import datetime
-from typing_extensions import Literal, Required, Annotated, TypeAlias, TypedDict
+from typing_extensions import Literal, Required, Annotated, TypedDict
 
 from .._utils import PropertyInfo
-from .missing_param import MissingParam
 
 __all__ = [
     "AnnotationQueueRubricItemSchemaParam",
     "FeedbackConfig",
     "FeedbackConfigFeedbackConfig",
     "FeedbackConfigFeedbackConfigCategory",
-    "RegexValidator",
     "RequiredIf",
     "RequiredIfRule",
     "VisibleIf",
@@ -64,9 +62,6 @@ class FeedbackConfig(TypedDict, total=False):
     is_lower_score_better: Optional[bool]
 
 
-RegexValidator: TypeAlias = Union[str, MissingParam]
-
-
 class RequiredIfRule(TypedDict, total=False):
     key: Required[str]
 
@@ -108,7 +103,7 @@ class AnnotationQueueRubricItemSchemaParam(TypedDict, total=False):
 
     is_required: Optional[bool]
 
-    regex_validator: Optional[RegexValidator]
+    regex_validator: Optional[str]
 
     required_if: Optional[RequiredIf]
 

@@ -9,7 +9,6 @@ from .trace import Trace as Trace
 from .shared import QueryPatchEvent as QueryPatchEvent, QueryPatchOperation as QueryPatchOperation
 from .thread import Thread as Thread
 from .dataset import Dataset as Dataset
-from .missing import Missing as Missing
 from .session import Session as Session
 from .run_type import RunType as RunType
 from .data_type import DataType as DataType
@@ -17,7 +16,6 @@ from .evaluator import Evaluator as Evaluator
 from .proxy_config import ProxyConfig as ProxyConfig
 from .thread_stats import ThreadStats as ThreadStats
 from .thread_trace import ThreadTrace as ThreadTrace
-from .missing_param import MissingParam as MissingParam
 from .run_type_enum import RunTypeEnum as RunTypeEnum
 from .prompt_webhook import PromptWebhook as PromptWebhook
 from .tracer_session import TracerSession as TracerSession
