@@ -988,6 +988,127 @@ def test_list_project_issues_uses_platform_issues_endpoint(api_url: str, expecte
     }
 
 
+def _http_response(status_code: int, body: str = "") -> requests.Response:
+    response = requests.Response()
+    response.status_code = status_code
+    response._content = body.encode()
+    response.url = "http://localhost:1984"
+    return response
+
+
+@pytest.mark.parametrize(
+    ("api_url", "expected_url"),
+    [
+        (
+            "http://localhost:1984",
+            "http://localhost:1984/v1/platform/datasets/{dataset_id}/examples/metadata",
+        ),
+        (
+            "http://localhost:1984/api/v1",
+            "http://localhost:1984/api/v1/platform/datasets/{dataset_id}/examples/metadata",
+        ),
+    ],
+)
+@pytest.mark.parametrize(("remove", "operation"), [(False, "array_add"), (True, "array_remove")])
+def test_update_dataset_splits_uses_bulk_metadata_endpoint(
+    api_url: str, expected_url: str, remove: bool, operation: str
+) -> None:
+    dataset_id = uuid.uuid4()
+    example_ids = [uuid.uuid4(), uuid.uuid4()]
+    mock_session = MagicMock()
+    mock_session.request.return_value = _http_response(207, '{"statuses": []}')
+
+    client = Client(api_url=api_url, api_key="test", session=mock_session, info=ls_schemas.LangSmithInfo())
+    client.update_dataset_splits(dataset_id=dataset_id, split_name="test", example_ids=example_ids, remove=remove)
+
+    (call,) = mock_session.request.call_args_list
+    assert call.args[0] == "PATCH"
+    assert call.args[1] == expected_url.format(dataset_id=dataset_id)
+    assert call.kwargs["json"] == {
+        "example_ids": [str(id_) for id_ in example_ids],
+        "operations": [{"key": "dataset_split", "operation": operation, "values": ["test"]}],
+    }
+
+
+def test_update_dataset_splits_batches_example_ids() -> None:
+    example_ids = [str(uuid.uuid4()) for _ in range(10_001)]
+    mock_session = MagicMock()
+    mock_session.request.return_value = _http_response(207, '{"statuses": []}')
+
+    client = Client(
+        api_url="http://localhost:1984", api_key="test", session=mock_session, info=ls_schemas.LangSmithInfo()
+    )
+    client.update_dataset_splits(dataset_id=uuid.uuid4(), split_name="test", example_ids=example_ids)
+
+    batches = [c.kwargs["json"]["example_ids"] for c in mock_session.request.call_args_list]
+    assert [len(b) for b in batches] == [10_000, 1]
+    assert batches[0] + batches[1] == example_ids
+
+
+@pytest.mark.parametrize(
+    "missing_route",
+    [
+        _http_response(404, "404 page not found"),
+        _http_response(
+            404,
+            '{"title": "Not Found", "status": 404, "detail": "The requested path does not exist."}',
+        ),
+        _http_response(405, '{"title": "Method Not Allowed", "status": 405}'),
+    ],
+)
+def test_update_dataset_splits_falls_back_when_endpoint_missing(
+    missing_route: requests.Response,
+) -> None:
+    dataset_id = uuid.uuid4()
+    example_ids = [str(uuid.uuid4()) for _ in range(10_001)]
+    mock_session = MagicMock()
+    mock_session.request.side_effect = [
+        _http_response(207, '{"statuses": []}'),
+        missing_route,
+        _http_response(200, "{}"),
+    ]
+
+    client = Client(
+        api_url="http://localhost:1984", api_key="test", session=mock_session, info=ls_schemas.LangSmithInfo()
+    )
+    client.update_dataset_splits(dataset_id=dataset_id, split_name="test", example_ids=example_ids, remove=True)
+
+    first, second, legacy = mock_session.request.call_args_list
+    assert first.args[0] == second.args[0] == "PATCH"
+    assert legacy.args[:2] == ("PUT", f"http://localhost:1984/datasets/{dataset_id}/splits")
+    # The legacy endpoint has no size limit, so it takes the rest in one request.
+    assert legacy.kwargs["json"] == {
+        "split_name": "test",
+        "examples": example_ids[10_000:],
+        "remove": True,
+    }
+
+
+@pytest.mark.parametrize(
+    "error_response",
+    [
+        _http_response(
+            404,
+            '{"title": "Not Found", "status": 404, "detail": "dataset not found"}',
+        ),
+        _http_response(403, '{"title": "Forbidden", "status": 403}'),
+    ],
+)
+def test_update_dataset_splits_does_not_fall_back_on_other_errors(
+    error_response: requests.Response,
+) -> None:
+    mock_session = MagicMock()
+    mock_session.request.return_value = error_response
+
+    client = Client(
+        api_url="http://localhost:1984", api_key="test", session=mock_session, info=ls_schemas.LangSmithInfo()
+    )
+    with pytest.raises(ls_utils.LangSmithError):
+        client.update_dataset_splits(dataset_id=uuid.uuid4(), split_name="test", example_ids=[uuid.uuid4()])
+
+    assert {c.args[0] for c in mock_session.request.call_args_list} == {"PATCH"}
+
+
 # These check the query params the client sends, not what the server returns.
 @pytest.mark.parametrize(
     ("kwargs", "expected_select", "expected_flag"),

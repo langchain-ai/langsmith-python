@@ -7550,14 +7550,39 @@ class Client:
             if dataset_name is None:
                 raise ValueError("Must provide dataset name or ID")
             dataset_id = self.read_dataset(dataset_name=dataset_name).id
-        data = {
-            "split_name": split_name,
-            "examples": [str(_as_uuid(id_, f"example_ids[{i}]")) for i, id_ in enumerate(example_ids)],
-            "remove": remove,
-        }
+        dataset_uuid = _as_uuid(dataset_id, "dataset_id")
+        ids = [str(_as_uuid(id_, f"example_ids[{i}]")) for i, id_ in enumerate(example_ids)]
+        path = _platform_path(self.api_url, f"datasets/{dataset_uuid}/examples/metadata")
+        # Lowercase, because the endpoint first shipped accepting only lowercase
+        # names and BYOC data planes on that version still do; later servers
+        # accept either case.
+        operation = "array_remove" if remove else "array_add"
 
-        response = self.request_with_retries("PUT", f"/datasets/{_as_uuid(dataset_id, 'dataset_id')}/splits", json=data)
-        ls_utils.raise_for_status_with_text(response)
+        def _raise_if_route_missing(response: requests.Response, _attempt: int) -> bool:
+            if _bulk_metadata_route_missing(response):
+                raise _BulkMetadataRouteMissingError
+            return False
+
+        for start in range(0, len(ids), _BULK_METADATA_MAX_EXAMPLE_IDS):
+            body = {
+                "example_ids": ids[start : start + _BULK_METADATA_MAX_EXAMPLE_IDS],
+                "operations": [{"key": "dataset_split", "operation": operation, "values": [split_name]}],
+            }
+            try:
+                # handle_response only runs before the last attempt, so allow two.
+                self.request_with_retries(
+                    "PATCH",
+                    path,
+                    json=body,
+                    stop_after_attempt=2,
+                    handle_response=_raise_if_route_missing,
+                )
+            except _BulkMetadataRouteMissingError:
+                # Older self-hosted servers lack the bulk metadata endpoint.
+                data = {"split_name": split_name, "examples": ids[start:], "remove": remove}
+                response = self.request_with_retries("PUT", f"/datasets/{dataset_uuid}/splits", json=data)
+                ls_utils.raise_for_status_with_text(response)
+                return
 
     def _resolve_run_id(
         self,
@@ -11548,6 +11573,24 @@ def _dataset_examples_path(api_url: str, dataset_id: ID_TYPE) -> str:
         return f"/platform/datasets/{dataset_id}/examples"
     else:
         return f"/v1/platform/datasets/{dataset_id}/examples"
+
+
+# The most example IDs the bulk metadata endpoint accepts in one request.
+_BULK_METADATA_MAX_EXAMPLE_IDS = 10_000
+
+
+class _BulkMetadataRouteMissingError(Exception):
+    """The server has no bulk metadata endpoint."""
+
+
+def _bulk_metadata_route_missing(response: requests.Response) -> bool:
+    """Whether a bulk metadata response means the server lacks the route.
+
+    A missing dataset is also a 404, but its problem details say "dataset not found".
+    """
+    if response.status_code == 405:
+        return True
+    return response.status_code == 404 and "dataset not found" not in response.text.lower()
 
 
 def _platform_path(api_url: str, path: str) -> str:
