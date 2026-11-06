@@ -92,6 +92,10 @@ from langsmith.types import (
 )
 ```
 
+Methods:
+
+- <code title="get /api/v2/datasets">client.datasets.<a href="./src/langsmith/resources/datasets/datasets.py">list_v2</a>(\*\*<a href="src/langsmith/types/dataset_list_v2_params.py">params</a>) -> <a href="./src/langsmith/types/dataset.py">SyncItemsCursorGetPagination[Dataset]</a></code>
+
 ## Examples
 
 Types:

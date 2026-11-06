@@ -8,6 +8,7 @@ from .issue import Issue as Issue
 from .trace import Trace as Trace
 from .shared import QueryPatchEvent as QueryPatchEvent, QueryPatchOperation as QueryPatchOperation
 from .thread import Thread as Thread
+from .dataset import Dataset as Dataset
 from .missing import Missing as Missing
 from .session import Session as Session
 from .run_type import RunType as RunType
@@ -55,6 +56,8 @@ from .session_create_params import SessionCreateParams as SessionCreateParams
 from .session_feedback_stat import SessionFeedbackStat as SessionFeedbackStat
 from .session_update_params import SessionUpdateParams as SessionUpdateParams
 from .timedelta_input_param import TimedeltaInputParam as TimedeltaInputParam
+from .dataset_list_v2_params import DatasetListV2Params as DatasetListV2Params
+from .dataset_transformation import DatasetTransformation as DatasetTransformation
 from .run_retrieve_v2_params import RunRetrieveV2Params as RunRetrieveV2Params
 from .session_list_v2_params import SessionListV2Params as SessionListV2Params
 from .session_resolve_params import SessionResolveParams as SessionResolveParams
