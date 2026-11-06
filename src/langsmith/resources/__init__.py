@@ -1,5 +1,13 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
+from .sql import (
+    SqlResource,
+    AsyncSqlResource,
+    SqlResourceWithRawResponse,
+    AsyncSqlResourceWithRawResponse,
+    SqlResourceWithStreamingResponse,
+    AsyncSqlResourceWithStreamingResponse,
+)
 from .info import (
     InfoResource,
     AsyncInfoResource,
@@ -130,6 +138,12 @@ from .online_evaluators import (
 )
 
 __all__ = [
+    "SqlResource",
+    "AsyncSqlResource",
+    "SqlResourceWithRawResponse",
+    "AsyncSqlResourceWithRawResponse",
+    "SqlResourceWithStreamingResponse",
+    "AsyncSqlResourceWithStreamingResponse",
     "ProductFeedbackResource",
     "AsyncProductFeedbackResource",
     "ProductFeedbackResourceWithRawResponse",

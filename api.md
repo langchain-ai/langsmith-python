@@ -4,6 +4,18 @@
 from langsmith.types import QueryPatchEvent, QueryPatchOperation
 ```
 
+# Sql
+
+Types:
+
+```python
+from langsmith.types import SqlQueryResponse
+```
+
+Methods:
+
+- <code title="post /v2/sql/query">client.sql.<a href="./src/langsmith/resources/sql.py">query</a>(\*\*<a href="src/langsmith/types/sql_query_params.py">params</a>) -> <a href="./src/langsmith/types/sql_query_response.py">SqlQueryResponse</a></code>
+
 # ProductFeedback
 
 Types:

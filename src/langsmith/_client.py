@@ -36,6 +36,7 @@ from ._base_client import (
 
 if TYPE_CHECKING:
     from .resources import (
+        sql,
         info,
         runs,
         fleet,
@@ -53,6 +54,7 @@ if TYPE_CHECKING:
         annotation_queues,
         online_evaluators,
     )
+    from .resources.sql import SqlResource, AsyncSqlResource
     from .resources.info import InfoResource, AsyncInfoResource
     from .resources.agents import AgentsResource, AsyncAgentsResource
     from .resources.issues import IssuesResource, AsyncIssuesResource
@@ -151,6 +153,12 @@ class Langsmith(SyncAPIClient):
         )
 
         self._default_stream_cls = Stream
+
+    @cached_property
+    def sql(self) -> SqlResource:
+        from .resources.sql import SqlResource
+
+        return SqlResource(self)
 
     @cached_property
     def product_feedback(self) -> ProductFeedbackResource:
@@ -459,6 +467,12 @@ class AsyncLangsmith(AsyncAPIClient):
         self._default_stream_cls = AsyncStream
 
     @cached_property
+    def sql(self) -> AsyncSqlResource:
+        from .resources.sql import AsyncSqlResource
+
+        return AsyncSqlResource(self)
+
+    @cached_property
     def product_feedback(self) -> AsyncProductFeedbackResource:
         from .resources.product_feedback import AsyncProductFeedbackResource
 
@@ -701,6 +715,12 @@ class LangsmithWithRawResponse:
         self._client = client
 
     @cached_property
+    def sql(self) -> sql.SqlResourceWithRawResponse:
+        from .resources.sql import SqlResourceWithRawResponse
+
+        return SqlResourceWithRawResponse(self._client.sql)
+
+    @cached_property
     def product_feedback(self) -> product_feedback.ProductFeedbackResourceWithRawResponse:
         from .resources.product_feedback import ProductFeedbackResourceWithRawResponse
 
@@ -802,6 +822,12 @@ class AsyncLangsmithWithRawResponse:
 
     def __init__(self, client: AsyncLangsmith) -> None:
         self._client = client
+
+    @cached_property
+    def sql(self) -> sql.AsyncSqlResourceWithRawResponse:
+        from .resources.sql import AsyncSqlResourceWithRawResponse
+
+        return AsyncSqlResourceWithRawResponse(self._client.sql)
 
     @cached_property
     def product_feedback(self) -> product_feedback.AsyncProductFeedbackResourceWithRawResponse:
@@ -907,6 +933,12 @@ class LangsmithWithStreamedResponse:
         self._client = client
 
     @cached_property
+    def sql(self) -> sql.SqlResourceWithStreamingResponse:
+        from .resources.sql import SqlResourceWithStreamingResponse
+
+        return SqlResourceWithStreamingResponse(self._client.sql)
+
+    @cached_property
     def product_feedback(self) -> product_feedback.ProductFeedbackResourceWithStreamingResponse:
         from .resources.product_feedback import ProductFeedbackResourceWithStreamingResponse
 
@@ -1008,6 +1040,12 @@ class AsyncLangsmithWithStreamedResponse:
 
     def __init__(self, client: AsyncLangsmith) -> None:
         self._client = client
+
+    @cached_property
+    def sql(self) -> sql.AsyncSqlResourceWithStreamingResponse:
+        from .resources.sql import AsyncSqlResourceWithStreamingResponse
+
+        return AsyncSqlResourceWithStreamingResponse(self._client.sql)
 
     @cached_property
     def product_feedback(self) -> product_feedback.AsyncProductFeedbackResourceWithStreamingResponse:

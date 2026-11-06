@@ -24,6 +24,7 @@ from .tracer_session import TracerSession as TracerSession
 from .online_evaluator import OnlineEvaluator as OnlineEvaluator
 from .run_select_field import RunSelectField as RunSelectField
 from .sandbox_response import SandboxResponse as SandboxResponse
+from .sql_query_params import SqlQueryParams as SqlQueryParams
 from .trace_aggregates import TraceAggregates as TraceAggregates
 from .agent_list_params import AgentListParams as AgentListParams
 from .evaluator_webhook import EvaluatorWebhook as EvaluatorWebhook
@@ -33,6 +34,7 @@ from .info_list_response import InfoListResponse as InfoListResponse
 from .online_spend_limit import OnlineSpendLimit as OnlineSpendLimit
 from .proxy_config_param import ProxyConfigParam as ProxyConfigParam
 from .run_get_url_params import RunGetURLParams as RunGetURLParams
+from .sql_query_response import SqlQueryResponse as SqlQueryResponse
 from .trace_query_params import TraceQueryParams as TraceQueryParams
 from .agent_create_params import AgentCreateParams as AgentCreateParams
 from .agent_update_params import AgentUpdateParams as AgentUpdateParams
