@@ -1058,6 +1058,74 @@ class AsyncClient:
         async for dataset in self._aget_paginated_list("/datasets", params=kwargs):
             yield ls_schemas.Dataset(**dataset)
 
+    async def list_dataset_versions(
+        self,
+        *,
+        dataset_id: Optional[ls_client.ID_TYPE] = None,
+        dataset_name: Optional[str] = None,
+        search: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> AsyncIterator[ls_schemas.DatasetVersion]:
+        """List dataset versions.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            dataset_name: The name of the dataset.
+            search: The search query.
+            limit: The maximum number of versions to return.
+
+        Yields:
+            The dataset versions.
+        """
+        if dataset_id is None:
+            dataset_id = (await self.read_dataset(dataset_name=dataset_name)).id
+        params = {
+            "search": search,
+            "limit": min(limit, 100) if limit is not None else 100,
+        }
+        count = 0
+        async for version in self._aget_paginated_list(
+            f"/datasets/{ls_client._as_uuid(dataset_id, 'dataset_id')}/versions",
+            params=params,
+        ):
+            yield ls_schemas.DatasetVersion(**version)
+            count += 1
+            if limit is not None and count >= limit:
+                break
+
+    async def read_dataset_version(
+        self,
+        *,
+        dataset_id: Optional[ls_client.ID_TYPE] = None,
+        dataset_name: Optional[str] = None,
+        as_of: Optional[datetime.datetime] = None,
+        tag: Optional[str] = None,
+    ) -> ls_schemas.DatasetVersion:
+        """Get a dataset version by timestamp or exact tag.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            dataset_name: The name of the dataset.
+            as_of: Retrieve the version at or before this timestamp.
+            tag: The tag of the version to retrieve, such as "latest" or "prod".
+
+        Returns:
+            The dataset version.
+
+        Raises:
+            ValueError: If neither or both of as_of and tag are specified.
+        """
+        if dataset_id is None:
+            dataset_id = (await self.read_dataset(dataset_name=dataset_name)).id
+        if (as_of and tag) or (as_of is None and tag is None):
+            raise ValueError("Exactly one of as_of and tag must be specified.")
+        response = await self._arequest_with_retries(
+            "GET",
+            f"/datasets/{ls_client._as_uuid(dataset_id, 'dataset_id')}/version",
+            params={"as_of": as_of, "tag": tag},
+        )
+        return ls_schemas.DatasetVersion(**response.json())
+
     async def create_example(
         self,
         inputs: dict[str, Any],
