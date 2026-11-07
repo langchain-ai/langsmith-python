@@ -3,6 +3,7 @@
 Covers `Client.traces` (query, list_runs), exposed in #3162.
 """
 
+import asyncio
 import datetime
 import logging
 import time
@@ -35,7 +36,7 @@ async def _wait_for_async(
                 return result
         except Exception:
             logger.debug("Error checking async condition", exc_info=True)
-        time.sleep(sleep_time)
+        await asyncio.sleep(sleep_time)
     raise ValueError(f"Condition not met within {max_sleep_time}s")
 
 
@@ -114,17 +115,24 @@ async def test_traces_list_runs(langchain_client: Client, project_with_runs) -> 
     """traces.list_runs() returns the runs belonging to a trace."""
     project_id, min_start_time, max_start_time = project_with_runs
 
-    page = await langchain_client.traces.query(
-        project_id=project_id,
-        page_size=10,
-        min_start_time=min_start_time,
-        max_start_time=max_start_time,
-    )
-    assert len(page.items) > 0
-    root_run = page.items[0].root_run
-    assert root_run is not None
-    trace_id = str(root_run.id)
+    async def _trace_id() -> Optional[str]:
+        page = await langchain_client.traces.query(
+            project_id=project_id,
+            page_size=10,
+            min_start_time=min_start_time,
+            max_start_time=max_start_time,
+        )
+        if page.items and page.items[0].root_run is not None:
+            return str(page.items[0].root_run.id)
+        return None
 
-    response = await langchain_client.traces.list_runs(trace_id, project_id=project_id)
-    assert response.items is not None
+    trace_id = await _wait_for_async(_trace_id, max_sleep_time=60)
+
+    # The trace-runs read path becomes consistent independently of
+    # traces.query, so a trace can be listed before its runs are.
+    async def _trace_runs():
+        response = await langchain_client.traces.list_runs(trace_id, project_id=project_id)
+        return response if response.items else None
+
+    response = await _wait_for_async(_trace_runs, max_sleep_time=60)
     assert len(response.items) > 0
