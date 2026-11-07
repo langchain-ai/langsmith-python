@@ -622,6 +622,34 @@ def comparison_evaluator(
     return DynamicComparisonRunEvaluator(func)
 
 
+def _bind_mapped_args(sig: inspect.Signature, arg_map: dict[str, Any]) -> tuple[list, dict]:
+    """Split the mapped values into positional and keyword arguments for ``sig``.
+
+    Parameters that aren't in ``arg_map`` (e.g. ``threshold=0.5``) are left to
+    their defaults. Once one is skipped, later positional-or-keyword parameters
+    have to go by keyword, otherwise they'd shift into the skipped slot.
+    """
+    args: list = []
+    kwargs: dict = {}
+    skipped: list[inspect.Parameter] = []
+    for param_name, param in sig.parameters.items():
+        if param.kind not in (param.POSITIONAL_ONLY, param.POSITIONAL_OR_KEYWORD):
+            if param_name in arg_map:
+                kwargs[param_name] = arg_map[param_name]
+            continue
+        if param_name not in arg_map:
+            skipped.append(param)
+        elif param.kind == param.POSITIONAL_OR_KEYWORD and skipped:
+            kwargs[param_name] = arg_map[param_name]
+        else:
+            # Positional-only params can't be passed by keyword, so fill any
+            # skipped slots before them with their defaults.
+            args.extend(p.default for p in skipped)
+            skipped = []
+            args.append(arg_map[param_name])
+    return args, kwargs
+
+
 def _normalize_evaluator_func(
     func: Callable,
 ) -> tuple[
@@ -672,19 +700,11 @@ def _normalize_evaluator_func(
                     "attachments": example.attachments or {} if example else {},
                     "reference_outputs": example.outputs or {} if example else {},
                 }
-                kwargs = {}
-                args = []
+                args, kwargs = _bind_mapped_args(sig, arg_map)
                 traced_inputs = {}
-                for param_name, param in sig.parameters.items():
+                for param_name in sig.parameters:
                     # Could have params with defaults that are not in the arg map
                     if param_name in arg_map:
-                        if param.kind in (
-                            param.POSITIONAL_OR_KEYWORD,
-                            param.POSITIONAL_ONLY,
-                        ):
-                            args.append(arg_map[param_name])
-                        else:
-                            kwargs[param_name] = arg_map[param_name]
                         traced_inputs[param_name] = (
                             _maxsize_repr(arg_map[param_name])
                             if param_name in ("run", "example")
@@ -710,19 +730,11 @@ def _normalize_evaluator_func(
                     "attachments": example.attachments or {} if example else {},
                     "reference_outputs": example.outputs or {} if example else {},
                 }
-                kwargs = {}
-                args = []
+                args, kwargs = _bind_mapped_args(sig, arg_map)
                 traced_inputs = {}
-                for param_name, param in sig.parameters.items():
+                for param_name in sig.parameters:
                     # Could have params with defaults that are not in the arg map
                     if param_name in arg_map:
-                        if param.kind in (
-                            param.POSITIONAL_OR_KEYWORD,
-                            param.POSITIONAL_ONLY,
-                        ):
-                            args.append(arg_map[param_name])
-                        else:
-                            kwargs[param_name] = arg_map[param_name]
                         traced_inputs[param_name] = (
                             _maxsize_repr(arg_map[param_name])
                             if param_name in ("run", "example")
@@ -780,19 +792,11 @@ def _normalize_comparison_evaluator_func(
                     "outputs": [run.outputs or {} for run in runs],
                     "reference_outputs": example.outputs or {} if example else {},
                 }
-                kwargs = {}
-                args = []
+                args, kwargs = _bind_mapped_args(sig, arg_map)
                 traced_inputs = {}
-                for param_name, param in sig.parameters.items():
+                for param_name in sig.parameters:
                     # Could have params with defaults that are not in the arg map
                     if param_name in arg_map:
-                        if param.kind in (
-                            param.POSITIONAL_OR_KEYWORD,
-                            param.POSITIONAL_ONLY,
-                        ):
-                            args.append(arg_map[param_name])
-                        else:
-                            kwargs[param_name] = arg_map[param_name]
                         traced_inputs[param_name] = (
                             _maxsize_repr(arg_map[param_name])
                             if param_name in ("runs", "example")
@@ -817,19 +821,11 @@ def _normalize_comparison_evaluator_func(
                     "outputs": [run.outputs or {} for run in runs],
                     "reference_outputs": example.outputs or {} if example else {},
                 }
-                kwargs = {}
-                args = []
+                args, kwargs = _bind_mapped_args(sig, arg_map)
                 traced_inputs = {}
-                for param_name, param in sig.parameters.items():
+                for param_name in sig.parameters:
                     # Could have params with defaults that are not in the arg map
                     if param_name in arg_map:
-                        if param.kind in (
-                            param.POSITIONAL_OR_KEYWORD,
-                            param.POSITIONAL_ONLY,
-                        ):
-                            args.append(arg_map[param_name])
-                        else:
-                            kwargs[param_name] = arg_map[param_name]
                         traced_inputs[param_name] = (
                             _maxsize_repr(arg_map[param_name])
                             if param_name in ("runs", "example")
@@ -914,18 +910,7 @@ def _normalize_summary_evaluator(func: Callable) -> SUMMARY_EVALUATOR_T:
                 "outputs": [run.outputs or {} for run in runs],
                 "reference_outputs": [example.outputs or {} for example in examples],
             }
-            kwargs = {}
-            args = []
-            for param_name, param in sig.parameters.items():
-                # Could have params with defaults that are not in the arg map
-                if param_name in arg_map:
-                    if param.kind in (
-                        param.POSITIONAL_OR_KEYWORD,
-                        param.POSITIONAL_ONLY,
-                    ):
-                        args.append(arg_map[param_name])
-                    else:
-                        kwargs[param_name] = arg_map[param_name]
+            args, kwargs = _bind_mapped_args(sig, arg_map)
 
             result = func(*args, **kwargs)
             if isinstance(result, EvaluationResult):
