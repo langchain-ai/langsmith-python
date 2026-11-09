@@ -17,13 +17,22 @@ class AgentListParams(TypedDict, total=False):
     """Opaque pagination cursor"""
 
     name: str
-    """Case-insensitive partial Agent name"""
+    """Deprecated: use search.
+
+    Case-insensitive partial Agent name. Ignored when search is provided.
+    """
 
     page_size: int
     """Maximum number of Agents to return"""
 
+    search: str
+    """Case-insensitive partial Agent name or ID, ignoring hyphens and spaces.
+
+    When provided, name is ignored.
+    """
+
     sort_by: Literal["last_run_start_time", "name", "created_at"]
-    """Field to sort by. When name is set, exact name matches still come first."""
+    """Field to sort by. When name or search is set, exact matches still come first."""
 
     sort_order: Literal["asc", "desc"]
     """Sort direction"""

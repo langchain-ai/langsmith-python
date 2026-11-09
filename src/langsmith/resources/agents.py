@@ -219,6 +219,7 @@ class AgentsResource(SyncAPIResource):
         cursor: str | Omit = omit,
         name: str | Omit = omit,
         page_size: int | Omit = omit,
+        search: str | Omit = omit,
         sort_by: Literal["last_run_start_time", "name", "created_at"] | Omit = omit,
         sort_order: Literal["asc", "desc"] | Omit = omit,
         source_type: Literal["LSD", "MDA", "EXTERNAL", "FLEET"] | Omit = omit,
@@ -241,11 +242,15 @@ class AgentsResource(SyncAPIResource):
 
           cursor: Opaque pagination cursor
 
-          name: Case-insensitive partial Agent name
+          name: Deprecated: use search. Case-insensitive partial Agent name. Ignored when search
+              is provided.
 
           page_size: Maximum number of Agents to return
 
-          sort_by: Field to sort by. When name is set, exact name matches still come first.
+          search: Case-insensitive partial Agent name or ID, ignoring hyphens and spaces. When
+              provided, name is ignored.
+
+          sort_by: Field to sort by. When name or search is set, exact matches still come first.
 
           sort_order: Sort direction
 
@@ -273,6 +278,7 @@ class AgentsResource(SyncAPIResource):
                         "cursor": cursor,
                         "name": name,
                         "page_size": page_size,
+                        "search": search,
                         "sort_by": sort_by,
                         "sort_order": sort_order,
                         "source_type": source_type,
@@ -515,6 +521,7 @@ class AsyncAgentsResource(AsyncAPIResource):
         cursor: str | Omit = omit,
         name: str | Omit = omit,
         page_size: int | Omit = omit,
+        search: str | Omit = omit,
         sort_by: Literal["last_run_start_time", "name", "created_at"] | Omit = omit,
         sort_order: Literal["asc", "desc"] | Omit = omit,
         source_type: Literal["LSD", "MDA", "EXTERNAL", "FLEET"] | Omit = omit,
@@ -537,11 +544,15 @@ class AsyncAgentsResource(AsyncAPIResource):
 
           cursor: Opaque pagination cursor
 
-          name: Case-insensitive partial Agent name
+          name: Deprecated: use search. Case-insensitive partial Agent name. Ignored when search
+              is provided.
 
           page_size: Maximum number of Agents to return
 
-          sort_by: Field to sort by. When name is set, exact name matches still come first.
+          search: Case-insensitive partial Agent name or ID, ignoring hyphens and spaces. When
+              provided, name is ignored.
+
+          sort_by: Field to sort by. When name or search is set, exact matches still come first.
 
           sort_order: Sort direction
 
@@ -569,6 +580,7 @@ class AsyncAgentsResource(AsyncAPIResource):
                         "cursor": cursor,
                         "name": name,
                         "page_size": page_size,
+                        "search": search,
                         "sort_by": sort_by,
                         "sort_order": sort_order,
                         "source_type": source_type,
