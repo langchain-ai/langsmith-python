@@ -32,6 +32,14 @@ from .fleet import (
     FleetResourceWithStreamingResponse,
     AsyncFleetResourceWithStreamingResponse,
 )
+from .repos import (
+    ReposResource,
+    AsyncReposResource,
+    ReposResourceWithRawResponse,
+    AsyncReposResourceWithRawResponse,
+    ReposResourceWithStreamingResponse,
+    AsyncReposResourceWithStreamingResponse,
+)
 from .agents import (
     AgentsResource,
     AsyncAgentsResource,
@@ -63,6 +71,14 @@ from .traces import (
     AsyncTracesResourceWithRawResponse,
     TracesResourceWithStreamingResponse,
     AsyncTracesResourceWithStreamingResponse,
+)
+from .commits import (
+    CommitsResource,
+    AsyncCommitsResource,
+    CommitsResourceWithRawResponse,
+    AsyncCommitsResourceWithRawResponse,
+    CommitsResourceWithStreamingResponse,
+    AsyncCommitsResourceWithStreamingResponse,
 )
 from .threads import (
     ThreadsResource,
@@ -228,6 +244,18 @@ __all__ = [
     "AsyncInfoResourceWithRawResponse",
     "InfoResourceWithStreamingResponse",
     "AsyncInfoResourceWithStreamingResponse",
+    "ReposResource",
+    "AsyncReposResource",
+    "ReposResourceWithRawResponse",
+    "AsyncReposResourceWithRawResponse",
+    "ReposResourceWithStreamingResponse",
+    "AsyncReposResourceWithStreamingResponse",
+    "CommitsResource",
+    "AsyncCommitsResource",
+    "CommitsResourceWithRawResponse",
+    "AsyncCommitsResourceWithRawResponse",
+    "CommitsResourceWithStreamingResponse",
+    "AsyncCommitsResourceWithStreamingResponse",
     "IssuesResource",
     "AsyncIssuesResource",
     "IssuesResourceWithRawResponse",

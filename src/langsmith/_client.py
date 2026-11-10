@@ -40,10 +40,12 @@ if TYPE_CHECKING:
         info,
         runs,
         fleet,
+        repos,
         agents,
         issues,
         public,
         traces,
+        commits,
         threads,
         datasets,
         sessions,
@@ -58,10 +60,12 @@ if TYPE_CHECKING:
     from .resources.info import InfoResource, AsyncInfoResource
     from .resources.agents import AgentsResource, AsyncAgentsResource
     from .resources.issues import IssuesResource, AsyncIssuesResource
+    from .resources.commits import CommitsResource, AsyncCommitsResource
     from .resources.sessions import SessionsResource, AsyncSessionsResource
     from .resources.runs.runs import RunsResource, AsyncRunsResource
     from .resources.evaluators import EvaluatorsResource, AsyncEvaluatorsResource
     from .resources.fleet.fleet import FleetResource, AsyncFleetResource
+    from .resources.repos.repos import ReposResource, AsyncReposResource
     from .resources.public.public import PublicResource, AsyncPublicResource
     from .resources.traces.traces import TracesResource, AsyncTracesResource
     from .resources.prompt_webhooks import PromptWebhooksResource, AsyncPromptWebhooksResource
@@ -243,6 +247,18 @@ class Langsmith(SyncAPIClient):
         from .resources.info import InfoResource
 
         return InfoResource(self)
+
+    @cached_property
+    def repos(self) -> ReposResource:
+        from .resources.repos import ReposResource
+
+        return ReposResource(self)
+
+    @cached_property
+    def commits(self) -> CommitsResource:
+        from .resources.commits import CommitsResource
+
+        return CommitsResource(self)
 
     @cached_property
     def issues(self) -> IssuesResource:
@@ -557,6 +573,18 @@ class AsyncLangsmith(AsyncAPIClient):
         return AsyncInfoResource(self)
 
     @cached_property
+    def repos(self) -> AsyncReposResource:
+        from .resources.repos import AsyncReposResource
+
+        return AsyncReposResource(self)
+
+    @cached_property
+    def commits(self) -> AsyncCommitsResource:
+        from .resources.commits import AsyncCommitsResource
+
+        return AsyncCommitsResource(self)
+
+    @cached_property
     def issues(self) -> AsyncIssuesResource:
         from .resources.issues import AsyncIssuesResource
 
@@ -805,6 +833,18 @@ class LangsmithWithRawResponse:
         return InfoResourceWithRawResponse(self._client.info)
 
     @cached_property
+    def repos(self) -> repos.ReposResourceWithRawResponse:
+        from .resources.repos import ReposResourceWithRawResponse
+
+        return ReposResourceWithRawResponse(self._client.repos)
+
+    @cached_property
+    def commits(self) -> commits.CommitsResourceWithRawResponse:
+        from .resources.commits import CommitsResourceWithRawResponse
+
+        return CommitsResourceWithRawResponse(self._client.commits)
+
+    @cached_property
     def issues(self) -> issues.IssuesResourceWithRawResponse:
         from .resources.issues import IssuesResourceWithRawResponse
 
@@ -912,6 +952,18 @@ class AsyncLangsmithWithRawResponse:
         from .resources.info import AsyncInfoResourceWithRawResponse
 
         return AsyncInfoResourceWithRawResponse(self._client.info)
+
+    @cached_property
+    def repos(self) -> repos.AsyncReposResourceWithRawResponse:
+        from .resources.repos import AsyncReposResourceWithRawResponse
+
+        return AsyncReposResourceWithRawResponse(self._client.repos)
+
+    @cached_property
+    def commits(self) -> commits.AsyncCommitsResourceWithRawResponse:
+        from .resources.commits import AsyncCommitsResourceWithRawResponse
+
+        return AsyncCommitsResourceWithRawResponse(self._client.commits)
 
     @cached_property
     def issues(self) -> issues.AsyncIssuesResourceWithRawResponse:
@@ -1023,6 +1075,18 @@ class LangsmithWithStreamedResponse:
         return InfoResourceWithStreamingResponse(self._client.info)
 
     @cached_property
+    def repos(self) -> repos.ReposResourceWithStreamingResponse:
+        from .resources.repos import ReposResourceWithStreamingResponse
+
+        return ReposResourceWithStreamingResponse(self._client.repos)
+
+    @cached_property
+    def commits(self) -> commits.CommitsResourceWithStreamingResponse:
+        from .resources.commits import CommitsResourceWithStreamingResponse
+
+        return CommitsResourceWithStreamingResponse(self._client.commits)
+
+    @cached_property
     def issues(self) -> issues.IssuesResourceWithStreamingResponse:
         from .resources.issues import IssuesResourceWithStreamingResponse
 
@@ -1130,6 +1194,18 @@ class AsyncLangsmithWithStreamedResponse:
         from .resources.info import AsyncInfoResourceWithStreamingResponse
 
         return AsyncInfoResourceWithStreamingResponse(self._client.info)
+
+    @cached_property
+    def repos(self) -> repos.AsyncReposResourceWithStreamingResponse:
+        from .resources.repos import AsyncReposResourceWithStreamingResponse
+
+        return AsyncReposResourceWithStreamingResponse(self._client.repos)
+
+    @cached_property
+    def commits(self) -> commits.AsyncCommitsResourceWithStreamingResponse:
+        from .resources.commits import AsyncCommitsResourceWithStreamingResponse
+
+        return AsyncCommitsResourceWithStreamingResponse(self._client.commits)
 
     @cached_property
     def issues(self) -> issues.AsyncIssuesResourceWithStreamingResponse:

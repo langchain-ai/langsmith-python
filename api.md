@@ -429,6 +429,67 @@ Methods:
 
 - <code title="get /api/v1/info">client.info.<a href="./src/langsmith/resources/info.py">list</a>() -> <a href="./src/langsmith/types/info_list_response.py">InfoListResponse</a></code>
 
+# Repos
+
+Types:
+
+```python
+from langsmith.types import (
+    CreateRepoResponse,
+    DemoConfig,
+    EPromptOptimizationAlgorithm,
+    GetRepoResponse,
+    PromptimConfig,
+    RepoWithLookups,
+)
+```
+
+Methods:
+
+- <code title="post /api/v1/repos">client.repos.<a href="./src/langsmith/resources/repos/repos.py">create</a>(\*\*<a href="src/langsmith/types/repo_create_params.py">params</a>) -> <a href="./src/langsmith/types/create_repo_response.py">CreateRepoResponse</a></code>
+- <code title="get /api/v1/repos/{owner}/{repo}">client.repos.<a href="./src/langsmith/resources/repos/repos.py">retrieve</a>(repo, \*, owner) -> <a href="./src/langsmith/types/get_repo_response.py">GetRepoResponse</a></code>
+- <code title="patch /api/v1/repos/{owner}/{repo}">client.repos.<a href="./src/langsmith/resources/repos/repos.py">update</a>(repo, \*, owner, \*\*<a href="src/langsmith/types/repo_update_params.py">params</a>) -> <a href="./src/langsmith/types/create_repo_response.py">CreateRepoResponse</a></code>
+- <code title="get /api/v1/repos">client.repos.<a href="./src/langsmith/resources/repos/repos.py">list</a>(\*\*<a href="src/langsmith/types/repo_list_params.py">params</a>) -> <a href="./src/langsmith/types/repo_with_lookups.py">SyncOffsetPaginationRepos[RepoWithLookups]</a></code>
+- <code title="delete /api/v1/repos/{owner}/{repo}">client.repos.<a href="./src/langsmith/resources/repos/repos.py">delete</a>(repo, \*, owner) -> object</code>
+
+## Directories
+
+Types:
+
+```python
+from langsmith.types.repos import (
+    DirectorySelector,
+    FileEntry,
+    DirectoryListResponse,
+    DirectoryCommitResponse,
+)
+```
+
+Methods:
+
+- <code title="get /api/v1/platform/hub/repos/{owner}/{repo}/directories">client.repos.directories.<a href="./src/langsmith/resources/repos/directories.py">list</a>(repo, \*, owner, \*\*<a href="src/langsmith/types/repos/directory_list_params.py">params</a>) -> <a href="./src/langsmith/types/repos/directory_list_response.py">DirectoryListResponse</a></code>
+- <code title="delete /api/v1/platform/hub/repos/{owner}/{repo}/directories">client.repos.directories.<a href="./src/langsmith/resources/repos/directories.py">delete</a>(repo, \*, owner, \*\*<a href="src/langsmith/types/repos/directory_delete_params.py">params</a>) -> None</code>
+- <code title="post /api/v1/platform/hub/repos/{owner}/{repo}/directories/commits">client.repos.directories.<a href="./src/langsmith/resources/repos/directories.py">commit</a>(repo, \*, owner, \*\*<a href="src/langsmith/types/repos/directory_commit_params.py">params</a>) -> <a href="./src/langsmith/types/repos/directory_commit_response.py">DirectoryCommitResponse</a></code>
+
+# Commits
+
+Types:
+
+```python
+from langsmith.types import (
+    CommitManifestResponse,
+    CommitWithLookups,
+    CommitCreateResponse,
+    CommitRetrieveResponse,
+)
+```
+
+Methods:
+
+- <code title="post /api/v1/commits/{owner}/{repo}">client.commits.<a href="./src/langsmith/resources/commits.py">create</a>(repo, \*, owner, \*\*<a href="src/langsmith/types/commit_create_params.py">params</a>) -> <a href="./src/langsmith/types/commit_create_response.py">CommitCreateResponse</a></code>
+- <code title="get /api/v1/commits/{owner}/{repo}/{commit}">client.commits.<a href="./src/langsmith/resources/commits.py">retrieve</a>(commit, \*, owner, repo, \*\*<a href="src/langsmith/types/commit_retrieve_params.py">params</a>) -> <a href="./src/langsmith/types/commit_retrieve_response.py">CommitRetrieveResponse</a></code>
+- <code title="get /api/v1/commits/{owner}/{repo}">client.commits.<a href="./src/langsmith/resources/commits.py">list</a>(repo, \*, owner, \*\*<a href="src/langsmith/types/commit_list_params.py">params</a>) -> <a href="./src/langsmith/types/commit_with_lookups.py">SyncOffsetPaginationCommits[CommitWithLookups]</a></code>
+
 # Issues
 
 Types:
