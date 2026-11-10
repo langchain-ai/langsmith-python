@@ -128,6 +128,8 @@ class Evaluator(BaseModel):
 
     spend_usd: Optional[float] = None
 
+    thread_filter: Optional[str] = None
+
     trace_count: Optional[int] = None
 
     trace_filter: Optional[str] = None
