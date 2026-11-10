@@ -59,6 +59,9 @@ class ProfileConfig(TypedDict, total=False):
     # Shell command that prints the API key. The CLI and Go SDK run it; this
     # SDK reports it as unsupported instead of running unauthenticated.
     api_key_cmd: str
+    # "keychain" when the CLI or Go SDK keep the profile's secrets in the OS
+    # keychain. This SDK cannot read it yet and reports it instead.
+    secret_store: str
     api_url: str
     workspace_id: str
     oauth: ProfileOAuth
@@ -85,6 +88,7 @@ class ProfileClientConfig(NamedTuple):
     profile_state: Optional[ProfileState] = None
     api_key_env: Optional[str] = None
     api_key_cmd: Optional[str] = None
+    secret_store: Optional[str] = None
 
     @property
     def has_oauth(self) -> bool:
@@ -106,7 +110,15 @@ class ProfileClientConfig(NamedTuple):
         if self.api_key:
             return self.api_key
         profile_name = self.profile_state.profile_name if self.profile_state else ""
-        if self.api_key_env:
+        if self.secret_store == "keychain":
+            warnings.warn(
+                f'LangSmith profile "{profile_name}" keeps its credentials in the OS keychain (secret_store), '
+                "which the Python SDK does not support yet. Set LANGSMITH_API_KEY, "
+                "or recreate the profile without --keychain.",
+                ls_utils.LangSmithMissingAPIKeyWarning,
+                stacklevel=_user_stacklevel(),
+            )
+        elif self.api_key_env:
             key = os.environ.get(self.api_key_env, "").strip()
             if key:
                 return key
@@ -195,6 +207,7 @@ def load_profile_client_config(
         profile_state=state,
         api_key_env=trim_auth_value(selected_profile.get("api_key_env")),
         api_key_cmd=trim_auth_value(selected_profile.get("api_key_cmd")),
+        secret_store=trim_auth_value(selected_profile.get("secret_store")),
     )
 
 

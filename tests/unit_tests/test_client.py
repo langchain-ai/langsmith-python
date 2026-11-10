@@ -489,6 +489,11 @@ def test_profile_config_reads_api_key_env(monkeypatch: pytest.MonkeyPatch, tmp_p
             'LangSmith profile "prod" gets its API key from a command (api_key_cmd), '
             "which the Python SDK does not support yet",
         ),
+        (
+            {"secret_store": "keychain"},
+            'LangSmith profile "prod" keeps its credentials in the OS keychain (secret_store), '
+            "which the Python SDK does not support yet",
+        ),
     ],
 )
 def test_profile_config_unresolvable_api_key_ref_warns(
