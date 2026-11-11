@@ -27,11 +27,10 @@ dependencies = [
   "sniffio",
 ]
 
-requires-python = ">= 3.10"
+requires-python = ">= 3.11"
 classifiers = [
   "Typing :: Typed",
   "Intended Audience :: Developers",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -63,10 +62,8 @@ otel = [
 ]
 
 # Enabled via `pip install langsmith[pipecat]`
-# pipecat-ai requires Python >=3.11; the marker keeps universal resolution
-# satisfiable on 3.10 (the extra is simply unavailable there).
 pipecat = [
-    "pipecat-ai>=1.0; python_version>='3.11'",
+    "pipecat-ai>=1.0",
     "opentelemetry-sdk>=1.30.0",
     "opentelemetry-api>=1.30.0",
     "opentelemetry-exporter-otlp-proto-http>=1.30.0",
@@ -98,7 +95,7 @@ gemini-live = ["google-genai>=1.75"]
 openai-agents = ["openai-agents>=0.0.3"]
 
 # Enabled via `pip install langsmith[claude-agent-sdk]`
-claude-agent-sdk = ["claude-agent-sdk>=0.1.0; python_version>='3.10'"]
+claude-agent-sdk = ["claude-agent-sdk>=0.1.0"]
 
 # Enabled via `pip install langsmith[google-adk]`
 google-adk = ["google-adk>=1.0.0", "wrapt>=1.16.0"]
@@ -145,8 +142,7 @@ override-dependencies = [
     "json-repair>=0.60.1",
     "mcp>=2.2.0",
     "nltk>=3.10.4",
-    "pillow>=12.0.0; python_version<'3.11'",
-    "pillow>=13.0.0; python_version>='3.11'",
+    "pillow>=13.0.0",
     "pyasn1>=0.6.5",
 ]
 
@@ -194,7 +190,7 @@ dev = [
     "cachetools>=5.0.0",
     "bump2version>=1.0.1",
     "openai-agents>=0.2.4",
-    "claude-agent-sdk>=0.1.0; python_version>='3.10'",
+    "claude-agent-sdk>=0.1.0",
     "strands-agents>=0.1.0",
     "strands-agents-tools>=0.2.0",
     "langchain-core>=1.0.0,<1.5.0",
@@ -202,7 +198,7 @@ dev = [
     "langchain-anthropic>=1.0.0,<1.5.0",
     "debugpy>=1.8.17",
     "google-genai>=1.2.0",
-    "pillow>=12.0.0",
+    "pillow>=13.0.0",
     "ty==0.0.75",
     "pytest-httpx>=0.30.0",
     "wrapt>=1.16.0",
@@ -290,7 +286,7 @@ markers = [
 # there are a couple of flags that are still disabled by
 # default in strict mode as they are experimental and niche.
 typeCheckingMode = "strict"
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 
 exclude = [
     "_dev",
@@ -444,7 +440,7 @@ line-length = 120
 # notebooks are docs, not library code
 extend-exclude = ["examples/*.ipynb"]
 output-format = "grouped"
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.format]
 docstring-code-format = true
