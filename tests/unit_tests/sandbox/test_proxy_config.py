@@ -7,6 +7,7 @@ from pytest_httpx import HTTPXMock
 
 from langsmith.sandbox import (
     SandboxClient,
+    attribution,
     aws_auth,
     context_hub_mount,
     gcp_auth,
@@ -141,11 +142,12 @@ def test_proxy_config_composes_multiple_provider_rules() -> None:
         scopes=["https://www.googleapis.com/auth/devstorage.read_write"],
     )
 
+    attribution_rule = attribution(headers={"X-Cost-Center": "engineering"})
     assert proxy_config(
-        rules=[aws_rule, gcp_rule],
+        rules=[aws_rule, gcp_rule, attribution_rule],
         access_control={"allow_list": ["*.googleapis.com", "*.amazonaws.com"]},
     ) == {
-        "rules": [aws_rule, gcp_rule],
+        "rules": [aws_rule, gcp_rule, attribution_rule],
         "access_control": {"allow_list": ["*.googleapis.com", "*.amazonaws.com"]},
     }
 
@@ -456,8 +458,9 @@ def test_create_sandbox_forwards_composed_proxy_config(
             aws_auth(
                 access_key_id=workspace_secret("AWS_ACCESS_KEY_ID"),
                 secret_access_key=workspace_secret("AWS_SECRET_ACCESS_KEY"),
-            )
-        ]
+            ),
+            attribution(headers={"X-Cost-Center": "engineering"}),
+        ],
     )
 
     client.create_sandbox(snapshot_id="snap-1", proxy_config=config)
@@ -643,3 +646,13 @@ def test_mount_config_rejects_provider_credentials_in_mount_specs() -> None:
             ],
             mounts=[mount],
         )
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_attribution_builds_reusable_literal_rule(enabled: bool) -> None:
+    assert attribution(headers={"X-Cost-Center": "engineering"}, name="project", enabled=enabled) == {
+        "name": "project",
+        "type": "attribution",
+        "enabled": enabled,
+        "headers": [{"name": "X-Cost-Center", "type": "plaintext", "value": "engineering"}],
+    }

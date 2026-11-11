@@ -48,13 +48,20 @@ class CallbackRequestHeader(BaseModel):
 
 
 class Callback(BaseModel):
-    match_hosts: List[str]
-
     ttl_seconds: int
 
     url: str
 
+    attribution_headers: Optional[List[str]] = None
+    """
+    AttributionHeaders selects required all-egress response headers instead of
+    destination credentials; omit match_hosts and full_request, and return
+    expires_at with the headers.
+    """
+
     full_request: Optional[bool] = None
+
+    match_hosts: Optional[List[str]] = None
 
     request_headers: Optional[List[CallbackRequestHeader]] = None
 
@@ -369,6 +376,12 @@ class Rule(BaseModel):
     rewrite: Optional[RuleRewrite] = None
 
     type: Optional[str] = None
+    """
+    Type selects the rule action; attribution adds up to 16 literal plaintext X-
+    metadata headers to every proxy-handled HTTP(S) destination, independently of
+    credential rules. At most one attribution rule is allowed, without matching,
+    provider, relay, rewrite or environment fields.
+    """
 
 
 class ProxyConfig(BaseModel):

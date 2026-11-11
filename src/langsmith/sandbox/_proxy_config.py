@@ -161,6 +161,21 @@ def proxy_config(
     return config
 
 
+def attribution(
+    *,
+    headers: Mapping[str, str],
+    name: str = "attribution",
+    enabled: bool = True,
+) -> SandboxProxyRule:
+    """Build a rule disclosing literal, non-sensitive metadata to every proxy-handled destination."""
+    return {
+        "name": _require_non_empty_string(name, "name"),
+        "type": "attribution",
+        "enabled": enabled,
+        "headers": [{"name": key, "type": "plaintext", "value": value} for key, value in headers.items()],
+    }
+
+
 @overload
 def aws_auth(
     *,

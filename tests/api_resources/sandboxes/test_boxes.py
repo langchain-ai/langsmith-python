@@ -117,10 +117,11 @@ class TestBoxes:
                 },
                 "callbacks": [
                     {
-                        "match_hosts": ["string"],
                         "ttl_seconds": 60,
                         "url": "url",
+                        "attribution_headers": ["string"],
                         "full_request": True,
+                        "match_hosts": ["string"],
                         "request_headers": [
                             {
                                 "name": "name",
@@ -291,10 +292,11 @@ class TestBoxes:
                 },
                 "callbacks": [
                     {
-                        "match_hosts": ["string"],
                         "ttl_seconds": 60,
                         "url": "url",
+                        "attribution_headers": ["string"],
                         "full_request": True,
+                        "match_hosts": ["string"],
                         "request_headers": [
                             {
                                 "name": "name",
@@ -1010,10 +1012,11 @@ class TestAsyncBoxes:
                 },
                 "callbacks": [
                     {
-                        "match_hosts": ["string"],
                         "ttl_seconds": 60,
                         "url": "url",
+                        "attribution_headers": ["string"],
                         "full_request": True,
+                        "match_hosts": ["string"],
                         "request_headers": [
                             {
                                 "name": "name",
@@ -1184,10 +1187,11 @@ class TestAsyncBoxes:
                 },
                 "callbacks": [
                     {
-                        "match_hosts": ["string"],
                         "ttl_seconds": 60,
                         "url": "url",
+                        "attribution_headers": ["string"],
                         "full_request": True,
+                        "match_hosts": ["string"],
                         "request_headers": [
                             {
                                 "name": "name",
