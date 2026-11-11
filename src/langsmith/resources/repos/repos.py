@@ -164,7 +164,7 @@ class ReposResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> CreateRepoResponse:
+    ) -> GetRepoResponse:
         """
         Update a repo.
 
@@ -197,7 +197,7 @@ class ReposResource(SyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=CreateRepoResponse,
+            cast_to=GetRepoResponse,
         )
 
     def list(
@@ -445,7 +445,7 @@ class AsyncReposResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> CreateRepoResponse:
+    ) -> GetRepoResponse:
         """
         Update a repo.
 
@@ -478,7 +478,7 @@ class AsyncReposResource(AsyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=CreateRepoResponse,
+            cast_to=GetRepoResponse,
         )
 
     def list(

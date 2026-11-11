@@ -136,7 +136,7 @@ class TestRepos:
             repo="repo",
             owner="owner",
         )
-        assert_matches_type(CreateRepoResponse, repo, path=["response"])
+        assert_matches_type(GetRepoResponse, repo, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -151,7 +151,7 @@ class TestRepos:
             restricted_mode=True,
             tags=["string"],
         )
-        assert_matches_type(CreateRepoResponse, repo, path=["response"])
+        assert_matches_type(GetRepoResponse, repo, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -165,7 +165,7 @@ class TestRepos:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         repo = response.parse()
-        assert_matches_type(CreateRepoResponse, repo, path=["response"])
+        assert_matches_type(GetRepoResponse, repo, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -178,7 +178,7 @@ class TestRepos:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             repo = response.parse()
-            assert_matches_type(CreateRepoResponse, repo, path=["response"])
+            assert_matches_type(GetRepoResponse, repo, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -425,7 +425,7 @@ class TestAsyncRepos:
             repo="repo",
             owner="owner",
         )
-        assert_matches_type(CreateRepoResponse, repo, path=["response"])
+        assert_matches_type(GetRepoResponse, repo, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -440,7 +440,7 @@ class TestAsyncRepos:
             restricted_mode=True,
             tags=["string"],
         )
-        assert_matches_type(CreateRepoResponse, repo, path=["response"])
+        assert_matches_type(GetRepoResponse, repo, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -454,7 +454,7 @@ class TestAsyncRepos:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         repo = await response.parse()
-        assert_matches_type(CreateRepoResponse, repo, path=["response"])
+        assert_matches_type(GetRepoResponse, repo, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -467,7 +467,7 @@ class TestAsyncRepos:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             repo = await response.parse()
-            assert_matches_type(CreateRepoResponse, repo, path=["response"])
+            assert_matches_type(GetRepoResponse, repo, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

@@ -448,7 +448,7 @@ Methods:
 
 - <code title="post /api/v1/repos">client.repos.<a href="./src/langsmith/resources/repos/repos.py">create</a>(\*\*<a href="src/langsmith/types/repo_create_params.py">params</a>) -> <a href="./src/langsmith/types/create_repo_response.py">CreateRepoResponse</a></code>
 - <code title="get /api/v1/repos/{owner}/{repo}">client.repos.<a href="./src/langsmith/resources/repos/repos.py">retrieve</a>(repo, \*, owner) -> <a href="./src/langsmith/types/get_repo_response.py">GetRepoResponse</a></code>
-- <code title="patch /api/v1/repos/{owner}/{repo}">client.repos.<a href="./src/langsmith/resources/repos/repos.py">update</a>(repo, \*, owner, \*\*<a href="src/langsmith/types/repo_update_params.py">params</a>) -> <a href="./src/langsmith/types/create_repo_response.py">CreateRepoResponse</a></code>
+- <code title="patch /api/v1/repos/{owner}/{repo}">client.repos.<a href="./src/langsmith/resources/repos/repos.py">update</a>(repo, \*, owner, \*\*<a href="src/langsmith/types/repo_update_params.py">params</a>) -> <a href="./src/langsmith/types/get_repo_response.py">GetRepoResponse</a></code>
 - <code title="get /api/v1/repos">client.repos.<a href="./src/langsmith/resources/repos/repos.py">list</a>(\*\*<a href="src/langsmith/types/repo_list_params.py">params</a>) -> <a href="./src/langsmith/types/repo_with_lookups.py">SyncOffsetPaginationRepos[RepoWithLookups]</a></code>
 - <code title="delete /api/v1/repos/{owner}/{repo}">client.repos.<a href="./src/langsmith/resources/repos/repos.py">delete</a>(repo, \*, owner) -> object</code>
 
