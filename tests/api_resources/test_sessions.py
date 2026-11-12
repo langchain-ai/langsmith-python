@@ -233,6 +233,65 @@ class TestSessions:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
+    def test_method_create_v2(self, client: Langsmith) -> None:
+        session = client.sessions.create_v2(
+            type="PROJECT",
+        )
+        assert_matches_type(Session, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_create_v2_with_all_params(self, client: Langsmith) -> None:
+        session = client.sessions.create_v2(
+            type="PROJECT",
+            upsert=True,
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            default_dataset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            description="description",
+            end_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+            evaluator_keys=["string"],
+            extra={"foo": "bar"},
+            kicked_off_by="kicked_off_by",
+            longlived_ttl_days=0,
+            name="name",
+            num_examples=0,
+            num_repetitions=0,
+            reference_dataset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+            tag_value_ids=["string"],
+            trace_tier="LONG_LIVED",
+        )
+        assert_matches_type(Session, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_create_v2(self, client: Langsmith) -> None:
+
+        response = client.sessions.with_raw_response.create_v2(
+            type="PROJECT",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        session = response.parse()
+        assert_matches_type(Session, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_create_v2(self, client: Langsmith) -> None:
+        with client.sessions.with_streaming_response.create_v2(
+            type="PROJECT",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            session = response.parse()
+            assert_matches_type(Session, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
     def test_method_dashboard(self, client: Langsmith) -> None:
         session = client.sessions.dashboard(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
@@ -398,6 +457,117 @@ class TestSessions:
             assert_matches_type(SessionResolveResponse, session, path=["response"])
 
         assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_retrieve_v2(self, client: Langsmith) -> None:
+        session = client.sessions.retrieve_v2(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(Session, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_retrieve_v2_with_all_params(self, client: Langsmith) -> None:
+        session = client.sessions.retrieve_v2(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            include_stats=True,
+            stats_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+        )
+        assert_matches_type(Session, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_retrieve_v2(self, client: Langsmith) -> None:
+
+        response = client.sessions.with_raw_response.retrieve_v2(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        session = response.parse()
+        assert_matches_type(Session, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_retrieve_v2(self, client: Langsmith) -> None:
+        with client.sessions.with_streaming_response.retrieve_v2(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            session = response.parse()
+            assert_matches_type(Session, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_retrieve_v2(self, client: Langsmith) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `session_id` but received ''"):
+            client.sessions.with_raw_response.retrieve_v2(
+                session_id="",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_update_v2(self, client: Langsmith) -> None:
+        session = client.sessions.update_v2(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(Session, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_update_v2_with_all_params(self, client: Langsmith) -> None:
+        session = client.sessions.update_v2(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            default_dataset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            description="description",
+            end_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+            extra={},
+            longlived_ttl_days=0,
+            name="name",
+            trace_tier="LONG_LIVED",
+        )
+        assert_matches_type(Session, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_update_v2(self, client: Langsmith) -> None:
+
+        response = client.sessions.with_raw_response.update_v2(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        session = response.parse()
+        assert_matches_type(Session, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_update_v2(self, client: Langsmith) -> None:
+        with client.sessions.with_streaming_response.update_v2(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            session = response.parse()
+            assert_matches_type(Session, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_update_v2(self, client: Langsmith) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `session_id` but received ''"):
+            client.sessions.with_raw_response.update_v2(
+                session_id="",
+            )
 
 
 class TestAsyncSessions:
@@ -614,6 +784,65 @@ class TestAsyncSessions:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
+    async def test_method_create_v2(self, async_client: AsyncLangsmith) -> None:
+        session = await async_client.sessions.create_v2(
+            type="PROJECT",
+        )
+        assert_matches_type(Session, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_create_v2_with_all_params(self, async_client: AsyncLangsmith) -> None:
+        session = await async_client.sessions.create_v2(
+            type="PROJECT",
+            upsert=True,
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            default_dataset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            description="description",
+            end_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+            evaluator_keys=["string"],
+            extra={"foo": "bar"},
+            kicked_off_by="kicked_off_by",
+            longlived_ttl_days=0,
+            name="name",
+            num_examples=0,
+            num_repetitions=0,
+            reference_dataset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+            tag_value_ids=["string"],
+            trace_tier="LONG_LIVED",
+        )
+        assert_matches_type(Session, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_create_v2(self, async_client: AsyncLangsmith) -> None:
+
+        response = await async_client.sessions.with_raw_response.create_v2(
+            type="PROJECT",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        session = await response.parse()
+        assert_matches_type(Session, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_create_v2(self, async_client: AsyncLangsmith) -> None:
+        async with async_client.sessions.with_streaming_response.create_v2(
+            type="PROJECT",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            session = await response.parse()
+            assert_matches_type(Session, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
     async def test_method_dashboard(self, async_client: AsyncLangsmith) -> None:
         session = await async_client.sessions.dashboard(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
@@ -779,3 +1008,114 @@ class TestAsyncSessions:
             assert_matches_type(SessionResolveResponse, session, path=["response"])
 
         assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_retrieve_v2(self, async_client: AsyncLangsmith) -> None:
+        session = await async_client.sessions.retrieve_v2(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(Session, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_retrieve_v2_with_all_params(self, async_client: AsyncLangsmith) -> None:
+        session = await async_client.sessions.retrieve_v2(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            include_stats=True,
+            stats_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+        )
+        assert_matches_type(Session, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_retrieve_v2(self, async_client: AsyncLangsmith) -> None:
+
+        response = await async_client.sessions.with_raw_response.retrieve_v2(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        session = await response.parse()
+        assert_matches_type(Session, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_retrieve_v2(self, async_client: AsyncLangsmith) -> None:
+        async with async_client.sessions.with_streaming_response.retrieve_v2(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            session = await response.parse()
+            assert_matches_type(Session, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_retrieve_v2(self, async_client: AsyncLangsmith) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `session_id` but received ''"):
+            await async_client.sessions.with_raw_response.retrieve_v2(
+                session_id="",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_update_v2(self, async_client: AsyncLangsmith) -> None:
+        session = await async_client.sessions.update_v2(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(Session, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_update_v2_with_all_params(self, async_client: AsyncLangsmith) -> None:
+        session = await async_client.sessions.update_v2(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            default_dataset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            description="description",
+            end_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+            extra={},
+            longlived_ttl_days=0,
+            name="name",
+            trace_tier="LONG_LIVED",
+        )
+        assert_matches_type(Session, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_update_v2(self, async_client: AsyncLangsmith) -> None:
+
+        response = await async_client.sessions.with_raw_response.update_v2(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        session = await response.parse()
+        assert_matches_type(Session, session, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_update_v2(self, async_client: AsyncLangsmith) -> None:
+        async with async_client.sessions.with_streaming_response.update_v2(
+            session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            session = await response.parse()
+            assert_matches_type(Session, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_update_v2(self, async_client: AsyncLangsmith) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `session_id` but received ''"):
+            await async_client.sessions.with_raw_response.update_v2(
+                session_id="",
+            )

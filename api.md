@@ -84,9 +84,12 @@ Methods:
 - <code title="get /api/v1/sessions/{session_id}">client.sessions.<a href="./src/langsmith/resources/sessions.py">retrieve</a>(project_id, \*\*<a href="src/langsmith/types/session_retrieve_params.py">params</a>) -> <a href="./src/langsmith/types/tracer_session.py">TracerSession</a></code>
 - <code title="patch /api/v1/sessions/{session_id}">client.sessions.<a href="./src/langsmith/resources/sessions.py">update</a>(project_id, \*\*<a href="src/langsmith/types/session_update_params.py">params</a>) -> <a href="./src/langsmith/types/tracer_session.py">TracerSession</a></code>
 - <code title="delete /api/v1/sessions/{session_id}">client.sessions.<a href="./src/langsmith/resources/sessions.py">delete</a>(project_id) -> None</code>
+- <code title="post /api/v2/sessions">client.sessions.<a href="./src/langsmith/resources/sessions.py">create_v2</a>(\*\*<a href="src/langsmith/types/session_create_v2_params.py">params</a>) -> <a href="./src/langsmith/types/session.py">Session</a></code>
 - <code title="post /api/v1/sessions/{session_id}/dashboard">client.sessions.<a href="./src/langsmith/resources/sessions.py">dashboard</a>(session_id, \*\*<a href="src/langsmith/types/session_dashboard_params.py">params</a>) -> <a href="./src/langsmith/types/custom_charts_section.py">CustomChartsSection</a></code>
 - <code title="get /api/v2/sessions">client.sessions.<a href="./src/langsmith/resources/sessions.py">list_v2</a>(\*\*<a href="src/langsmith/types/session_list_v2_params.py">params</a>) -> <a href="./src/langsmith/types/session.py">SyncItemsCursorGetPagination[Session]</a></code>
 - <code title="get /api/v1/sessions/resolutions">client.sessions.<a href="./src/langsmith/resources/sessions.py">resolve</a>(\*\*<a href="src/langsmith/types/session_resolve_params.py">params</a>) -> <a href="./src/langsmith/types/session_resolve_response.py">SessionResolveResponse</a></code>
+- <code title="get /api/v2/sessions/{session_id}">client.sessions.<a href="./src/langsmith/resources/sessions.py">retrieve_v2</a>(session_id, \*\*<a href="src/langsmith/types/session_retrieve_v2_params.py">params</a>) -> <a href="./src/langsmith/types/session.py">Session</a></code>
+- <code title="patch /api/v2/sessions/{session_id}">client.sessions.<a href="./src/langsmith/resources/sessions.py">update_v2</a>(session_id, \*\*<a href="src/langsmith/types/session_update_v2_params.py">params</a>) -> <a href="./src/langsmith/types/session.py">Session</a></code>
 
 # Datasets
 
