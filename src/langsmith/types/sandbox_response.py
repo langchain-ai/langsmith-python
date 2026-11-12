@@ -15,9 +15,9 @@ class AccessDelegation(BaseModel):
     AccessDelegation is the LangSmith access this sandbox was granted, absent when it has none. It is reported exactly as it was requested at create.
     """
 
-    mode: Literal["INHERIT", "EXPLICIT"]
+    mode: Literal["EXPLICIT"]
 
-    permissions: Optional[List[str]] = None
+    permissions: List[str]
 
 
 class RunConfig(BaseModel):

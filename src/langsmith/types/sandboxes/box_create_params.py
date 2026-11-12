@@ -130,9 +130,9 @@ class AccessDelegation(TypedDict, total=False):
     AccessDelegation lets code inside the sandbox call the LangSmith API as you, with at most the permissions granted here. Omit for no access.
     """
 
-    mode: Required[Literal["INHERIT", "EXPLICIT"]]
+    mode: Required[Literal["EXPLICIT"]]
 
-    permissions: SequenceNotStr[str]
+    permissions: Required[SequenceNotStr[str]]
 
 
 class RunConfig(TypedDict, total=False):
