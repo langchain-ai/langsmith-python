@@ -5,7 +5,11 @@ from __future__ import annotations
 from typing import Dict, Iterable, Optional
 from typing_extensions import Literal
 
-from ..types import evaluator_list_params, evaluator_create_decision_model_params
+from ..types import (
+    evaluator_list_params,
+    evaluator_list_v2_params,
+    evaluator_create_decision_model_params,
+)
 from .._httpx import httpx
 from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from .._utils import maybe_transform, async_maybe_transform
@@ -17,7 +21,9 @@ from .._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from .._base_client import make_request_options
+from ..pagination import SyncItemsCursorGetPagination, AsyncItemsCursorGetPagination
+from ..types.rule import Rule
+from .._base_client import AsyncPaginator, make_request_options
 from ..types.evaluator import Evaluator
 from ..types.evaluator_list_response import EvaluatorListResponse
 
@@ -208,6 +214,90 @@ class EvaluatorsResource(SyncAPIResource):
             cast_to=Evaluator,
         )
 
+    def list_v2(
+        self,
+        *,
+        id: SequenceNotStr[str] | Omit = omit,
+        cursor: str | Omit = omit,
+        dataset_id: str | Omit = omit,
+        evaluator_id: str | Omit = omit,
+        include_backfill_progress: bool | Omit = omit,
+        name_contains: str | Omit = omit,
+        page_size: int | Omit = omit,
+        project_id: str | Omit = omit,
+        tag_value_id: SequenceNotStr[str] | Omit = omit,
+        type: Literal["PROJECT", "DATASET"] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncItemsCursorGetPagination[Rule]:
+        """List workspace rules in descending updated_at and id order.
+
+        Filters combine with
+        AND. Pass next_cursor unchanged with the same filters to continue; concurrent
+        changes can affect later pages.
+
+        Args:
+          id: Rule UUIDs
+
+          cursor: Cursor from the previous page
+
+          dataset_id: Source dataset UUID
+
+          evaluator_id: Linked evaluator UUID
+
+          include_backfill_progress: Include backfill progress
+
+          name_contains: Case-insensitive display-name pattern
+
+          page_size: Page size
+
+          project_id: Source project UUID
+
+          tag_value_id: Source must have every tag UUID
+
+          type: Rule source type
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/api/v2/runs/rules",
+            page=SyncItemsCursorGetPagination[Rule],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "id": id,
+                        "cursor": cursor,
+                        "dataset_id": dataset_id,
+                        "evaluator_id": evaluator_id,
+                        "include_backfill_progress": include_backfill_progress,
+                        "name_contains": name_contains,
+                        "page_size": page_size,
+                        "project_id": project_id,
+                        "tag_value_id": tag_value_id,
+                        "type": type,
+                    },
+                    evaluator_list_v2_params.EvaluatorListV2Params,
+                ),
+            ),
+            model=Rule,
+        )
+
+    list_v1 = list
+
 
 class AsyncEvaluatorsResource(AsyncAPIResource):
     @cached_property
@@ -393,6 +483,90 @@ class AsyncEvaluatorsResource(AsyncAPIResource):
             cast_to=Evaluator,
         )
 
+    def list_v2(
+        self,
+        *,
+        id: SequenceNotStr[str] | Omit = omit,
+        cursor: str | Omit = omit,
+        dataset_id: str | Omit = omit,
+        evaluator_id: str | Omit = omit,
+        include_backfill_progress: bool | Omit = omit,
+        name_contains: str | Omit = omit,
+        page_size: int | Omit = omit,
+        project_id: str | Omit = omit,
+        tag_value_id: SequenceNotStr[str] | Omit = omit,
+        type: Literal["PROJECT", "DATASET"] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[Rule, AsyncItemsCursorGetPagination[Rule]]:
+        """List workspace rules in descending updated_at and id order.
+
+        Filters combine with
+        AND. Pass next_cursor unchanged with the same filters to continue; concurrent
+        changes can affect later pages.
+
+        Args:
+          id: Rule UUIDs
+
+          cursor: Cursor from the previous page
+
+          dataset_id: Source dataset UUID
+
+          evaluator_id: Linked evaluator UUID
+
+          include_backfill_progress: Include backfill progress
+
+          name_contains: Case-insensitive display-name pattern
+
+          page_size: Page size
+
+          project_id: Source project UUID
+
+          tag_value_id: Source must have every tag UUID
+
+          type: Rule source type
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/api/v2/runs/rules",
+            page=AsyncItemsCursorGetPagination[Rule],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "id": id,
+                        "cursor": cursor,
+                        "dataset_id": dataset_id,
+                        "evaluator_id": evaluator_id,
+                        "include_backfill_progress": include_backfill_progress,
+                        "name_contains": name_contains,
+                        "page_size": page_size,
+                        "project_id": project_id,
+                        "tag_value_id": tag_value_id,
+                        "type": type,
+                    },
+                    evaluator_list_v2_params.EvaluatorListV2Params,
+                ),
+            ),
+            model=Rule,
+        )
+
+    list_v1 = list
+
 
 class EvaluatorsResourceWithRawResponse:
     def __init__(self, evaluators: EvaluatorsResource) -> None:
@@ -403,6 +577,12 @@ class EvaluatorsResourceWithRawResponse:
         )
         self.create_decision_model = to_raw_response_wrapper(
             evaluators.create_decision_model,
+        )
+        self.list_v2 = to_raw_response_wrapper(
+            evaluators.list_v2,
+        )
+        self.list_v1 = to_raw_response_wrapper(
+            evaluators.list_v1,
         )
 
 
@@ -416,6 +596,12 @@ class AsyncEvaluatorsResourceWithRawResponse:
         self.create_decision_model = async_to_raw_response_wrapper(
             evaluators.create_decision_model,
         )
+        self.list_v2 = async_to_raw_response_wrapper(
+            evaluators.list_v2,
+        )
+        self.list_v1 = async_to_raw_response_wrapper(
+            evaluators.list_v1,
+        )
 
 
 class EvaluatorsResourceWithStreamingResponse:
@@ -428,6 +614,12 @@ class EvaluatorsResourceWithStreamingResponse:
         self.create_decision_model = to_streamed_response_wrapper(
             evaluators.create_decision_model,
         )
+        self.list_v2 = to_streamed_response_wrapper(
+            evaluators.list_v2,
+        )
+        self.list_v1 = to_streamed_response_wrapper(
+            evaluators.list_v1,
+        )
 
 
 class AsyncEvaluatorsResourceWithStreamingResponse:
@@ -439,4 +631,10 @@ class AsyncEvaluatorsResourceWithStreamingResponse:
         )
         self.create_decision_model = async_to_streamed_response_wrapper(
             evaluators.create_decision_model,
+        )
+        self.list_v2 = async_to_streamed_response_wrapper(
+            evaluators.list_v2,
+        )
+        self.list_v1 = async_to_streamed_response_wrapper(
+            evaluators.list_v1,
         )
