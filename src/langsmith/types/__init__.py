@@ -83,7 +83,6 @@ from .session_retrieve_params import SessionRetrieveParams as SessionRetrievePar
 from .code_evaluator_top_level import CodeEvaluatorTopLevel as CodeEvaluatorTopLevel
 from .commit_manifest_response import CommitManifestResponse as CommitManifestResponse
 from .commit_retrieve_response import CommitRetrieveResponse as CommitRetrieveResponse
-from .evaluator_list_v1_params import EvaluatorListV1Params as EvaluatorListV1Params
 from .evaluator_list_v2_params import EvaluatorListV2Params as EvaluatorListV2Params
 from .run_stats_group_by_param import RunStatsGroupByParam as RunStatsGroupByParam
 from .session_dashboard_params import SessionDashboardParams as SessionDashboardParams

@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
+import typing_extensions
 from typing import Dict, Iterable, Optional
 from typing_extensions import Literal
 
-from ..types import (
-    evaluator_list_params,
-    evaluator_list_v2_params,
-    evaluator_create_decision_model_params,
-)
+from ..types import evaluator_list_params, evaluator_list_v2_params, evaluator_create_decision_model_params
 from .._httpx import httpx
 from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from .._utils import maybe_transform, async_maybe_transform
@@ -50,6 +47,9 @@ class EvaluatorsResource(SyncAPIResource):
         """
         return EvaluatorsResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated(
+        "Use evaluators.list_v2() instead, which calls GET /api/v2/runs/rules and returns cursor-paginated results. Will be removed on Apr 1, 2027."
+    )
     def list(
         self,
         *,
@@ -70,6 +70,8 @@ class EvaluatorsResource(SyncAPIResource):
     ) -> EvaluatorListResponse:
         """
         List all run rules.
+
+        Deprecated: use GET /api/v2/runs/rules, which returns cursor-paginated results.
 
         Args:
           extra_headers: Send extra headers
@@ -296,8 +298,6 @@ class EvaluatorsResource(SyncAPIResource):
             model=Rule,
         )
 
-    list_v1 = list
-
 
 class AsyncEvaluatorsResource(AsyncAPIResource):
     @cached_property
@@ -319,6 +319,9 @@ class AsyncEvaluatorsResource(AsyncAPIResource):
         """
         return AsyncEvaluatorsResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated(
+        "Use evaluators.list_v2() instead, which calls GET /api/v2/runs/rules and returns cursor-paginated results. Will be removed on Apr 1, 2027."
+    )
     async def list(
         self,
         *,
@@ -339,6 +342,8 @@ class AsyncEvaluatorsResource(AsyncAPIResource):
     ) -> EvaluatorListResponse:
         """
         List all run rules.
+
+        Deprecated: use GET /api/v2/runs/rules, which returns cursor-paginated results.
 
         Args:
           extra_headers: Send extra headers
@@ -565,15 +570,15 @@ class AsyncEvaluatorsResource(AsyncAPIResource):
             model=Rule,
         )
 
-    list_v1 = list
-
 
 class EvaluatorsResourceWithRawResponse:
     def __init__(self, evaluators: EvaluatorsResource) -> None:
         self._evaluators = evaluators
 
-        self.list = to_raw_response_wrapper(
-            evaluators.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                evaluators.list,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.create_decision_model = to_raw_response_wrapper(
             evaluators.create_decision_model,
@@ -581,17 +586,16 @@ class EvaluatorsResourceWithRawResponse:
         self.list_v2 = to_raw_response_wrapper(
             evaluators.list_v2,
         )
-        self.list_v1 = to_raw_response_wrapper(
-            evaluators.list_v1,
-        )
 
 
 class AsyncEvaluatorsResourceWithRawResponse:
     def __init__(self, evaluators: AsyncEvaluatorsResource) -> None:
         self._evaluators = evaluators
 
-        self.list = async_to_raw_response_wrapper(
-            evaluators.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                evaluators.list,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.create_decision_model = async_to_raw_response_wrapper(
             evaluators.create_decision_model,
@@ -599,17 +603,16 @@ class AsyncEvaluatorsResourceWithRawResponse:
         self.list_v2 = async_to_raw_response_wrapper(
             evaluators.list_v2,
         )
-        self.list_v1 = async_to_raw_response_wrapper(
-            evaluators.list_v1,
-        )
 
 
 class EvaluatorsResourceWithStreamingResponse:
     def __init__(self, evaluators: EvaluatorsResource) -> None:
         self._evaluators = evaluators
 
-        self.list = to_streamed_response_wrapper(
-            evaluators.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                evaluators.list,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.create_decision_model = to_streamed_response_wrapper(
             evaluators.create_decision_model,
@@ -617,24 +620,20 @@ class EvaluatorsResourceWithStreamingResponse:
         self.list_v2 = to_streamed_response_wrapper(
             evaluators.list_v2,
         )
-        self.list_v1 = to_streamed_response_wrapper(
-            evaluators.list_v1,
-        )
 
 
 class AsyncEvaluatorsResourceWithStreamingResponse:
     def __init__(self, evaluators: AsyncEvaluatorsResource) -> None:
         self._evaluators = evaluators
 
-        self.list = async_to_streamed_response_wrapper(
-            evaluators.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                evaluators.list,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.create_decision_model = async_to_streamed_response_wrapper(
             evaluators.create_decision_model,
         )
         self.list_v2 = async_to_streamed_response_wrapper(
             evaluators.list_v2,
-        )
-        self.list_v1 = async_to_streamed_response_wrapper(
-            evaluators.list_v1,
         )

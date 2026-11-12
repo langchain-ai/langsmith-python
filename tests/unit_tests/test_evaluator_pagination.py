@@ -150,21 +150,21 @@ def _legacy_response(request):
     return httpx.Response(200, json=[item])
 
 
-@pytest.mark.parametrize("method", ["list", "list_v1"])
-def test_v1_methods_preserve_public_types_and_route(method):
+def test_v1_list_preserves_public_types_and_route():
     assert EvaluatorListResponse is ModuleResponse
     params: EvaluatorListParams = {"session_id": PROJECT, "id": IDS}
     with Langsmith(**_options(httpx.Client(transport=httpx.MockTransport(_legacy_response)))) as client:
-        response: EvaluatorListResponse = getattr(client.evaluators, method)(**params)
+        with pytest.warns(DeprecationWarning):
+            response: EvaluatorListResponse = client.evaluators.list(**params)
     assert isinstance(response, list)
     assert response[0].session_id == PROJECT
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("method", ["list", "list_v1"])
-async def test_async_v1_methods_preserve_public_types_and_route(method):
+async def test_async_v1_list_preserves_public_types_and_route():
     params: EvaluatorListParams = {"session_id": PROJECT, "id": IDS}
     async with AsyncLangsmith(**_options(httpx.AsyncClient(transport=httpx.MockTransport(_legacy_response)))) as client:
-        response: EvaluatorListResponse = await getattr(client.evaluators, method)(**params)
+        with pytest.warns(DeprecationWarning):
+            response: EvaluatorListResponse = await client.evaluators.list(**params)
     assert isinstance(response, list)
     assert response[0].session_id == PROJECT
