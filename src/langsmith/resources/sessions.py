@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import typing_extensions
 from typing import Dict, List, Union, Optional
 from datetime import datetime
 from typing_extensions import Literal
@@ -60,6 +61,9 @@ class SessionsResource(SyncAPIResource):
         """
         return SessionsResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated(
+        "Deprecated: use create_v2 instead, which calls POST /api/v2/sessions. The v1 endpoint is scheduled for removal on Jul 1, 2027."
+    )
     def create(
         self,
         *,
@@ -86,8 +90,12 @@ class SessionsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TracerSession:
-        """
-        Create a new project.
+        """Create a new project.
+
+        Deprecated: use POST /api/v2/sessions.
+
+        The v1 endpoint is scheduled for removal
+        on Jul 1, 2027.
 
         Args:
           longlived_ttl_days: Retention in days for traces while trace_tier is longlived. One of the
@@ -135,6 +143,9 @@ class SessionsResource(SyncAPIResource):
             cast_to=TracerSession,
         )
 
+    @typing_extensions.deprecated(
+        "Deprecated: use retrieve_v2 instead, which calls GET /api/v2/sessions/{session_id}. The v1 endpoint is scheduled for removal on Jul 1, 2027."
+    )
     def retrieve(
         self,
         project_id: str,
@@ -149,8 +160,12 @@ class SessionsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TracerSession:
-        """
-        Get a specific project.
+        """Get a specific project.
+
+        Deprecated: use GET /api/v2/sessions/{session_id}.
+
+        The v1 endpoint is scheduled
+        for removal on Jul 1, 2027.
 
         Args:
           extra_headers: Send extra headers
@@ -182,6 +197,9 @@ class SessionsResource(SyncAPIResource):
             cast_to=TracerSession,
         )
 
+    @typing_extensions.deprecated(
+        "Deprecated: use update_v2 instead, which calls PATCH /api/v2/sessions/{session_id}. The v1 endpoint is scheduled for removal on Jul 1, 2027."
+    )
     def update(
         self,
         project_id: str,
@@ -200,8 +218,12 @@ class SessionsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TracerSession:
-        """
-        Update a project.
+        """Update a project.
+
+        Deprecated: use PATCH /api/v2/sessions/{session_id}.
+
+        The v1 endpoint is
+        scheduled for removal on Jul 1, 2027.
 
         Args:
           longlived_ttl_days: Retention in days for traces while trace_tier is longlived. One of the
@@ -738,6 +760,9 @@ class AsyncSessionsResource(AsyncAPIResource):
         """
         return AsyncSessionsResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated(
+        "Deprecated: use create_v2 instead, which calls POST /api/v2/sessions. The v1 endpoint is scheduled for removal on Jul 1, 2027."
+    )
     async def create(
         self,
         *,
@@ -764,8 +789,12 @@ class AsyncSessionsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TracerSession:
-        """
-        Create a new project.
+        """Create a new project.
+
+        Deprecated: use POST /api/v2/sessions.
+
+        The v1 endpoint is scheduled for removal
+        on Jul 1, 2027.
 
         Args:
           longlived_ttl_days: Retention in days for traces while trace_tier is longlived. One of the
@@ -813,6 +842,9 @@ class AsyncSessionsResource(AsyncAPIResource):
             cast_to=TracerSession,
         )
 
+    @typing_extensions.deprecated(
+        "Deprecated: use retrieve_v2 instead, which calls GET /api/v2/sessions/{session_id}. The v1 endpoint is scheduled for removal on Jul 1, 2027."
+    )
     async def retrieve(
         self,
         project_id: str,
@@ -827,8 +859,12 @@ class AsyncSessionsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TracerSession:
-        """
-        Get a specific project.
+        """Get a specific project.
+
+        Deprecated: use GET /api/v2/sessions/{session_id}.
+
+        The v1 endpoint is scheduled
+        for removal on Jul 1, 2027.
 
         Args:
           extra_headers: Send extra headers
@@ -860,6 +896,9 @@ class AsyncSessionsResource(AsyncAPIResource):
             cast_to=TracerSession,
         )
 
+    @typing_extensions.deprecated(
+        "Deprecated: use update_v2 instead, which calls PATCH /api/v2/sessions/{session_id}. The v1 endpoint is scheduled for removal on Jul 1, 2027."
+    )
     async def update(
         self,
         project_id: str,
@@ -878,8 +917,12 @@ class AsyncSessionsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TracerSession:
-        """
-        Update a project.
+        """Update a project.
+
+        Deprecated: use PATCH /api/v2/sessions/{session_id}.
+
+        The v1 endpoint is
+        scheduled for removal on Jul 1, 2027.
 
         Args:
           longlived_ttl_days: Retention in days for traces while trace_tier is longlived. One of the
@@ -1400,14 +1443,20 @@ class SessionsResourceWithRawResponse:
     def __init__(self, sessions: SessionsResource) -> None:
         self._sessions = sessions
 
-        self.create = to_raw_response_wrapper(
-            sessions.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                sessions.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.retrieve = to_raw_response_wrapper(
-            sessions.retrieve,
+        self.retrieve = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                sessions.retrieve,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.update = to_raw_response_wrapper(
-            sessions.update,
+        self.update = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                sessions.update,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.delete = to_raw_response_wrapper(
             sessions.delete,
@@ -1436,14 +1485,20 @@ class AsyncSessionsResourceWithRawResponse:
     def __init__(self, sessions: AsyncSessionsResource) -> None:
         self._sessions = sessions
 
-        self.create = async_to_raw_response_wrapper(
-            sessions.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                sessions.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.retrieve = async_to_raw_response_wrapper(
-            sessions.retrieve,
+        self.retrieve = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                sessions.retrieve,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.update = async_to_raw_response_wrapper(
-            sessions.update,
+        self.update = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                sessions.update,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.delete = async_to_raw_response_wrapper(
             sessions.delete,
@@ -1472,14 +1527,20 @@ class SessionsResourceWithStreamingResponse:
     def __init__(self, sessions: SessionsResource) -> None:
         self._sessions = sessions
 
-        self.create = to_streamed_response_wrapper(
-            sessions.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                sessions.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.retrieve = to_streamed_response_wrapper(
-            sessions.retrieve,
+        self.retrieve = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                sessions.retrieve,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.update = to_streamed_response_wrapper(
-            sessions.update,
+        self.update = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                sessions.update,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.delete = to_streamed_response_wrapper(
             sessions.delete,
@@ -1508,14 +1569,20 @@ class AsyncSessionsResourceWithStreamingResponse:
     def __init__(self, sessions: AsyncSessionsResource) -> None:
         self._sessions = sessions
 
-        self.create = async_to_streamed_response_wrapper(
-            sessions.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                sessions.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.retrieve = async_to_streamed_response_wrapper(
-            sessions.retrieve,
+        self.retrieve = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                sessions.retrieve,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.update = async_to_streamed_response_wrapper(
-            sessions.update,
+        self.update = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                sessions.update,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.delete = async_to_streamed_response_wrapper(
             sessions.delete,
