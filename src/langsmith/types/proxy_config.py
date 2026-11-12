@@ -364,6 +364,10 @@ class Rule(BaseModel):
     and the first match wins. Rejected on aws, gcp, azure, and relay rules.
     """
 
+    match_port: Optional[int] = None
+
+    match_scheme: Optional[Literal["https"]] = None
+
     relay_id: Optional[str] = None
     """
     RelayID is the ID of the LangSmith relay (a connection of kind relay) that

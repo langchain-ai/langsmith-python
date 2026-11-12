@@ -364,6 +364,10 @@ class Rule(TypedDict, total=False):
     and the first match wins. Rejected on aws, gcp, azure, and relay rules.
     """
 
+    match_port: int
+
+    match_scheme: Literal["https"]
+
     relay_id: str
     """
     RelayID is the ID of the LangSmith relay (a connection of kind relay) that
