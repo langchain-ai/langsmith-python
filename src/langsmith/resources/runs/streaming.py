@@ -71,6 +71,7 @@ class StreamingResource(SyncAPIResource):
         reference_examples: SequenceNotStr[str] | Omit = omit,
         run_type: RunType | Omit = omit,
         selects: List[RunSelectField] | Omit = omit,
+        sem_filter: str | Omit = omit,
         trace_filter: str | Omit = omit,
         trace_id: str | Omit = omit,
         tree_filter: str | Omit = omit,
@@ -87,17 +88,23 @@ class StreamingResource(SyncAPIResource):
         start_time. Supports filters, cursor pagination, and `selects` to select fields
         to return.
 
-        When `ai_search` is set, `Accept: text/event-stream` is required; requests
-        without it return 406. AI search is unavailable on deployments that route
-        queries to the v1 backend and returns 501 there.
+        `ai_search` cannot be combined with `sem_filter`. With full AI search enabled,
+        `ai_search` translates natural language into query filters and time bounds and
+        cannot be combined with explicit filter expressions. Otherwise, `ai_search`
+        retains legacy semantic-only behavior. Use `sem_filter` for semantic-only
+        matching combined with structured filters. AI search requires organization
+        consent. When semantic matching is needed, `Accept: text/event-stream` is
+        required; requests without it return 406. AI search is unavailable on
+        deployments that route queries to the v1 backend and returns 501 there.
 
         Self-hosted deployments require LangSmith `v0.16` or later.
 
         Args:
-          ai_search: `ai_search` is a plain-language criterion evaluated against the messages from
-              the agent trajectory scoped to the run. AND-ed with the ordinary filters.
-              Requires semantic filtering enabled for the deployment. Must contain nonempty
-              text of at most 2000 UTF-8 bytes. Not supported on public dataset queries.
+          ai_search: `ai_search` translates natural language into structured filters, semantic
+              criteria and time bounds. Cannot be combined with sem_filter. With full AI
+              search enabled, also cannot be combined with explicit filter expressions;
+              otherwise retains legacy semantic-only behavior. Must contain nonempty text of
+              at most 2000 UTF-8 bytes. Not supported on public dataset queries.
 
           cursor: `cursor` is the opaque string from a previous response's `next_cursor`. Treat it
               as opaque and pass it back unmodified.
@@ -160,6 +167,9 @@ class StreamingResource(SyncAPIResource):
           selects: `selects` lists which properties to include on each returned run. If omitted,
               only `id` is returned. Properties not listed are omitted from each run object.
 
+          sem_filter: SemFilter evaluates a plain-language criterion against trajectory messages,
+              AND-ed with structured filters.
+
           trace_filter: `trace_filter` narrows results to runs whose root trace matches this LangSmith
               filter expression. Use this to filter by properties of the trace's root run —
               for example eq(status, "success") to include only traces that completed without
@@ -211,6 +221,7 @@ class StreamingResource(SyncAPIResource):
                     "reference_examples": reference_examples,
                     "run_type": run_type,
                     "selects": selects,
+                    "sem_filter": sem_filter,
                     "trace_filter": trace_filter,
                     "trace_id": trace_id,
                     "tree_filter": tree_filter,
@@ -245,6 +256,7 @@ class StreamingResource(SyncAPIResource):
         reference_examples: SequenceNotStr[str] | Omit = omit,
         run_type: RunType | Omit = omit,
         selects: List[RunSelectField] | Omit = omit,
+        sem_filter: str | Omit = omit,
         trace_filter: str | Omit = omit,
         trace_id: str | Omit = omit,
         tree_filter: str | Omit = omit,
@@ -304,6 +316,7 @@ class AsyncStreamingResource(AsyncAPIResource):
         reference_examples: SequenceNotStr[str] | Omit = omit,
         run_type: RunType | Omit = omit,
         selects: List[RunSelectField] | Omit = omit,
+        sem_filter: str | Omit = omit,
         trace_filter: str | Omit = omit,
         trace_id: str | Omit = omit,
         tree_filter: str | Omit = omit,
@@ -320,17 +333,23 @@ class AsyncStreamingResource(AsyncAPIResource):
         start_time. Supports filters, cursor pagination, and `selects` to select fields
         to return.
 
-        When `ai_search` is set, `Accept: text/event-stream` is required; requests
-        without it return 406. AI search is unavailable on deployments that route
-        queries to the v1 backend and returns 501 there.
+        `ai_search` cannot be combined with `sem_filter`. With full AI search enabled,
+        `ai_search` translates natural language into query filters and time bounds and
+        cannot be combined with explicit filter expressions. Otherwise, `ai_search`
+        retains legacy semantic-only behavior. Use `sem_filter` for semantic-only
+        matching combined with structured filters. AI search requires organization
+        consent. When semantic matching is needed, `Accept: text/event-stream` is
+        required; requests without it return 406. AI search is unavailable on
+        deployments that route queries to the v1 backend and returns 501 there.
 
         Self-hosted deployments require LangSmith `v0.16` or later.
 
         Args:
-          ai_search: `ai_search` is a plain-language criterion evaluated against the messages from
-              the agent trajectory scoped to the run. AND-ed with the ordinary filters.
-              Requires semantic filtering enabled for the deployment. Must contain nonempty
-              text of at most 2000 UTF-8 bytes. Not supported on public dataset queries.
+          ai_search: `ai_search` translates natural language into structured filters, semantic
+              criteria and time bounds. Cannot be combined with sem_filter. With full AI
+              search enabled, also cannot be combined with explicit filter expressions;
+              otherwise retains legacy semantic-only behavior. Must contain nonempty text of
+              at most 2000 UTF-8 bytes. Not supported on public dataset queries.
 
           cursor: `cursor` is the opaque string from a previous response's `next_cursor`. Treat it
               as opaque and pass it back unmodified.
@@ -393,6 +412,9 @@ class AsyncStreamingResource(AsyncAPIResource):
           selects: `selects` lists which properties to include on each returned run. If omitted,
               only `id` is returned. Properties not listed are omitted from each run object.
 
+          sem_filter: SemFilter evaluates a plain-language criterion against trajectory messages,
+              AND-ed with structured filters.
+
           trace_filter: `trace_filter` narrows results to runs whose root trace matches this LangSmith
               filter expression. Use this to filter by properties of the trace's root run —
               for example eq(status, "success") to include only traces that completed without
@@ -444,6 +466,7 @@ class AsyncStreamingResource(AsyncAPIResource):
                     "reference_examples": reference_examples,
                     "run_type": run_type,
                     "selects": selects,
+                    "sem_filter": sem_filter,
                     "trace_filter": trace_filter,
                     "trace_id": trace_id,
                     "tree_filter": tree_filter,
@@ -478,6 +501,7 @@ class AsyncStreamingResource(AsyncAPIResource):
         reference_examples: SequenceNotStr[str] | Omit = omit,
         run_type: RunType | Omit = omit,
         selects: List[RunSelectField] | Omit = omit,
+        sem_filter: str | Omit = omit,
         trace_filter: str | Omit = omit,
         trace_id: str | Omit = omit,
         tree_filter: str | Omit = omit,

@@ -14,10 +14,11 @@ __all__ = ["StreamingQueryParams"]
 class StreamingQueryParams(TypedDict, total=False):
     ai_search: str
     """
-    `ai_search` is a plain-language criterion evaluated against the messages from
-    the agent trajectory scoped to the thread. AND-ed with the ordinary filters.
-    Requires semantic filtering enabled for the deployment. Must contain nonempty
-    text of at most 2000 UTF-8 bytes.
+    `ai_search` translates natural language into structured filters, semantic
+    criteria and time bounds. Cannot be combined with sem_filter. With full AI
+    search enabled, also cannot be combined with explicit filter expressions;
+    otherwise retains legacy semantic-only behavior. Must contain nonempty text of
+    at most 2000 UTF-8 bytes.
     """
 
     cursor: str
@@ -57,6 +58,12 @@ class StreamingQueryParams(TypedDict, total=False):
 
     project_id: str
     """`project_id` is the tracing project UUID."""
+
+    sem_filter: str
+    """
+    SemFilter evaluates a plain-language criterion against trajectory messages,
+    AND-ed with structured filters.
+    """
 
     thread_filter: str
     """
