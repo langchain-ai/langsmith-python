@@ -16,6 +16,12 @@ class AgentListParams(TypedDict, total=False):
     cursor: str
     """Opaque pagination cursor"""
 
+    include_count: bool
+    """
+    Include the total number of visible Agents matching the filters, independent of
+    pagination
+    """
+
     name: str
     """Deprecated: use search.
 

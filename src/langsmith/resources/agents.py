@@ -218,6 +218,7 @@ class AgentsResource(SyncAPIResource):
         *,
         id: SequenceNotStr[str] | Omit = omit,
         cursor: str | Omit = omit,
+        include_count: bool | Omit = omit,
         name: str | Omit = omit,
         page_size: int | Omit = omit,
         search: str | Omit = omit,
@@ -242,6 +243,9 @@ class AgentsResource(SyncAPIResource):
           id: Exact Agent ids (repeat the parameter; maximum 100)
 
           cursor: Opaque pagination cursor
+
+          include_count: Include the total number of visible Agents matching the filters, independent of
+              pagination
 
           name: Deprecated: use search. Case-insensitive partial Agent name. Ignored when search
               is provided.
@@ -277,6 +281,7 @@ class AgentsResource(SyncAPIResource):
                     {
                         "id": id,
                         "cursor": cursor,
+                        "include_count": include_count,
                         "name": name,
                         "page_size": page_size,
                         "search": search,
@@ -521,6 +526,7 @@ class AsyncAgentsResource(AsyncAPIResource):
         *,
         id: SequenceNotStr[str] | Omit = omit,
         cursor: str | Omit = omit,
+        include_count: bool | Omit = omit,
         name: str | Omit = omit,
         page_size: int | Omit = omit,
         search: str | Omit = omit,
@@ -545,6 +551,9 @@ class AsyncAgentsResource(AsyncAPIResource):
           id: Exact Agent ids (repeat the parameter; maximum 100)
 
           cursor: Opaque pagination cursor
+
+          include_count: Include the total number of visible Agents matching the filters, independent of
+              pagination
 
           name: Deprecated: use search. Case-insensitive partial Agent name. Ignored when search
               is provided.
@@ -580,6 +589,7 @@ class AsyncAgentsResource(AsyncAPIResource):
                     {
                         "id": id,
                         "cursor": cursor,
+                        "include_count": include_count,
                         "name": name,
                         "page_size": page_size,
                         "search": search,

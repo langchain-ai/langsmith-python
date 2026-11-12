@@ -187,6 +187,7 @@ class TestAgents:
         agent = client.agents.list(
             id=["string"],
             cursor="cursor",
+            include_count=True,
             name="name",
             page_size=1,
             search="search",
@@ -437,6 +438,7 @@ class TestAsyncAgents:
         agent = await async_client.agents.list(
             id=["string"],
             cursor="cursor",
+            include_count=True,
             name="name",
             page_size=1,
             search="search",
