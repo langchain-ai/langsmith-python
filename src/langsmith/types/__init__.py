@@ -66,6 +66,7 @@ from .session_create_params import SessionCreateParams as SessionCreateParams
 from .session_feedback_stat import SessionFeedbackStat as SessionFeedbackStat
 from .session_update_params import SessionUpdateParams as SessionUpdateParams
 from .timedelta_input_param import TimedeltaInputParam as TimedeltaInputParam
+from .ai_search_parse_params import AISearchParseParams as AISearchParseParams
 from .commit_create_response import CommitCreateResponse as CommitCreateResponse
 from .commit_retrieve_params import CommitRetrieveParams as CommitRetrieveParams
 from .dataset_list_v2_params import DatasetListV2Params as DatasetListV2Params
@@ -80,6 +81,7 @@ from .annotation_queue_schema import AnnotationQueueSchema as AnnotationQueueSch
 from .evaluator_list_response import EvaluatorListResponse as EvaluatorListResponse
 from .sandbox_status_response import SandboxStatusResponse as SandboxStatusResponse
 from .session_retrieve_params import SessionRetrieveParams as SessionRetrieveParams
+from .ai_search_parse_response import AISearchParseResponse as AISearchParseResponse
 from .code_evaluator_top_level import CodeEvaluatorTopLevel as CodeEvaluatorTopLevel
 from .commit_manifest_response import CommitManifestResponse as CommitManifestResponse
 from .commit_retrieve_response import CommitRetrieveResponse as CommitRetrieveResponse

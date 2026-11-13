@@ -251,6 +251,18 @@ Methods:
 
 - <code title="post /api/v2/traces/query">client.traces.streaming.<a href="./src/langsmith/resources/traces/streaming.py">query</a>(\*\*<a href="src/langsmith/types/traces/streaming_query_params.py">params</a>) -> <a href="./src/langsmith/types/traces/streaming_query_response.py">StreamingQueryResponse</a></code>
 
+# AISearch
+
+Types:
+
+```python
+from langsmith.types import AISearchParseResponse
+```
+
+Methods:
+
+- <code title="post /api/v2/ai-search/parse">client.ai_search.<a href="./src/langsmith/resources/ai_search.py">parse</a>(\*\*<a href="src/langsmith/types/ai_search_parse_params.py">params</a>) -> <a href="./src/langsmith/types/ai_search_parse_response.py">AISearchParseResponse</a></code>
+
 # Evaluators
 
 Types:

@@ -104,6 +104,14 @@ from .sessions import (
     SessionsResourceWithStreamingResponse,
     AsyncSessionsResourceWithStreamingResponse,
 )
+from .ai_search import (
+    AISearchResource,
+    AsyncAISearchResource,
+    AISearchResourceWithRawResponse,
+    AsyncAISearchResourceWithRawResponse,
+    AISearchResourceWithStreamingResponse,
+    AsyncAISearchResourceWithStreamingResponse,
+)
 from .sandboxes import (
     SandboxesResource,
     AsyncSandboxesResource,
@@ -208,6 +216,12 @@ __all__ = [
     "AsyncTracesResourceWithRawResponse",
     "TracesResourceWithStreamingResponse",
     "AsyncTracesResourceWithStreamingResponse",
+    "AISearchResource",
+    "AsyncAISearchResource",
+    "AISearchResourceWithRawResponse",
+    "AsyncAISearchResourceWithRawResponse",
+    "AISearchResourceWithStreamingResponse",
+    "AsyncAISearchResourceWithStreamingResponse",
     "EvaluatorsResource",
     "AsyncEvaluatorsResource",
     "EvaluatorsResourceWithRawResponse",

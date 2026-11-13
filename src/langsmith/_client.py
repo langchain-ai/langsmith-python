@@ -49,6 +49,7 @@ if TYPE_CHECKING:
         threads,
         datasets,
         sessions,
+        ai_search,
         sandboxes,
         evaluators,
         prompt_webhooks,
@@ -62,6 +63,7 @@ if TYPE_CHECKING:
     from .resources.issues import IssuesResource, AsyncIssuesResource
     from .resources.commits import CommitsResource, AsyncCommitsResource
     from .resources.sessions import SessionsResource, AsyncSessionsResource
+    from .resources.ai_search import AISearchResource, AsyncAISearchResource
     from .resources.runs.runs import RunsResource, AsyncRunsResource
     from .resources.evaluators import EvaluatorsResource, AsyncEvaluatorsResource
     from .resources.fleet.fleet import FleetResource, AsyncFleetResource
@@ -211,6 +213,12 @@ class Langsmith(SyncAPIClient):
         from .resources.traces import TracesResource
 
         return TracesResource(self)
+
+    @cached_property
+    def ai_search(self) -> AISearchResource:
+        from .resources.ai_search import AISearchResource
+
+        return AISearchResource(self)
 
     @cached_property
     def evaluators(self) -> EvaluatorsResource:
@@ -537,6 +545,12 @@ class AsyncLangsmith(AsyncAPIClient):
         return AsyncTracesResource(self)
 
     @cached_property
+    def ai_search(self) -> AsyncAISearchResource:
+        from .resources.ai_search import AsyncAISearchResource
+
+        return AsyncAISearchResource(self)
+
+    @cached_property
     def evaluators(self) -> AsyncEvaluatorsResource:
         from .resources.evaluators import AsyncEvaluatorsResource
 
@@ -797,6 +811,12 @@ class LangsmithWithRawResponse:
         return TracesResourceWithRawResponse(self._client.traces)
 
     @cached_property
+    def ai_search(self) -> ai_search.AISearchResourceWithRawResponse:
+        from .resources.ai_search import AISearchResourceWithRawResponse
+
+        return AISearchResourceWithRawResponse(self._client.ai_search)
+
+    @cached_property
     def evaluators(self) -> evaluators.EvaluatorsResourceWithRawResponse:
         from .resources.evaluators import EvaluatorsResourceWithRawResponse
 
@@ -916,6 +936,12 @@ class AsyncLangsmithWithRawResponse:
         from .resources.traces import AsyncTracesResourceWithRawResponse
 
         return AsyncTracesResourceWithRawResponse(self._client.traces)
+
+    @cached_property
+    def ai_search(self) -> ai_search.AsyncAISearchResourceWithRawResponse:
+        from .resources.ai_search import AsyncAISearchResourceWithRawResponse
+
+        return AsyncAISearchResourceWithRawResponse(self._client.ai_search)
 
     @cached_property
     def evaluators(self) -> evaluators.AsyncEvaluatorsResourceWithRawResponse:
@@ -1039,6 +1065,12 @@ class LangsmithWithStreamedResponse:
         return TracesResourceWithStreamingResponse(self._client.traces)
 
     @cached_property
+    def ai_search(self) -> ai_search.AISearchResourceWithStreamingResponse:
+        from .resources.ai_search import AISearchResourceWithStreamingResponse
+
+        return AISearchResourceWithStreamingResponse(self._client.ai_search)
+
+    @cached_property
     def evaluators(self) -> evaluators.EvaluatorsResourceWithStreamingResponse:
         from .resources.evaluators import EvaluatorsResourceWithStreamingResponse
 
@@ -1158,6 +1190,12 @@ class AsyncLangsmithWithStreamedResponse:
         from .resources.traces import AsyncTracesResourceWithStreamingResponse
 
         return AsyncTracesResourceWithStreamingResponse(self._client.traces)
+
+    @cached_property
+    def ai_search(self) -> ai_search.AsyncAISearchResourceWithStreamingResponse:
+        from .resources.ai_search import AsyncAISearchResourceWithStreamingResponse
+
+        return AsyncAISearchResourceWithStreamingResponse(self._client.ai_search)
 
     @cached_property
     def evaluators(self) -> evaluators.AsyncEvaluatorsResourceWithStreamingResponse:
