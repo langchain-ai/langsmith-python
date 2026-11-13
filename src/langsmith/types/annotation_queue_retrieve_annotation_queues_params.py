@@ -17,6 +17,8 @@ class AnnotationQueueRetrieveAnnotationQueuesParams(TypedDict, total=False):
 
     ids: Optional[SequenceNotStr[str]]
 
+    include_rubric_keys: bool
+
     limit: int
 
     name: Optional[str]
