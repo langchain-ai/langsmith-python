@@ -13,6 +13,7 @@ import pytest
 from langsmith import Client
 from langsmith import utils as ls_utils
 from langsmith._internal import _orjson
+from langsmith._internal._operations import serialize_run_dict
 from langsmith._internal.otel._otel_exporter import (
     GEN_AI_RESPONSE_FINISH_REASONS,
     GEN_AI_TOOL_CALL_ID,
@@ -729,3 +730,138 @@ def test_otel_exporter_rejects_a_project_and_an_address(set_env):
             project="my-project",
             address=agent_address("support-agent", "production"),
         )
+
+
+# --- Tests for token usage promotion (extra.metadata.usage_metadata fallback) ---
+
+
+def _export_single_run(run_data: dict) -> list:
+    """Serialize ``run_data`` as a 'post' op and export it through a real
+    OTELExporter backed by a real OTEL SDK TracerProvider, returning the
+    finished spans recorded by an in-memory span exporter.
+    """
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+        InMemorySpanExporter,
+    )
+
+    provider = TracerProvider()
+    sink = InMemorySpanExporter()
+    provider.add_span_processor(SimpleSpanProcessor(sink))
+    try:
+        exporter = OTELExporter(tracer_provider=provider)
+        op = serialize_run_dict("post", dict(run_data))
+        exporter.export_batch([op], {})
+        return list(sink.get_finished_spans())
+    finally:
+        provider.shutdown()
+
+
+def _base_llm_run(**fields) -> dict:
+    run_id = uuid.uuid4()
+    trace_id = uuid.uuid4()
+    return {
+        "id": run_id,
+        "trace_id": trace_id,
+        "dotted_order": f"20240101T000000000000Z{trace_id}.{run_id}",
+        "name": "example-turn",
+        "run_type": "llm",
+        "start_time": "2024-01-01T00:00:00+00:00",
+        "end_time": "2024-01-01T00:00:01+00:00",
+        "inputs": {"messages": [{"role": "user", "content": "hi"}]},
+        **fields,
+    }
+
+
+def _extra_usage(input_tokens: int, output_tokens: int) -> dict:
+    return {
+        "metadata": {
+            "usage_metadata": {
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "total_tokens": input_tokens + output_tokens,
+            }
+        }
+    }
+
+
+def _usage_attributes(span) -> tuple:
+    attributes = span.attributes
+    return (
+        attributes.get("gen_ai.usage.input_tokens"),
+        attributes.get("gen_ai.usage.output_tokens"),
+        attributes.get("gen_ai.usage.total_tokens"),
+    )
+
+
+def test_export_batch_promotes_usage_from_extra_metadata():
+    """Usage recorded only under extra.metadata.usage_metadata (where
+    ``RunTree.set(usage_metadata=...)`` and integrations such as
+    claude_agent_sdk put it) is promoted to the gen_ai.usage.* span attributes.
+    """
+    run_data = _base_llm_run(
+        # A turn's real output content, with no usage anywhere inside it.
+        outputs={"content": [{"type": "text", "text": "hello"}], "role": "assistant"},
+        extra=_extra_usage(21400, 7),
+    )
+
+    spans = _export_single_run(run_data)
+
+    assert len(spans) == 1
+    assert _usage_attributes(spans[0]) == (21400, 7, 21407)
+
+
+def test_export_batch_promotes_usage_from_extra_metadata_without_outputs():
+    """The fallback does not depend on outputs: an operation can carry usage
+    in extra.metadata while having no outputs at all.
+    """
+    run_data = _base_llm_run(extra=_extra_usage(21400, 7))
+    assert "outputs" not in run_data
+
+    spans = _export_single_run(run_data)
+
+    assert len(spans) == 1
+    assert _usage_attributes(spans[0]) == (21400, 7, 21407)
+
+
+def test_export_batch_outputs_usage_takes_precedence_over_extra_metadata():
+    """Usage found in run.outputs wins over extra.metadata.usage_metadata."""
+    run_data = _base_llm_run(
+        outputs={"usage_metadata": {"input_tokens": 100, "output_tokens": 20, "total_tokens": 120}},
+        extra=_extra_usage(999, 999),
+    )
+
+    spans = _export_single_run(run_data)
+
+    assert len(spans) == 1
+    assert _usage_attributes(spans[0]) == (100, 20, 120)
+
+
+def test_export_batch_run_token_fields_take_precedence_over_extra_metadata():
+    """The run's top-level token fields win over extra.metadata.usage_metadata."""
+    run_data = _base_llm_run(
+        outputs={"content": [{"type": "text", "text": "hello"}], "role": "assistant"},
+        prompt_tokens=50,
+        completion_tokens=5,
+        total_tokens=55,
+        extra=_extra_usage(999, 999),
+    )
+
+    spans = _export_single_run(run_data)
+
+    assert len(spans) == 1
+    assert _usage_attributes(spans[0]) == (50, 5, 55)
+
+
+def test_export_batch_no_usage_anywhere_sets_no_usage_attributes():
+    """No usage source present: no gen_ai.usage.* attributes are set."""
+    run_data = _base_llm_run(
+        outputs={"content": [{"type": "text", "text": "hi"}], "role": "assistant"},
+        extra={"metadata": {}},
+    )
+
+    spans = _export_single_run(run_data)
+
+    assert len(spans) == 1
+    assert _usage_attributes(spans[0]) == (None, None, None)
