@@ -56,6 +56,7 @@ if TYPE_CHECKING:
         product_feedback,
         annotation_queues,
         online_evaluators,
+        workspace_secrets,
     )
     from .resources.sql import SqlResource, AsyncSqlResource
     from .resources.info import InfoResource, AsyncInfoResource
@@ -75,6 +76,7 @@ if TYPE_CHECKING:
     from .resources.product_feedback import ProductFeedbackResource, AsyncProductFeedbackResource
     from .resources.datasets.datasets import DatasetsResource, AsyncDatasetsResource
     from .resources.online_evaluators import OnlineEvaluatorsResource, AsyncOnlineEvaluatorsResource
+    from .resources.workspace_secrets import WorkspaceSecretsResource, AsyncWorkspaceSecretsResource
     from .resources.sandboxes.sandboxes import SandboxesResource, AsyncSandboxesResource
     from .resources.annotation_queues.annotation_queues import AnnotationQueuesResource, AsyncAnnotationQueuesResource
 
@@ -255,6 +257,12 @@ class Langsmith(SyncAPIClient):
         from .resources.info import InfoResource
 
         return InfoResource(self)
+
+    @cached_property
+    def workspace_secrets(self) -> WorkspaceSecretsResource:
+        from .resources.workspace_secrets import WorkspaceSecretsResource
+
+        return WorkspaceSecretsResource(self)
 
     @cached_property
     def repos(self) -> ReposResource:
@@ -587,6 +595,12 @@ class AsyncLangsmith(AsyncAPIClient):
         return AsyncInfoResource(self)
 
     @cached_property
+    def workspace_secrets(self) -> AsyncWorkspaceSecretsResource:
+        from .resources.workspace_secrets import AsyncWorkspaceSecretsResource
+
+        return AsyncWorkspaceSecretsResource(self)
+
+    @cached_property
     def repos(self) -> AsyncReposResource:
         from .resources.repos import AsyncReposResource
 
@@ -853,6 +867,12 @@ class LangsmithWithRawResponse:
         return InfoResourceWithRawResponse(self._client.info)
 
     @cached_property
+    def workspace_secrets(self) -> workspace_secrets.WorkspaceSecretsResourceWithRawResponse:
+        from .resources.workspace_secrets import WorkspaceSecretsResourceWithRawResponse
+
+        return WorkspaceSecretsResourceWithRawResponse(self._client.workspace_secrets)
+
+    @cached_property
     def repos(self) -> repos.ReposResourceWithRawResponse:
         from .resources.repos import ReposResourceWithRawResponse
 
@@ -978,6 +998,12 @@ class AsyncLangsmithWithRawResponse:
         from .resources.info import AsyncInfoResourceWithRawResponse
 
         return AsyncInfoResourceWithRawResponse(self._client.info)
+
+    @cached_property
+    def workspace_secrets(self) -> workspace_secrets.AsyncWorkspaceSecretsResourceWithRawResponse:
+        from .resources.workspace_secrets import AsyncWorkspaceSecretsResourceWithRawResponse
+
+        return AsyncWorkspaceSecretsResourceWithRawResponse(self._client.workspace_secrets)
 
     @cached_property
     def repos(self) -> repos.AsyncReposResourceWithRawResponse:
@@ -1107,6 +1133,12 @@ class LangsmithWithStreamedResponse:
         return InfoResourceWithStreamingResponse(self._client.info)
 
     @cached_property
+    def workspace_secrets(self) -> workspace_secrets.WorkspaceSecretsResourceWithStreamingResponse:
+        from .resources.workspace_secrets import WorkspaceSecretsResourceWithStreamingResponse
+
+        return WorkspaceSecretsResourceWithStreamingResponse(self._client.workspace_secrets)
+
+    @cached_property
     def repos(self) -> repos.ReposResourceWithStreamingResponse:
         from .resources.repos import ReposResourceWithStreamingResponse
 
@@ -1232,6 +1264,12 @@ class AsyncLangsmithWithStreamedResponse:
         from .resources.info import AsyncInfoResourceWithStreamingResponse
 
         return AsyncInfoResourceWithStreamingResponse(self._client.info)
+
+    @cached_property
+    def workspace_secrets(self) -> workspace_secrets.AsyncWorkspaceSecretsResourceWithStreamingResponse:
+        from .resources.workspace_secrets import AsyncWorkspaceSecretsResourceWithStreamingResponse
+
+        return AsyncWorkspaceSecretsResourceWithStreamingResponse(self._client.workspace_secrets)
 
     @cached_property
     def repos(self) -> repos.AsyncReposResourceWithStreamingResponse:

@@ -160,6 +160,14 @@ from .online_evaluators import (
     OnlineEvaluatorsResourceWithStreamingResponse,
     AsyncOnlineEvaluatorsResourceWithStreamingResponse,
 )
+from .workspace_secrets import (
+    WorkspaceSecretsResource,
+    AsyncWorkspaceSecretsResource,
+    WorkspaceSecretsResourceWithRawResponse,
+    AsyncWorkspaceSecretsResourceWithRawResponse,
+    WorkspaceSecretsResourceWithStreamingResponse,
+    AsyncWorkspaceSecretsResourceWithStreamingResponse,
+)
 
 __all__ = [
     "SqlResource",
@@ -258,6 +266,12 @@ __all__ = [
     "AsyncInfoResourceWithRawResponse",
     "InfoResourceWithStreamingResponse",
     "AsyncInfoResourceWithStreamingResponse",
+    "WorkspaceSecretsResource",
+    "AsyncWorkspaceSecretsResource",
+    "WorkspaceSecretsResourceWithRawResponse",
+    "AsyncWorkspaceSecretsResourceWithRawResponse",
+    "WorkspaceSecretsResourceWithStreamingResponse",
+    "AsyncWorkspaceSecretsResourceWithStreamingResponse",
     "ReposResource",
     "AsyncReposResource",
     "ReposResourceWithRawResponse",

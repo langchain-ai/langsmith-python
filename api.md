@@ -446,6 +446,20 @@ Methods:
 
 - <code title="get /api/v1/info">client.info.<a href="./src/langsmith/resources/info.py">list</a>() -> <a href="./src/langsmith/types/info_list_response.py">InfoListResponse</a></code>
 
+# WorkspaceSecrets
+
+Types:
+
+```python
+from langsmith.types import WorkspaceSecret, WorkspaceSecretListResponse
+```
+
+Methods:
+
+- <code title="get /api/v1/workspaces/current/secrets">client.workspace_secrets.<a href="./src/langsmith/resources/workspace_secrets.py">list</a>(\*\*<a href="src/langsmith/types/workspace_secret_list_params.py">params</a>) -> <a href="./src/langsmith/types/workspace_secret_list_response.py">WorkspaceSecretListResponse</a></code>
+- <code title="delete /api/v1/workspaces/current/secrets/{key}">client.workspace_secrets.<a href="./src/langsmith/resources/workspace_secrets.py">delete</a>(key) -> None</code>
+- <code title="put /api/v1/workspaces/current/secrets/{key}">client.workspace_secrets.<a href="./src/langsmith/resources/workspace_secrets.py">upsert</a>(key, \*\*<a href="src/langsmith/types/workspace_secret_upsert_params.py">params</a>) -> <a href="./src/langsmith/types/workspace_secret.py">WorkspaceSecret</a></code>
+
 # Repos
 
 Types:

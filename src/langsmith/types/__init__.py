@@ -26,6 +26,7 @@ from .run_select_field import RunSelectField as RunSelectField
 from .sandbox_response import SandboxResponse as SandboxResponse
 from .sql_query_params import SqlQueryParams as SqlQueryParams
 from .trace_aggregates import TraceAggregates as TraceAggregates
+from .workspace_secret import WorkspaceSecret as WorkspaceSecret
 from .agent_list_params import AgentListParams as AgentListParams
 from .evaluator_webhook import EvaluatorWebhook as EvaluatorWebhook
 from .get_repo_response import GetRepoResponse as GetRepoResponse
@@ -107,6 +108,7 @@ from .prompt_webhook_create_params import PromptWebhookCreateParams as PromptWeb
 from .prompt_webhook_list_response import PromptWebhookListResponse as PromptWebhookListResponse
 from .prompt_webhook_test_response import PromptWebhookTestResponse as PromptWebhookTestResponse
 from .prompt_webhook_update_params import PromptWebhookUpdateParams as PromptWebhookUpdateParams
+from .workspace_secret_list_params import WorkspaceSecretListParams as WorkspaceSecretListParams
 from .online_evaluator_spend_params import OnlineEvaluatorSpendParams as OnlineEvaluatorSpendParams
 from .thread_aggregate_stats_params import ThreadAggregateStatsParams as ThreadAggregateStatsParams
 from .annotation_queue_export_params import AnnotationQueueExportParams as AnnotationQueueExportParams
@@ -115,6 +117,8 @@ from .online_evaluator_create_params import OnlineEvaluatorCreateParams as Onlin
 from .online_evaluator_delete_params import OnlineEvaluatorDeleteParams as OnlineEvaluatorDeleteParams
 from .online_evaluator_update_params import OnlineEvaluatorUpdateParams as OnlineEvaluatorUpdateParams
 from .product_feedback_create_params import ProductFeedbackCreateParams as ProductFeedbackCreateParams
+from .workspace_secret_list_response import WorkspaceSecretListResponse as WorkspaceSecretListResponse
+from .workspace_secret_upsert_params import WorkspaceSecretUpsertParams as WorkspaceSecretUpsertParams
 from .bulk_delete_evaluators_response import BulkDeleteEvaluatorsResponse as BulkDeleteEvaluatorsResponse
 from .e_prompt_optimization_algorithm import EPromptOptimizationAlgorithm as EPromptOptimizationAlgorithm
 from .sandbox_list_usage_costs_params import SandboxListUsageCostsParams as SandboxListUsageCostsParams
