@@ -156,10 +156,11 @@ class RunsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RunQueryResponse:
-        """Returns all runs within the trace identified by the share token.
+        """GET with body payload — no resources created.
 
-        The share token
-        supplies the tenant, project, and trace scope.
+        Returns all runs within the trace
+        identified by the share token. The share token supplies the tenant, project, and
+        trace scope.
 
         Self-hosted deployments require LangSmith `v0.16` or later.
 
@@ -318,10 +319,11 @@ class AsyncRunsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RunQueryResponse:
-        """Returns all runs within the trace identified by the share token.
+        """GET with body payload — no resources created.
 
-        The share token
-        supplies the tenant, project, and trace scope.
+        Returns all runs within the trace
+        identified by the share token. The share token supplies the tenant, project, and
+        trace scope.
 
         Self-hosted deployments require LangSmith `v0.16` or later.
 
