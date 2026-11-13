@@ -1938,3 +1938,111 @@ def test_load_traces_does_not_warn_about_list_runs(project_ref) -> None:
         with warnings.catch_warnings():
             warnings.simplefilter("error", DeprecationWarning)
             assert _load_traces_for_experiment(project, client, load_nested=False) == []
+
+
+async def _cleanup_evaluation_tasks(tasks):
+    for task in tasks:
+        if not task.done():
+            task.cancel()
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_aevaluate_data_failure_stops_inflight_target() -> None:
+    """A failing data stream must stop work spawned for earlier examples."""
+    example, payload = _create_example(0)
+    client, _ = _fake_client_for_examples([payload], str(example.dataset_id), "cleanup-data")
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+    tasks = []
+
+    async def predict(inputs):
+        tasks.append(asyncio.current_task())
+        started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    async def data():
+        yield example
+        await started.wait()
+        raise RuntimeError("example source failed")
+
+    try:
+        with pytest.raises(RuntimeError, match="example source failed"):
+            await asyncio.wait_for(
+                aevaluate(predict, data=data(), client=client, upload_results=False, max_concurrency=2),
+                timeout=5,
+            )
+        assert cancelled.is_set()
+        assert all(task.done() for task in tasks)
+    finally:
+        await _cleanup_evaluation_tasks(tasks)
+
+
+@pytest.mark.asyncio
+async def test_aevaluate_cancellation_stops_inflight_target() -> None:
+    """Cancelling a blocking evaluation must also cancel the running target."""
+    example, payload = _create_example(0)
+    client, _ = _fake_client_for_examples([payload], str(example.dataset_id), "cleanup-cancel")
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+    tasks = []
+
+    async def predict(inputs):
+        tasks.append(asyncio.current_task())
+        started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    evaluation = asyncio.create_task(
+        aevaluate(predict, data=[example], client=client, upload_results=False, max_concurrency=2)
+    )
+    try:
+        await asyncio.wait_for(started.wait(), timeout=5)
+        evaluation.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await evaluation
+        assert cancelled.is_set()
+        assert all(task.done() for task in tasks)
+    finally:
+        await _cleanup_evaluation_tasks([evaluation, *tasks])
+
+
+@pytest.mark.asyncio
+async def test_aevaluate_result_consumer_does_not_own_background_target() -> None:
+    """Cancelling one result consumer preserves the non-blocking experiment."""
+    example, payload = _create_example(0)
+    client, _ = _fake_client_for_examples([payload], str(example.dataset_id), "cleanup-consumer")
+    started = asyncio.Event()
+    release = asyncio.Event()
+    tasks = []
+
+    async def predict(inputs):
+        tasks.append(asyncio.current_task())
+        started.set()
+        await release.wait()
+        return {"output": inputs["in"] + 1}
+
+    results = await aevaluate(
+        predict, data=[example], client=client, upload_results=False, max_concurrency=2, blocking=False
+    )
+    consumer = asyncio.create_task(anext(results))
+    try:
+        await asyncio.wait_for(started.wait(), timeout=5)
+        consumer.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await consumer
+        assert tasks and not tasks[0].done()
+        release.set()
+        await asyncio.wait_for(results.wait(), timeout=5)
+        assert len(results) == 1
+    finally:
+        release.set()
+        await _cleanup_evaluation_tasks([consumer, *tasks])
