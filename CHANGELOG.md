@@ -1,5 +1,87 @@
 # Changelog
 
+## [0.15.0](https://github.com/langchain-ai/langsmith-python/compare/v0.14.17...v0.15.0) (2026-11-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **sessions:** publish v2 write APIs and SDK methods
+* **sandboxes:** require explicit permissions for sandbox access delegation
+* drop Python 3.10 support from the Python SDK
+* **sandboxes:** add literal and callback proxy attribution
+* **sessions:** filter GET /api/v2/sessions by session type
+* **api:** hide the Missing sentinel from annotation queue and chart PATCH schemas
+* **sdk:** feedback rubric parity in the Python and JS clients
+* **sessions:** document project costs as numbers
+
+### Features
+
+* add evaluator metadata field ([1946f6e](https://github.com/langchain-ai/langsmith-python/commit/1946f6e9f7b864f6aebfdffea815243a8c4e58a6))
+* **agent-platform:** expose the agent's UUID on agent responses ([2d5cf37](https://github.com/langchain-ai/langsmith-python/commit/2d5cf37c96f57e40b2f68c7df728263036cbc08b))
+* **annotation-queues:** return rubric keys from the queue list behind include_rubric_keys ([1d763e4](https://github.com/langchain-ai/langsmith-python/commit/1d763e43317542405fa178bd38a82ea7ab36d3be))
+* **byoc:** make sandboxes opt-in on AWS data planes and default host headroom to 0 ([51ef7b6](https://github.com/langchain-ai/langsmith-python/commit/51ef7b69ada0bba468c37e282da5a26ac10bad2d))
+* **cli,sdk-go:** store profile secrets in the OS keychain ([97f54e8](https://github.com/langchain-ai/langsmith-python/commit/97f54e8864179d77bd020737ba69eaf924403acb))
+* **engine:** add issue type (actionable | finding) ([c4fb9cc](https://github.com/langchain-ai/langsmith-python/commit/c4fb9cc7c42f333c898814e06a72d19b4abeb4d4))
+* expose AI search parse in the public API and SDKs ([880094a](https://github.com/langchain-ai/langsmith-python/commit/880094ac1df440e854c73a8f86303c7b0a8bd437))
+* filter evaluators by metadata ([e1e7163](https://github.com/langchain-ai/langsmith-python/commit/e1e71637c25337855a5fa9ca4f310b8a78085202))
+* generate SQL query SDK clients ([ea8e5b2](https://github.com/langchain-ai/langsmith-python/commit/ea8e5b2c9fb66f6e3db764248b2e77b2b3813a35))
+* parse AI search in query endpoints ([062348b](https://github.com/langchain-ai/langsmith-python/commit/062348bff0261e99a33b83447e98be45bca8e516))
+* **rules:** deprecate GET /api/v1/runs/rules and index run_rules for V2 paging ([04f42e8](https://github.com/langchain-ai/langsmith-python/commit/04f42e84892b74bc9d3d0c134990746e55d3803a))
+* **run-rules:** accept v2 filters for thread evaluators ([3dcaf2a](https://github.com/langchain-ai/langsmith-python/commit/3dcaf2a241941544d46e53927fed8803ceecb416))
+* **run-rules:** thread-level decision-model rules ([36c9ac8](https://github.com/langchain-ai/langsmith-python/commit/36c9ac8aacab53b067f0acc28f5a57a81aea6053))
+* **sandboxes:** add literal and callback proxy attribution ([27d44b2](https://github.com/langchain-ai/langsmith-python/commit/27d44b2d8e660502cb4906d10001f63588080750))
+* **sandboxes:** narrow AWS/GCP proxy rules with match_hosts, pass through presigned URLs ([107469c](https://github.com/langchain-ai/langsmith-python/commit/107469c6d225dac9f03d2a447ed74e3378547824))
+* **sandboxes:** require explicit permissions for sandbox access delegation ([a1097c0](https://github.com/langchain-ai/langsmith-python/commit/a1097c00e27174593e4b73a04e2618ffacf4c4de))
+* **sandboxes:** restrict header rules to an exact scheme and port ([bc27c0b](https://github.com/langchain-ai/langsmith-python/commit/bc27c0b17fc07cb0b71f9068228bf75bb757ecf4))
+* **sdk:** add bulk example metadata update to the SDKs ([61e191c](https://github.com/langchain-ai/langsmith-python/commit/61e191cccdc582d19a77da06635d6199fe7a5df1))
+* **sdk:** add datasets.listV2 for GET /api/v2/datasets ([8647b03](https://github.com/langchain-ai/langsmith-python/commit/8647b03842af213fe5b75dc0ff95a03bac77276e))
+* **sdk:** feedback rubric parity in the Python and JS clients ([c64557b](https://github.com/langchain-ai/langsmith-python/commit/c64557b196328a2c437b7511354cd16edd33f4d9))
+* **sdk:** generate Prompt Hub repos and commits in the Python and TypeScript SDKs ([e6e6c54](https://github.com/langchain-ai/langsmith-python/commit/e6e6c544364d6e28facd4ceae2ca8dfba6facd72))
+* **sdk:** generate workspace secrets list ([065ac4b](https://github.com/langchain-ai/langsmith-python/commit/065ac4b7788156ca7d8edeb480f30420e9728bde))
+* **sdks:** add paginated V2 rule-list methods ([195a55e](https://github.com/langchain-ai/langsmith-python/commit/195a55e94c4ad3e0f39015cad09c71cd1a952190))
+* search agents by normalized name or ID ([5a457da](https://github.com/langchain-ai/langsmith-python/commit/5a457dabeb5e8fbdcbbacfb4d127e924393c3818))
+* **sessions:** accept longlived_ttl_days on POST and PATCH /sessions ([197e23a](https://github.com/langchain-ai/langsmith-python/commit/197e23a76af1a79a4cd082a1b6afdf7c338d0ca7))
+* **sessions:** add cursor-paginated GET /api/v2/sessions ([18e75c0](https://github.com/langchain-ai/langsmith-python/commit/18e75c0fa5efb55c1e8ba2fac9edcf8a9366dfef))
+* **sessions:** filter GET /api/v2/sessions by session type ([48395aa](https://github.com/langchain-ai/langsmith-python/commit/48395aa26c15d53d6ab478f35b4eaade3b94fad8))
+* **sessions:** publish v2 write APIs and SDK methods ([46ea4a6](https://github.com/langchain-ai/langsmith-python/commit/46ea4a656e7c21b97bd42c904ce1a3938668b231))
+* show total agent count in the table header ([97c0f0a](https://github.com/langchain-ai/langsmith-python/commit/97c0f0a5f61c932da68b6240268ae7bf4738a0ad))
+* **ttl:** make the allowed long-lived retention days configurable ([b6ff0be](https://github.com/langchain-ai/langsmith-python/commit/b6ff0bea4b1c851ad14f9908b049c3cda4c9d2f7))
+
+
+### Bug Fixes
+
+* **api:** hide the Missing sentinel from annotation queue and chart PATCH schemas ([30c0710](https://github.com/langchain-ai/langsmith-python/commit/30c071003eb8eb7fd2d2d4cd933ccaa6bd931c13))
+* drop Python 3.10 support from the Python SDK ([6ec8267](https://github.com/langchain-ai/langsmith-python/commit/6ec8267b97589912693badd6a8e5a8a5c506b4b4))
+* enable changing Studio no-code agent owners ([141af0e](https://github.com/langchain-ai/langsmith-python/commit/141af0e7f91a40c37411ae922d7d083aaece9afa))
+* expose session dashboards in Python and TypeScript SDKs ([8a1300c](https://github.com/langchain-ai/langsmith-python/commit/8a1300cd043c08cf4dd785f11a1741fb4fe16d30))
+* **sdk:** update dataset splits via the bulk metadata endpoint ([a5a1578](https://github.com/langchain-ai/langsmith-python/commit/a5a1578bc48a514eb9177e554ac15fe2084e064e))
+* **sessions:** align v1 endpoint sunset notices to July 1, 2027 ([187ecd6](https://github.com/langchain-ai/langsmith-python/commit/187ecd650e06c3ec611fee3edeab329fec05c841))
+* **sessions:** document project costs as numbers ([f8e3393](https://github.com/langchain-ai/langsmith-python/commit/f8e33934ed963f6e23d24b7dbb718bb328e5f4d7))
+* **sessions:** generate sessions.delete for the Python and TypeScript SDKs ([cea2b6b](https://github.com/langchain-ai/langsmith-python/commit/cea2b6b722d91c6025aa902bdb017772d6281a47))
+* **sessions:** generate sessions.retrieve for the Python and TypeScript SDKs ([957d161](https://github.com/langchain-ai/langsmith-python/commit/957d161e51585db4f9236cfe7b9f8a540c9aedf4))
+
+
+### Chores
+
+* **deps:** bump joserfc from 1.7.5 to 1.7.6 in /sdks/python ([1d8000c](https://github.com/langchain-ai/langsmith-python/commit/1d8000cf3c1288b733be652bebc0f15af417d70e))
+* **deps:** bump the minor-and-patch group across 1 directory with 19 updates ([58f5e51](https://github.com/langchain-ai/langsmith-python/commit/58f5e515747410198a4a33742d99e705b158aa12))
+* **deps:** update Python SDK vcrpy and importlib-metadata ([7b1ce5c](https://github.com/langchain-ai/langsmith-python/commit/7b1ce5ce1100599d8090f2793d070b736a3d6d36))
+* **sdk:** accept preserve_memory_on_stop in sandbox create_sandbox ([2bd3c54](https://github.com/langchain-ai/langsmith-python/commit/2bd3c5425baae33ba984a40414dbffb72586c4c7))
+
+
+### Documentation
+
+* **annotation-queues:** document extend_trace_retention default on add items ([8c26bbb](https://github.com/langchain-ai/langsmith-python/commit/8c26bbbe758e68a882aa39f9bb7b8ad88c3a55e6))
+* clarify public trace query read semantics ([36d5c7c](https://github.com/langchain-ai/langsmith-python/commit/36d5c7c61d5d0db0502e9c5b55f3a2e502f90fa9))
+
+
+### Build System
+
+* **deps:** bump authlib from 1.8.0 to 1.9.1 in /sdks/python ([f987c2c](https://github.com/langchain-ai/langsmith-python/commit/f987c2cb84cc1720cc305db6637bce047f29c2be))
+* **deps:** bump nltk from 3.10.3 to 3.10.4 in /sdks/python ([8b7665c](https://github.com/langchain-ai/langsmith-python/commit/8b7665c76da5825a706da4c2f65a017d53c9cd49))
+* update Python SDK MCP security dependencies ([e1f29ce](https://github.com/langchain-ai/langsmith-python/commit/e1f29ce5573c1a5c25a4135e1f6266d4506965a7))
+* update Python SDK security dependencies (nltk, pillow, pyasn1) ([cc536ee](https://github.com/langchain-ai/langsmith-python/commit/cc536ee135dd5bc7f302a8a977d05e4f51b27b5a))
+
 ## [0.14.17](https://github.com/langchain-ai/langsmith-python/compare/v0.14.16...v0.14.17) (2026-11-02)
 
 
