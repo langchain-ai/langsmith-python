@@ -2087,9 +2087,13 @@ def _evaluator_uses_attachments(evaluator: Any) -> bool:
     if not callable(evaluator):
         return False
     sig = inspect.signature(evaluator)
-    params = list(sig.parameters.values())
-    positional_params = [p for p in params if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)]
-    return any(p.name == "attachments" for p in positional_params)
+    param = sig.parameters.get("attachments")
+    # Evaluator args are bound by name, so keyword-only ``attachments`` counts too.
+    return param is not None and param.kind in (
+        param.POSITIONAL_ONLY,
+        param.POSITIONAL_OR_KEYWORD,
+        param.KEYWORD_ONLY,
+    )
 
 
 def _target_include_attachments(target: Any) -> bool:
