@@ -7347,6 +7347,8 @@ class Client:
 
         # For backwards compatibility
         else:
+            # Explicit None has the same meaning as omitting an optional legacy arg.
+            kwargs = {key: value for key, value in kwargs.items() if value is not None}
             example_ids = kwargs.get("example_ids", None)
             if not example_ids:
                 raise ValueError("Must pass in (exactly) one of 'updates' or 'example_ids'.")
