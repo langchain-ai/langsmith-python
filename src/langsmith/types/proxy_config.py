@@ -360,8 +360,11 @@ class Rule(BaseModel):
     matches `/v10`); a suffix, written as `*`, a slash, and then the ending, which
     matches any path that ends with that text (the ending `runs` also matches
     `/v1/xruns`); or `*` alone for every path. A wildcard in the middle of a path is
-    not supported. An empty list matches every path. Rules are evaluated in order
-    and the first match wins. Rejected on aws, gcp, azure, and relay rules.
+    not supported. An empty list matches every path. A request whose path is not
+    canonical (a `.` or `..` segment, an empty segment such as `//`, a backslash, or
+    a percent-encoded slash, backslash, or dot) matches no pattern. Rules are
+    evaluated in order and the first match wins. Rejected on aws, gcp, azure, and
+    relay rules.
     """
 
     match_port: Optional[int] = None
