@@ -274,6 +274,14 @@ class Fix(BaseModel):
 
     pr_number: Optional[int] = None
 
+    provider: Literal["github", "gitlab"]
+
+    provider_web_base_url: Optional[str] = None
+    """
+    ProviderWebBaseURL is the instance the fix was opened on; null on GitHub fixes
+    from before it was recorded.
+    """
+
     repo_url: str
 
     updated_at: datetime
@@ -394,6 +402,12 @@ class Issue(BaseModel):
     tenant_id: Optional[str] = None
 
     traces: Optional[object] = None
+
+    type: Optional[Literal["actionable", "finding"]] = None
+    """
+    "actionable" (there is something to do; it may carry PRs or LangSmith assets) or
+    "finding" (an observation only). Defaults to "actionable".
+    """
 
     updated_at: Optional[str] = None
 

@@ -553,7 +553,13 @@ class TestSandboxService:
             auto_delete=False,
         )
 
-        result = sb.service(port=3000, expires_in_seconds=1800)
+        result = sb.service(port=3000, expires_in_seconds=1800, embed_origins=["https://dash.example.com"])
 
-        client.service.assert_called_once_with("test-sandbox", 3000, expires_in_seconds=1800, headers=None)
+        client.service.assert_called_once_with(
+            "test-sandbox",
+            3000,
+            expires_in_seconds=1800,
+            embed_origins=["https://dash.example.com"],
+            headers=None,
+        )
         assert result is mock_svc

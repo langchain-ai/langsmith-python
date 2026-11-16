@@ -23,12 +23,6 @@ def async_client():
 
 
 class TestCreateSendsGrant:
-    def test_inherit(self, httpx_mock: HTTPXMock, client):
-        httpx_mock.add_response(url="http://test-server:8080/boxes", json=CREATED)
-        client.create_sandbox("snap-1", access_delegation={"mode": "INHERIT"})
-        body = json.loads(httpx_mock.get_requests()[0].content)
-        assert body["access_delegation"] == {"mode": "INHERIT"}
-
     def test_explicit(self, httpx_mock: HTTPXMock, client):
         httpx_mock.add_response(url="http://test-server:8080/boxes", json=CREATED)
         client.create_sandbox(
@@ -51,9 +45,10 @@ class TestCreateSendsGrant:
 
     async def test_async_create_sends_grant(self, httpx_mock: HTTPXMock, async_client):
         httpx_mock.add_response(url="http://test-server:8080/boxes", json=CREATED)
-        await async_client.create_sandbox("snap-1", access_delegation={"mode": "INHERIT"})
+        grant = {"mode": "EXPLICIT", "permissions": ["datasets:read"]}
+        await async_client.create_sandbox("snap-1", access_delegation=grant)
         body = json.loads(httpx_mock.get_requests()[0].content)
-        assert body["access_delegation"] == {"mode": "INHERIT"}
+        assert body["access_delegation"] == grant
 
 
 class TestCreateRejectsBadGrant:
@@ -62,9 +57,10 @@ class TestCreateRejectsBadGrant:
     @pytest.mark.parametrize(
         ("grant", "message"),
         [
-            ({"mode": "MAYBE"}, 'must be "INHERIT" or "EXPLICIT"'),
-            ({"mode": "INHERIT", "permissions": ["a"]}, "not allowed with mode"),
-            ({"mode": "EXPLICIT"}, "required with mode"),
+            ({"mode": "MAYBE"}, 'must be "EXPLICIT"'),
+            ({"mode": "INHERIT"}, 'must be "EXPLICIT"'),
+            ({"mode": "EXPLICIT"}, "is required"),
+            ({"mode": "EXPLICIT", "permissions": []}, "is required"),
             ({"mode": "EXPLICIT", "permissions": "a"}, "must be a list of strings"),
         ],
     )

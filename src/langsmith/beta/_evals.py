@@ -132,7 +132,7 @@ def convert_runs_to_test(
     outputs = [r.outputs for r in runs] if include_outputs else None
     client.create_examples(
         inputs=[r.inputs for r in runs],
-        outputs=outputs,
+        reference_outputs=outputs,
         source_run_ids=[r.id for r in runs],
         dataset_id=ds.id,
     )

@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from langsmith.address import AgentAddress
+
 from ._config import set_tracing_config
 
 logger = logging.getLogger(__name__)
@@ -19,6 +21,7 @@ def configure_google_adk(
     project_name: Optional[str] = None,
     metadata: Optional[dict] = None,
     tags: Optional[list[str]] = None,
+    address: Optional[AgentAddress] = None,
 ) -> bool:
     """Enable LangSmith tracing for Google ADK.
 
@@ -27,6 +30,8 @@ def configure_google_adk(
     Args:
         name: Name of the root trace. Defaults to "google_adk.session".
         project_name: LangSmith project to trace to.
+        address: An `AgentAddress` to trace to instead of a project;
+            cannot be combined with `project_name`.
         metadata: Metadata to associate with all traces.
         tags: Tags to associate with all traces.
 
@@ -36,7 +41,7 @@ def configure_google_adk(
     global _patched
 
     if _patched:
-        set_tracing_config(name=name, project_name=project_name, metadata=metadata, tags=tags)
+        set_tracing_config(name=name, project_name=project_name, address=address, metadata=metadata, tags=tags)
         return True
 
     try:
@@ -46,7 +51,7 @@ def configure_google_adk(
         logger.warning(f"Missing dependency: {e}")
         return False
 
-    set_tracing_config(name=name, project_name=project_name, metadata=metadata, tags=tags)
+    set_tracing_config(name=name, project_name=project_name, address=address, metadata=metadata, tags=tags)
 
     from ._client import (
         wrap_agent_run_async,
@@ -110,6 +115,7 @@ def create_traced_session_context(
     metadata: Optional[dict] = None,
     tags: Optional[list[str]] = None,
     inputs: Optional[dict] = None,
+    address: Optional[AgentAddress] = None,
 ):
     """Create a trace context for manual session tracing."""
     from ._client import create_traced_session_context as _create_context
@@ -117,6 +123,7 @@ def create_traced_session_context(
     return _create_context(
         name=name,
         project_name=project_name,
+        address=address,
         metadata=metadata,
         tags=tags,
         inputs=inputs,

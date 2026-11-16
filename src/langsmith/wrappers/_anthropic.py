@@ -16,6 +16,7 @@ from typing import (
 from typing_extensions import Self, TypedDict
 
 from langsmith import client as ls_client
+from langsmith.address import AgentAddress
 from langsmith import run_helpers
 from langsmith._internal._orjson import dumps as _dumps
 from langsmith.anonymizer import SECRET_PLACEHOLDER
@@ -489,6 +490,7 @@ class TracingExtra(TypedDict, total=False):
     metadata: Optional[Mapping[str, Any]]
     tags: Optional[list[str]]
     client: Optional[ls_client.Client]
+    address: Optional[AgentAddress]
 
 
 def wrap_anthropic(

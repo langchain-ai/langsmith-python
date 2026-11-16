@@ -1,7 +1,7 @@
 import logging
 import weakref
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 from langsmith import run_trees as rt
 from langsmith._internal import _context
@@ -10,6 +10,7 @@ from langsmith._internal._ls_agent_type import (
     apply_default_ls_agent_type,
 )
 from langsmith._internal._package_version import get_package_version
+from langsmith.address import AgentAddress
 from langsmith.run_helpers import get_current_run_tree
 
 try:
@@ -138,6 +139,8 @@ if HAVE_AGENTS:
             metadata: Metadata to associate with all traces.
             tags: Tags to associate with all traces.
             project_name: LangSmith project to trace to.
+            address: An `AgentAddress` to trace to instead of a project;
+                cannot be combined with `project_name`.
             name: Name of the root trace.
 
         Example:
@@ -189,12 +192,14 @@ if HAVE_AGENTS:
             metadata: Optional[dict] = None,
             tags: Optional[list[str]] = None,
             project_name: Optional[str] = None,
+            address: Optional[AgentAddress] = None,
             name: Optional[str] = None,
         ):
             self.client = client or rt.get_cached_client()
             self._metadata = metadata
             self._tags = tags
             self._project_name = project_name
+            self._address = address
             self._name = name
             self._first_response_inputs: dict = {}
             self._last_response_outputs: dict = {}
@@ -240,7 +245,7 @@ if HAVE_AGENTS:
                     )
                 else:
                     # Create new root trace
-                    run_kwargs = {
+                    run_kwargs: dict[str, Any] = {
                         "name": run_name,
                         "run_type": "chain",
                         "inputs": {},
@@ -250,7 +255,9 @@ if HAVE_AGENTS:
                     }
                     if self._project_name is not None:
                         run_kwargs["project_name"] = self._project_name
-                    new_run = rt.RunTree(**run_kwargs)  # type: ignore[arg-type]
+                    if self._address is not None:
+                        run_kwargs["address"] = self._address
+                    new_run = rt.RunTree(**run_kwargs)
 
                 # Delay posting until first response/generation span ends
                 # so inputs can be included in the POST.

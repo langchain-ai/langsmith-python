@@ -26,7 +26,7 @@ source .venv/bin/activate
 
 Most of the SDK is generated from the LangSmith API definition by Stainless. Do not edit generated files directly. CI rejects changes to files marked `File generated from our OpenAPI spec by Stainless.`
 
-Handwritten client code spans `src/langsmith/`, including `client.py`, `run_trees.py`, `evaluation/`, and `sandbox/`; the `stlc-seal-custom-code` workflow preserves it through regeneration. Check the generated-file marker before editing: marked files should be changed in the API definition or `stainless.yml`, not directly. Handwritten examples belong in `examples/`.
+Handwritten client code spans `src/langsmith/`, including `client.py`, `run_trees.py`, `evaluation/`, and `sandbox/`; `langdev sdks gen python` in langchainplus preserves it through regeneration. Check the generated-file marker before editing: marked files should be changed in the API definition or `stainless.yml`, not directly. Handwritten examples belong in `examples/`.
 
 ## Add or run an example
 
@@ -87,6 +87,6 @@ Format and lint with:
 
 ## Open a pull request
 
-External contributors should open issues and pull requests in the public `langsmith-python` repository. Staging is internal; maintainers review and port accepted changes while preserving contributor credit.
+External contributors should open issues and pull requests in the public `langsmith-python` repository. Maintainers make the same change in `sdks/python` in langchainplus so the next export does not revert it. An urgent production fix uses the `skip-pr-source-check` label.
 
-Internal development PRs target `langsmith-python-staging`. Production releases are promoted and published from `langsmith-python`; do not change package versions or publish directly from staging.
+Internal changes go in `sdks/python` in langchainplus. After that pull request merges, Copybara opens a pull request on `langsmith-python`. Do not hand-edit the version in `pyproject.toml`, `src/langsmith/_version.py`, or `.release-please-manifest.json`; release-please writes those on `langsmith-python`.

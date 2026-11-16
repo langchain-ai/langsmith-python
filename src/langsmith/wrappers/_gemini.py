@@ -16,6 +16,7 @@ from typing import (
 from typing_extensions import TypedDict
 
 from langsmith import client as ls_client
+from langsmith.address import AgentAddress
 from langsmith import run_helpers
 from langsmith._internal._beta_decorator import warn_beta
 from langsmith._internal._orjson import dumps as _dumps
@@ -469,6 +470,7 @@ class TracingExtra(TypedDict, total=False):
     metadata: Optional[Mapping[str, Any]]
     tags: Optional[list[str]]
     client: Optional[ls_client.Client]
+    address: Optional[AgentAddress]
 
 
 @warn_beta

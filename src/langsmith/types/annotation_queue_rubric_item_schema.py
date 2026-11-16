@@ -1,10 +1,9 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Dict, List, Union, Optional
+from typing import Dict, List, Optional
 from datetime import datetime
-from typing_extensions import Literal, TypeAlias
+from typing_extensions import Literal
 
-from .missing import Missing
 from .._models import BaseModel
 
 __all__ = [
@@ -12,7 +11,10 @@ __all__ = [
     "FeedbackConfig",
     "FeedbackConfigFeedbackConfig",
     "FeedbackConfigFeedbackConfigCategory",
-    "RegexValidator",
+    "RequiredIf",
+    "RequiredIfRule",
+    "VisibleIf",
+    "VisibleIfRule",
 ]
 
 
@@ -27,6 +29,9 @@ class FeedbackConfigFeedbackConfigCategory(BaseModel):
 class FeedbackConfigFeedbackConfig(BaseModel):
     type: Literal["continuous", "categorical", "freeform"]
     """Enum for feedback types."""
+
+    allows_multiple_categories: Optional[bool] = None
+    """Whether a reviewer can pick several categories. Categorical feedback only."""
 
     categories: Optional[List[FeedbackConfigFeedbackConfigCategory]] = None
 
@@ -55,7 +60,32 @@ class FeedbackConfig(BaseModel):
     is_lower_score_better: Optional[bool] = None
 
 
-RegexValidator: TypeAlias = Union[str, Missing, None]
+class RequiredIfRule(BaseModel):
+    key: str
+
+    op: Literal["is", "is_one_of", "is_empty", "is_not_empty"]
+
+    values: Optional[List[float]] = None
+
+
+class RequiredIf(BaseModel):
+    join: Literal["all", "any"]
+
+    rules: List[RequiredIfRule]
+
+
+class VisibleIfRule(BaseModel):
+    key: str
+
+    op: Literal["is", "is_one_of", "is_empty", "is_not_empty"]
+
+    values: Optional[List[float]] = None
+
+
+class VisibleIf(BaseModel):
+    join: Literal["all", "any"]
+
+    rules: List[VisibleIfRule]
 
 
 class AnnotationQueueRubricItemSchema(BaseModel):
@@ -71,8 +101,12 @@ class AnnotationQueueRubricItemSchema(BaseModel):
 
     is_required: Optional[bool] = None
 
-    regex_validator: Optional[RegexValidator] = None
+    regex_validator: Optional[str] = None
+
+    required_if: Optional[RequiredIf] = None
 
     score_descriptions: Optional[Dict[str, str]] = None
 
     value_descriptions: Optional[Dict[str, str]] = None
+
+    visible_if: Optional[VisibleIf] = None

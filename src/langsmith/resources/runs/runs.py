@@ -19,6 +19,14 @@ from ..._httpx import httpx
 from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from ..._utils import path_template, maybe_transform, strip_not_given, async_maybe_transform
 from ..._compat import cached_property
+from .streaming import (
+    StreamingResource,
+    AsyncStreamingResource,
+    StreamingResourceWithRawResponse,
+    AsyncStreamingResourceWithRawResponse,
+    StreamingResourceWithStreamingResponse,
+    AsyncStreamingResourceWithStreamingResponse,
+)
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
     to_raw_response_wrapper,
@@ -37,6 +45,10 @@ __all__ = ["RunsResource", "AsyncRunsResource"]
 
 
 class RunsResource(SyncAPIResource):
+    @cached_property
+    def streaming(self) -> StreamingResource:
+        return StreamingResource(self._client)
+
     @cached_property
     def share(self) -> ShareResource:
         return ShareResource(self._client)
@@ -126,6 +138,7 @@ class RunsResource(SyncAPIResource):
         filter: str | Omit = omit,
         has_error: bool | Omit = omit,
         ids: SequenceNotStr[str] | Omit = omit,
+        include_subtree_usage: bool | Omit = omit,
         is_root: bool | Omit = omit,
         max_feedback_modified_at: Union[str, datetime] | Omit = omit,
         max_start_time: Union[str, datetime] | Omit = omit,
@@ -137,6 +150,7 @@ class RunsResource(SyncAPIResource):
         reference_examples: SequenceNotStr[str] | Omit = omit,
         run_type: RunType | Omit = omit,
         selects: List[RunSelectField] | Omit = omit,
+        sem_filter: str | Omit = omit,
         trace_filter: str | Omit = omit,
         trace_id: str | Omit = omit,
         tree_filter: str | Omit = omit,
@@ -153,17 +167,23 @@ class RunsResource(SyncAPIResource):
         start_time. Supports filters, cursor pagination, and `selects` to select fields
         to return.
 
-        When `ai_search` is set, `Accept: text/event-stream` is required; requests
-        without it return 406. AI search is unavailable on deployments that route
-        queries to the v1 backend and returns 501 there.
+        `ai_search` cannot be combined with `sem_filter`. With full AI search enabled,
+        `ai_search` translates natural language into query filters and time bounds and
+        cannot be combined with explicit filter expressions. Otherwise, `ai_search`
+        retains legacy semantic-only behavior. Use `sem_filter` for semantic-only
+        matching combined with structured filters. AI search requires organization
+        consent. When semantic matching is needed, `Accept: text/event-stream` is
+        required; requests without it return 406. AI search is unavailable on
+        deployments that route queries to the v1 backend and returns 501 there.
 
         Self-hosted deployments require LangSmith `v0.16` or later.
 
         Args:
-          ai_search: `ai_search` is a plain-language criterion evaluated against the messages from
-              the agent trajectory scoped to the run. AND-ed with the ordinary filters.
-              Requires semantic filtering enabled for the deployment. Must contain nonempty
-              text of at most 2000 UTF-8 bytes. Not supported on public dataset queries.
+          ai_search: `ai_search` translates natural language into structured filters, semantic
+              criteria and time bounds. Cannot be combined with sem_filter. With full AI
+              search enabled, also cannot be combined with explicit filter expressions;
+              otherwise retains legacy semantic-only behavior. Must contain nonempty text of
+              at most 2000 UTF-8 bytes. Not supported on public dataset queries.
 
           cursor: `cursor` is the opaque string from a previous response's `next_cursor`. Treat it
               as opaque and pass it back unmodified.
@@ -178,6 +198,12 @@ class RunsResource(SyncAPIResource):
               (false).
 
           ids: `ids` optionally limits the request to these run UUIDs.
+
+          include_subtree_usage: `include_subtree_usage` enriches selected token and cost fields on root and
+              intermediate runs with subtree totals, and selected `first_token_time` with the
+              earliest observed subtree timestamp. Descendants contribute regardless of this
+              request's filters or time bounds. Runs without observed descendants retain their
+              original values. Defaults to false.
 
           is_root: `is_root` returns only root runs (true) or only non-root runs (false).
 
@@ -220,6 +246,9 @@ class RunsResource(SyncAPIResource):
           selects: `selects` lists which properties to include on each returned run. If omitted,
               only `id` is returned. Properties not listed are omitted from each run object.
 
+          sem_filter: SemFilter evaluates a plain-language criterion against trajectory messages,
+              AND-ed with structured filters.
+
           trace_filter: `trace_filter` narrows results to runs whose root trace matches this LangSmith
               filter expression. Use this to filter by properties of the trace's root run —
               for example eq(status, "success") to include only traces that completed without
@@ -256,6 +285,7 @@ class RunsResource(SyncAPIResource):
                     "filter": filter,
                     "has_error": has_error,
                     "ids": ids,
+                    "include_subtree_usage": include_subtree_usage,
                     "is_root": is_root,
                     "max_feedback_modified_at": max_feedback_modified_at,
                     "max_start_time": max_start_time,
@@ -267,6 +297,7 @@ class RunsResource(SyncAPIResource):
                     "reference_examples": reference_examples,
                     "run_type": run_type,
                     "selects": selects,
+                    "sem_filter": sem_filter,
                     "trace_filter": trace_filter,
                     "trace_id": trace_id,
                     "tree_filter": tree_filter,
@@ -399,6 +430,10 @@ class RunsResource(SyncAPIResource):
 
 class AsyncRunsResource(AsyncAPIResource):
     @cached_property
+    def streaming(self) -> AsyncStreamingResource:
+        return AsyncStreamingResource(self._client)
+
+    @cached_property
     def share(self) -> AsyncShareResource:
         return AsyncShareResource(self._client)
 
@@ -487,6 +522,7 @@ class AsyncRunsResource(AsyncAPIResource):
         filter: str | Omit = omit,
         has_error: bool | Omit = omit,
         ids: SequenceNotStr[str] | Omit = omit,
+        include_subtree_usage: bool | Omit = omit,
         is_root: bool | Omit = omit,
         max_feedback_modified_at: Union[str, datetime] | Omit = omit,
         max_start_time: Union[str, datetime] | Omit = omit,
@@ -498,6 +534,7 @@ class AsyncRunsResource(AsyncAPIResource):
         reference_examples: SequenceNotStr[str] | Omit = omit,
         run_type: RunType | Omit = omit,
         selects: List[RunSelectField] | Omit = omit,
+        sem_filter: str | Omit = omit,
         trace_filter: str | Omit = omit,
         trace_id: str | Omit = omit,
         tree_filter: str | Omit = omit,
@@ -514,17 +551,23 @@ class AsyncRunsResource(AsyncAPIResource):
         start_time. Supports filters, cursor pagination, and `selects` to select fields
         to return.
 
-        When `ai_search` is set, `Accept: text/event-stream` is required; requests
-        without it return 406. AI search is unavailable on deployments that route
-        queries to the v1 backend and returns 501 there.
+        `ai_search` cannot be combined with `sem_filter`. With full AI search enabled,
+        `ai_search` translates natural language into query filters and time bounds and
+        cannot be combined with explicit filter expressions. Otherwise, `ai_search`
+        retains legacy semantic-only behavior. Use `sem_filter` for semantic-only
+        matching combined with structured filters. AI search requires organization
+        consent. When semantic matching is needed, `Accept: text/event-stream` is
+        required; requests without it return 406. AI search is unavailable on
+        deployments that route queries to the v1 backend and returns 501 there.
 
         Self-hosted deployments require LangSmith `v0.16` or later.
 
         Args:
-          ai_search: `ai_search` is a plain-language criterion evaluated against the messages from
-              the agent trajectory scoped to the run. AND-ed with the ordinary filters.
-              Requires semantic filtering enabled for the deployment. Must contain nonempty
-              text of at most 2000 UTF-8 bytes. Not supported on public dataset queries.
+          ai_search: `ai_search` translates natural language into structured filters, semantic
+              criteria and time bounds. Cannot be combined with sem_filter. With full AI
+              search enabled, also cannot be combined with explicit filter expressions;
+              otherwise retains legacy semantic-only behavior. Must contain nonempty text of
+              at most 2000 UTF-8 bytes. Not supported on public dataset queries.
 
           cursor: `cursor` is the opaque string from a previous response's `next_cursor`. Treat it
               as opaque and pass it back unmodified.
@@ -539,6 +582,12 @@ class AsyncRunsResource(AsyncAPIResource):
               (false).
 
           ids: `ids` optionally limits the request to these run UUIDs.
+
+          include_subtree_usage: `include_subtree_usage` enriches selected token and cost fields on root and
+              intermediate runs with subtree totals, and selected `first_token_time` with the
+              earliest observed subtree timestamp. Descendants contribute regardless of this
+              request's filters or time bounds. Runs without observed descendants retain their
+              original values. Defaults to false.
 
           is_root: `is_root` returns only root runs (true) or only non-root runs (false).
 
@@ -581,6 +630,9 @@ class AsyncRunsResource(AsyncAPIResource):
           selects: `selects` lists which properties to include on each returned run. If omitted,
               only `id` is returned. Properties not listed are omitted from each run object.
 
+          sem_filter: SemFilter evaluates a plain-language criterion against trajectory messages,
+              AND-ed with structured filters.
+
           trace_filter: `trace_filter` narrows results to runs whose root trace matches this LangSmith
               filter expression. Use this to filter by properties of the trace's root run —
               for example eq(status, "success") to include only traces that completed without
@@ -617,6 +669,7 @@ class AsyncRunsResource(AsyncAPIResource):
                     "filter": filter,
                     "has_error": has_error,
                     "ids": ids,
+                    "include_subtree_usage": include_subtree_usage,
                     "is_root": is_root,
                     "max_feedback_modified_at": max_feedback_modified_at,
                     "max_start_time": max_start_time,
@@ -628,6 +681,7 @@ class AsyncRunsResource(AsyncAPIResource):
                     "reference_examples": reference_examples,
                     "run_type": run_type,
                     "selects": selects,
+                    "sem_filter": sem_filter,
                     "trace_filter": trace_filter,
                     "trace_id": trace_id,
                     "tree_filter": tree_filter,
@@ -779,6 +833,10 @@ class RunsResourceWithRawResponse:
         )
 
     @cached_property
+    def streaming(self) -> StreamingResourceWithRawResponse:
+        return StreamingResourceWithRawResponse(self._runs.streaming)
+
+    @cached_property
     def share(self) -> ShareResourceWithRawResponse:
         return ShareResourceWithRawResponse(self._runs.share)
 
@@ -802,6 +860,10 @@ class AsyncRunsResourceWithRawResponse:
         self.query = async_to_raw_response_wrapper(
             runs.query,
         )
+
+    @cached_property
+    def streaming(self) -> AsyncStreamingResourceWithRawResponse:
+        return AsyncStreamingResourceWithRawResponse(self._runs.streaming)
 
     @cached_property
     def share(self) -> AsyncShareResourceWithRawResponse:
@@ -829,6 +891,10 @@ class RunsResourceWithStreamingResponse:
         )
 
     @cached_property
+    def streaming(self) -> StreamingResourceWithStreamingResponse:
+        return StreamingResourceWithStreamingResponse(self._runs.streaming)
+
+    @cached_property
     def share(self) -> ShareResourceWithStreamingResponse:
         return ShareResourceWithStreamingResponse(self._runs.share)
 
@@ -852,6 +918,10 @@ class AsyncRunsResourceWithStreamingResponse:
         self.query = async_to_streamed_response_wrapper(
             runs.query,
         )
+
+    @cached_property
+    def streaming(self) -> AsyncStreamingResourceWithStreamingResponse:
+        return AsyncStreamingResourceWithStreamingResponse(self._runs.streaming)
 
     @cached_property
     def share(self) -> AsyncShareResourceWithStreamingResponse:

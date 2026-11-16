@@ -10,7 +10,7 @@ import time
 import weakref
 from multiprocessing import cpu_count
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Any, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
 
 from langsmith import schemas as ls_schemas
 from langsmith import utils as ls_utils
@@ -181,9 +181,17 @@ def _tracing_thread_drain_queue(
 
 
 def _tracing_thread_drain_compressed_buffer(
-    client: Client, size_limit: int = 100, size_limit_bytes: int | None = 20_971_520
+    client: Client,
+    size_limit: int = 100,
+    size_limit_bytes: int | None = 20_971_520,
+    on_frame: Optional[Callable[[io.BytesIO, tuple[int, int], Optional[frozenset]], None]] = None,
 ) -> tuple[Optional[io.BytesIO], Optional[tuple[int, int]], Optional[frozenset]]:
-    """Take the filled frame, plus the destination set it committed to."""
+    """Take the filled frame, plus the destination set it committed to.
+
+    `on_frame` runs on the taken frame while the buffer lock is still held, so
+    a concurrent flush() either drains the frame itself or finds whatever
+    `on_frame` registered for it.
+    """
     try:
         if client.compressed_traces is None:
             return None, None, None
@@ -218,8 +226,10 @@ def _tracing_thread_drain_compressed_buffer(
             destinations = client.compressed_traces.destinations
 
             client.compressed_traces.reset()
+            filled_buffer.seek(0)
+            if on_frame is not None:
+                on_frame(filled_buffer, compressed_traces_info, destinations)
 
-        filled_buffer.seek(0)
         return (filled_buffer, compressed_traces_info, destinations)
     except Exception:
         logger.error(
@@ -231,6 +241,36 @@ def _tracing_thread_drain_compressed_buffer(
         # exceptions are logged elsewhere, but we need to make sure the
         # background thread continues to run
         return None, None, None
+
+
+def _drain_and_send_compressed(
+    client: Client, size_limit: int, size_limit_bytes: int | None, **send_kwargs: Any
+) -> Optional[cf.Future]:
+    """Drain the compressed frame and submit its send.
+
+    The send is submitted and tracked under the buffer lock, so flush() never
+    sees a frame that is neither in the buffer nor in `client._futures`.
+    Returns the send's future, or None when there was nothing to send or the
+    thread pool is shut down (then the frame is sent synchronously).
+    """
+    future: Optional[cf.Future] = None
+    fallback: Optional[tuple[io.BytesIO, tuple[int, int], Optional[frozenset]]] = None
+
+    def on_frame(stream: io.BytesIO, info: tuple[int, int], destinations: Optional[frozenset]) -> None:
+        nonlocal future, fallback
+        try:
+            future = LANGSMITH_CLIENT_THREAD_POOL.submit(
+                client._send_compressed_multipart_req, stream, info, destinations=destinations, **send_kwargs
+            )
+            client._track_future(future)
+        except RuntimeError:
+            fallback = (stream, info, destinations)
+
+    _tracing_thread_drain_compressed_buffer(client, size_limit, size_limit_bytes, on_frame=on_frame)
+    if fallback is not None:
+        stream, info, destinations = fallback
+        client._send_compressed_multipart_req(stream, info, destinations=destinations, **send_kwargs)
+    return future
 
 
 def _process_buffered_run_ops_batch(
@@ -535,7 +575,6 @@ def tracing_control_thread_func(client_ref: weakref.ref[Client]) -> None:
                 "version of LangSmith. Falling back to regular multipart ingestion."
             )
         else:
-            client._futures = weakref.WeakSet()
             client.compressed_traces = CompressedTraces()
             client._data_available_event = threading.Event()
             threading.Thread(
@@ -630,7 +669,7 @@ def tracing_control_thread_func_compress_parallel(client_ref: weakref.ref[Client
     if client is None:
         return
     logger.debug("Tracing control thread func compress parallel called")
-    if client.compressed_traces is None or client._data_available_event is None or client._futures is None:
+    if client.compressed_traces is None or client._data_available_event is None:
         logger.error(
             "LangSmith tracing error: Required compression attributes not "
             "initialized.\nThis may affect trace submission but does not "
@@ -684,52 +723,14 @@ def tracing_control_thread_func_compress_parallel(client_ref: weakref.ref[Client
         if triggered:
             client._data_available_event.clear()
 
-            data_stream, compressed_traces_info, destinations = (_tracing_thread_drain_compressed_buffer)(
-                client, size_limit, size_limit_bytes
-            )
-            # If we have data, submit the send request
-            if data_stream is not None:
-                try:
-                    future = LANGSMITH_CLIENT_THREAD_POOL.submit(
-                        client._send_compressed_multipart_req,
-                        data_stream,
-                        compressed_traces_info,
-                        destinations=destinations,
-                    )
-                    client._futures.add(future)
-                except RuntimeError:
-                    client._send_compressed_multipart_req(
-                        data_stream,
-                        compressed_traces_info,
-                        destinations=destinations,
-                    )
+            _drain_and_send_compressed(client, size_limit, size_limit_bytes)
             last_flush_time = time.monotonic()
 
         else:
             if (time.monotonic() - last_flush_time) >= flush_interval:
-                (
-                    data_stream,
-                    compressed_traces_info,
-                    destinations,
-                ) = _tracing_thread_drain_compressed_buffer(client, size_limit=1, size_limit_bytes=1)
-                if data_stream is not None:
-                    try:
-                        cf.wait(
-                            [
-                                LANGSMITH_CLIENT_THREAD_POOL.submit(
-                                    client._send_compressed_multipart_req,
-                                    data_stream,
-                                    compressed_traces_info,
-                                    destinations=destinations,
-                                )
-                            ]
-                        )
-                    except RuntimeError:
-                        client._send_compressed_multipart_req(
-                            data_stream,
-                            compressed_traces_info,
-                            destinations=destinations,
-                        )
+                future = _drain_and_send_compressed(client, size_limit=1, size_limit_bytes=1)
+                if future is not None:
+                    cf.wait([future])
                 last_flush_time = time.monotonic()
 
     # Drain the buffer on exit (final flush)
@@ -739,38 +740,12 @@ def tracing_control_thread_func_compress_parallel(client_ref: weakref.ref[Client
             "Compression thread final flush: trace_count=%d",
             trace_count,
         )
-        (
-            final_data_stream,
-            compressed_traces_info,
-            destinations,
-        ) = _tracing_thread_drain_compressed_buffer(client, size_limit=1, size_limit_bytes=1)
-        if final_data_stream is not None:
-            logger.debug(
-                "Compression thread final flush: sending %d bytes",
-                final_data_stream.getbuffer().nbytes,
-            )
-            try:
-                cf.wait(
-                    [
-                        LANGSMITH_CLIENT_THREAD_POOL.submit(
-                            client._send_compressed_multipart_req,
-                            final_data_stream,
-                            compressed_traces_info,
-                            destinations=destinations,
-                        )
-                    ]
-                )
-                logger.debug("Compression thread final flush: send completed")
-            except RuntimeError:
-                logger.debug("Compression thread final flush: thread pool shutdown, sending synchronously")
-                client._send_compressed_multipart_req(
-                    final_data_stream,
-                    compressed_traces_info,
-                    destinations=destinations,
-                )
-                logger.debug("Compression thread final flush: sync send completed")
-        else:
+        future = _drain_and_send_compressed(client, size_limit=1, size_limit_bytes=1)
+        if future is None:
             logger.debug("Compression thread final flush: no data to send")
+        else:
+            cf.wait([future])
+            logger.debug("Compression thread final flush: send completed")
 
     except Exception:
         logger.error(

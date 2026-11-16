@@ -39,6 +39,7 @@ import sys
 import uuid
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
+from langsmith.address import AgentAddress
 from langsmith._internal._package_version import get_package_version
 from langsmith._internal.voice.helpers import observe_safely
 from langsmith._internal.voice.session import (
@@ -506,6 +507,7 @@ class _TracedRealtimeSession:
         thread_id: Optional[str],
         sample_rate: int,
         project_name: Optional[str],
+        address: Optional[AgentAddress],
         tags: Optional[list[str]],
         metadata: Optional[dict[str, Any]],
         on_message: Optional[Callable[[str, str], None]],
@@ -519,6 +521,7 @@ class _TracedRealtimeSession:
         self._thread_id = thread_id or str(uuid.uuid4())
         self._sample_rate = sample_rate
         self._project_name = project_name
+        self._address = address
         self._tags = tags
         self._metadata = metadata
         self._on_message = on_message
@@ -545,6 +548,7 @@ class _TracedRealtimeSession:
                 thread_id=self._thread_id,
                 sample_rate=self._sample_rate,
                 project_name=self._project_name,
+                address=self._address,
                 tags=self._tags,
                 metadata=self._metadata,
                 max_audio_seconds=self._max_audio_seconds,
@@ -558,6 +562,7 @@ class _TracedRealtimeSession:
                 metadata={"thread_id": self._thread_id},
                 tags=self._tags,
                 project_name=self._project_name,
+                address=self._address,
                 replicas=self._replicas,
             )
             ctx.__enter__()
@@ -627,6 +632,7 @@ def wrap_realtime_session(
     thread_id: Optional[str] = None,
     sample_rate: int = DEFAULT_SAMPLE_RATE,
     project_name: Optional[str] = None,
+    address: Optional[AgentAddress] = None,
     tags: Optional[list[str]] = None,
     metadata: Optional[dict[str, Any]] = None,
     on_message: Optional[Callable[[str, str], None]] = None,
@@ -652,6 +658,8 @@ def wrap_realtime_session(
         thread_id: LangSmith thread id; a random UUID if omitted.
         sample_rate: PCM sample rate of the audio (for the WAV).
         project_name: LangSmith project; defaults to standard ``LANGSMITH_*`` config.
+        address: An ``AgentAddress`` to trace to instead of a project;
+            cannot be combined with ``project_name``.
         tags / metadata: attached to the conversation root span.
         on_message: optional callback ``(role, text)`` invoked once per finalized
             transcript line (e.g. to print to a console).
@@ -667,6 +675,7 @@ def wrap_realtime_session(
         thread_id=thread_id,
         sample_rate=sample_rate,
         project_name=project_name,
+        address=address,
         tags=tags,
         metadata=metadata,
         on_message=on_message,

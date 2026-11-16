@@ -4,3 +4,5 @@ from __future__ import annotations
 
 from .experiment_run_query_params import ExperimentRunQueryParams as ExperimentRunQueryParams
 from .experiment_run_query_response import ExperimentRunQueryResponse as ExperimentRunQueryResponse
+from .example_update_metadata_params import ExampleUpdateMetadataParams as ExampleUpdateMetadataParams
+from .example_update_metadata_response import ExampleUpdateMetadataResponse as ExampleUpdateMetadataResponse

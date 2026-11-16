@@ -5,22 +5,45 @@ from __future__ import annotations
 import datetime
 import json
 import os
+import sys
+import tempfile
 import threading
 import time
 import urllib.parse
+import warnings
 from collections.abc import Mapping
 from pathlib import Path
+from types import FrameType
 from typing import Any, NamedTuple, Optional, TypedDict, cast
 
 import requests
 
+from langsmith import utils as ls_utils
+from langsmith._internal._oauth_refresh_lock import _LOCK_STALE_AFTER as _OAUTH_REFRESH_LOCK_STALE_AFTER
 from langsmith._internal._oauth_refresh_lock import oauth_refresh_lock
 
+DEFAULT_API_URL = "https://api.smith.langchain.com"
 _OAUTH_CLIENT_ID = "langsmith-cli"
 _TOKEN_REFRESH_LEEWAY = datetime.timedelta(minutes=1)
 _TOKEN_REFRESH_TIMEOUT = 10
 _OAUTH_DISCOVERY_TIMEOUT = 5
 _WELL_KNOWN_OAUTH_PATH = "/.well-known/oauth-authorization-server"
+# Trailing separator so a sibling package such as langsmith_helpers is not matched.
+_PACKAGE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + os.sep
+
+
+def _user_stacklevel() -> int:
+    """Return the ``stacklevel`` of the first caller outside this package.
+
+    The client is created from user code directly or from deep inside ``@traceable``,
+    so a fixed ``stacklevel`` cannot point a warning at the user's line.
+    """
+    frame: Optional[FrameType] = sys._getframe(2)
+    level = 2
+    while frame is not None and frame.f_code.co_filename.startswith(_PACKAGE_DIR):
+        frame = frame.f_back
+        level += 1
+    return level
 
 
 class ProfileOAuth(TypedDict, total=False):
@@ -31,6 +54,14 @@ class ProfileOAuth(TypedDict, total=False):
 
 class ProfileConfig(TypedDict, total=False):
     api_key: str
+    # Name of an environment variable holding the API key.
+    api_key_env: str
+    # Shell command that prints the API key. The CLI and Go SDK run it; this
+    # SDK reports it as unsupported instead of running unauthenticated.
+    api_key_cmd: str
+    # "keychain" when the CLI or Go SDK keep the profile's secrets in the OS
+    # keychain. This SDK cannot read it yet and reports it instead.
+    secret_store: str
     api_url: str
     workspace_id: str
     oauth: ProfileOAuth
@@ -55,10 +86,56 @@ class ProfileClientConfig(NamedTuple):
     oauth_refresh_token: Optional[str] = None
     oauth_expires_at: Optional[str] = None
     profile_state: Optional[ProfileState] = None
+    api_key_env: Optional[str] = None
+    api_key_cmd: Optional[str] = None
+    secret_store: Optional[str] = None
 
     @property
     def has_oauth(self) -> bool:
         return bool(self.oauth_access_token or self.oauth_refresh_token)
+
+    def resolve_api_key(self) -> Optional[str]:
+        """Return the profile's API key, reading ``api_key_env`` when no ``api_key`` is set.
+
+        ``api_key`` wins over ``api_key_env``, which wins over ``api_key_cmd``. A key that
+        cannot be resolved warns and returns ``None``, as a missing key does, because
+        ``@traceable`` creates the client inside the caller's code and tracing must not
+        break it. That covers an unset environment variable and ``api_key_cmd``, which
+        this SDK does not run.
+
+        The client calls this once when it is created, so changing the environment
+        variable later does not affect an existing client. The JS and Java SDKs read it
+        on each request.
+        """
+        if self.api_key:
+            return self.api_key
+        profile_name = self.profile_state.profile_name if self.profile_state else ""
+        if self.secret_store == "keychain":
+            warnings.warn(
+                f'LangSmith profile "{profile_name}" keeps its credentials in the OS keychain (secret_store), '
+                "which the Python SDK does not support yet. Set LANGSMITH_API_KEY, "
+                "or recreate the profile without --keychain.",
+                ls_utils.LangSmithMissingAPIKeyWarning,
+                stacklevel=_user_stacklevel(),
+            )
+        elif self.api_key_env:
+            key = os.environ.get(self.api_key_env, "").strip()
+            if key:
+                return key
+            warnings.warn(
+                f'LangSmith profile "{profile_name}" reads its API key from ${self.api_key_env}, which is not set',
+                ls_utils.LangSmithMissingAPIKeyWarning,
+                stacklevel=_user_stacklevel(),
+            )
+        elif self.api_key_cmd:
+            warnings.warn(
+                f'LangSmith profile "{profile_name}" gets its API key from a command (api_key_cmd), '
+                "which the Python SDK does not support yet. Set api_key_env in the profile, "
+                "or set LANGSMITH_API_KEY.",
+                ls_utils.LangSmithMissingAPIKeyWarning,
+                stacklevel=_user_stacklevel(),
+            )
+        return None
 
 
 def trim_auth_value(value: Optional[str]) -> Optional[str]:
@@ -68,17 +145,17 @@ def trim_auth_value(value: Optional[str]) -> Optional[str]:
     return trimmed or None
 
 
-def _profile_config_path() -> Optional[Path]:
-    if config_file := os.environ.get("LANGSMITH_CONFIG_FILE"):
-        return Path(config_file)
+def _profile_config_path(config_path: Optional[str] = None) -> Optional[Path]:
     try:
-        return Path.home() / ".langsmith" / "config.json"
-    except RuntimeError:
+        config_file = config_path or os.environ.get("LANGSMITH_CONFIG_FILE")
+        path = Path(config_file) if config_file else Path.home() / ".langsmith" / "config.json"
+        return path.expanduser().resolve()
+    except (OSError, RuntimeError):
         return None
 
 
-def _load_profile_state() -> Optional[ProfileState]:
-    path = _profile_config_path()
+def _load_profile_state(profile: Optional[str] = None, config_path: Optional[str] = None) -> Optional[ProfileState]:
+    path = _profile_config_path(config_path)
     if path is None or not path.exists():
         return None
     try:
@@ -90,7 +167,7 @@ def _load_profile_state() -> Optional[ProfileState]:
     profiles = raw.get("profiles")
     if not isinstance(profiles, dict):
         return None
-    profile_name = os.environ.get("LANGSMITH_PROFILE")
+    profile_name = profile or os.environ.get("LANGSMITH_PROFILE")
     if not profile_name:
         current_profile = raw.get("current_profile")
         if isinstance(current_profile, str) and current_profile:
@@ -110,22 +187,27 @@ def _profile_from_state(state: ProfileState) -> Optional[ProfileConfig]:
     return cast(ProfileConfig, profile)
 
 
-def load_profile_client_config() -> ProfileClientConfig:
-    state = _load_profile_state()
+def load_profile_client_config(
+    *, profile: Optional[str] = None, config_path: Optional[str] = None
+) -> ProfileClientConfig:
+    state = _load_profile_state(profile, config_path)
     if state is None:
         return ProfileClientConfig()
-    profile = _profile_from_state(state)
-    if profile is None:
+    selected_profile = _profile_from_state(state)
+    if selected_profile is None:
         return ProfileClientConfig()
-    oauth = profile.get("oauth") or {}
+    oauth = selected_profile.get("oauth") or {}
     return ProfileClientConfig(
-        api_url=profile.get("api_url"),
-        api_key=trim_auth_value(profile.get("api_key")),
-        workspace_id=profile.get("workspace_id"),
+        api_url=selected_profile.get("api_url"),
+        api_key=trim_auth_value(selected_profile.get("api_key")),
+        workspace_id=selected_profile.get("workspace_id"),
         oauth_access_token=trim_auth_value(oauth.get("access_token")),
         oauth_refresh_token=trim_auth_value(oauth.get("refresh_token")),
         oauth_expires_at=oauth.get("expires_at"),
         profile_state=state,
+        api_key_env=trim_auth_value(selected_profile.get("api_key_env")),
+        api_key_cmd=trim_auth_value(selected_profile.get("api_key_cmd")),
+        secret_store=trim_auth_value(selected_profile.get("secret_store")),
     )
 
 
@@ -214,16 +296,24 @@ def _fetch_oauth_metadata(url: str, base: str, timeout: float) -> Optional[Mappi
     return doc
 
 
-def _resolve_token_endpoint(api_url: str, timeout: float = _OAUTH_DISCOVERY_TIMEOUT) -> str:
+def _resolve_token_endpoint(
+    api_url: str, timeout: float = _OAUTH_DISCOVERY_TIMEOUT, deadline: Optional[float] = None
+) -> str:
     """Resolve the token endpoint, preferring the deployment's metadata.
 
     Falls back to ``<mount>/oauth/token`` when no usable document is served. The
     fallback keeps a trailing ``/api`` because self-hosted mounts the
-    authorization server under it.
+    authorization server under it. Stops probing once the monotonic ``deadline``
+    passes.
     """
     for base in _oauth_discovery_candidates(api_url):
         for url in _oauth_metadata_urls(base):
-            doc = _fetch_oauth_metadata(url, base, timeout)
+            url_timeout = timeout
+            if deadline is not None:
+                url_timeout = min(timeout, deadline - time.monotonic())
+                if url_timeout <= 0:
+                    return f"{_normalize_profile_api_url(api_url)}/oauth/token"
+            doc = _fetch_oauth_metadata(url, base, url_timeout)
             if doc is not None:
                 return cast(str, doc["token_endpoint"])
     return f"{_normalize_profile_api_url(api_url)}/oauth/token"
@@ -256,10 +346,36 @@ def should_refresh_profile_token(profile: ProfileConfig) -> bool:
     return parsed <= datetime.datetime.now(datetime.timezone.utc) + _TOKEN_REFRESH_LEEWAY
 
 
+def _profile_access_token_usable(profile: ProfileConfig) -> bool:
+    """Whether the cached access token can still authenticate a request."""
+    oauth = profile.get("oauth") or {}
+    if not trim_auth_value(oauth.get("access_token")):
+        return False
+    expires_at = oauth.get("expires_at")
+    parsed = _parse_profile_expires_at(expires_at) if expires_at else None
+    return parsed is None or parsed > datetime.datetime.now(datetime.timezone.utc)
+
+
 def _refresh_profile_oauth_token(
-    api_url: Optional[str], refresh_token: str, timeout: float = _TOKEN_REFRESH_TIMEOUT
+    api_url: Optional[str],
+    refresh_token: str,
+    timeout: float = _TOKEN_REFRESH_TIMEOUT,
+    deadline: Optional[float] = None,
 ) -> Optional[dict[str, Any]]:
-    token_endpoint = _resolve_token_endpoint(api_url or "https://api.smith.langchain.com")
+    if deadline is None:
+        deadline = time.monotonic() + timeout
+    token_endpoint = _resolve_token_endpoint(
+        api_url or DEFAULT_API_URL,
+        timeout=min(timeout, _OAUTH_DISCOVERY_TIMEOUT),
+        deadline=deadline,
+    )
+    # Never send the single-use refresh token once the caller has stopped
+    # waiting: it will have released the lock and would discard the rotated
+    # token, so the next refresher would replay a consumed one.
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        return None
+    timeout = min(timeout, remaining)
     try:
         response = requests.post(
             token_endpoint,
@@ -284,6 +400,39 @@ def _refresh_profile_oauth_token(
     return token
 
 
+def _refresh_profile_oauth_token_before(
+    deadline: float, api_url: Optional[str], refresh_token: str
+) -> Optional[dict[str, Any]]:
+    """Run the token refresh, giving up once the monotonic ``deadline`` passes.
+
+    ``requests`` timeouts apply per connect/read, not to the whole exchange, so
+    discovery plus the token POST could otherwise hold the cross-process refresh
+    lock past the point where other processes treat it as abandoned. The
+    request runs on a daemon thread and its result is discarded if it is late;
+    the worker shares the deadline so it never starts the token POST after it.
+    """
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        return None
+    result: list[Optional[dict[str, Any]]] = []
+    error: list[BaseException] = []
+
+    def run() -> None:
+        try:
+            result.append(_refresh_profile_oauth_token(api_url, refresh_token, timeout=remaining, deadline=deadline))
+        except BaseException as e:  # re-raised on the calling thread
+            error.append(e)
+
+    worker = threading.Thread(target=run, name="langsmith-oauth-refresh", daemon=True)
+    worker.start()
+    worker.join(max(0.0, deadline - time.monotonic()))
+    if worker.is_alive():
+        return None
+    if error:
+        raise error[0]
+    return result[0] if result else None
+
+
 def _apply_profile_token_response(profile: ProfileConfig, token: Mapping[str, Any]) -> None:
     oauth = profile.setdefault("oauth", {})
     access_token = token.get("access_token")
@@ -299,15 +448,23 @@ def _apply_profile_token_response(profile: ProfileConfig, token: Mapping[str, An
 
 
 def _save_profile_config(path: Path, config: ProfileConfigFile) -> None:
+    temp_path = None
     try:
         path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        temp_path = path.with_name(f"{path.name}.tmp")
-        temp_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
-        os.chmod(temp_path, 0o600)
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent, prefix=f"{path.name}.", delete=False
+        ) as f:
+            temp_path = Path(f.name)
+            f.write(json.dumps(config, indent=2) + "\n")
         os.replace(temp_path, path)
-        os.chmod(path, 0o600)
     except OSError:
         return
+    finally:
+        if temp_path is not None:
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 class ProfileAuth:
@@ -410,20 +567,20 @@ class ProfileAuth:
         if trim_auth_value((profile.get("oauth") or {}).get("refresh_token")) is None:
             return profile
         deadline = time.monotonic() + _TOKEN_REFRESH_TIMEOUT
+        acquired = False
         try:
             with oauth_refresh_lock(self._state.path, deadline=deadline):
+                acquired = True
                 fresh = self._reload_profile()
-                if fresh is not None:
-                    profile = fresh
-                    if not should_refresh_profile_token(profile):
-                        return profile
+                if fresh is None:
+                    return profile
+                profile = fresh
+                if not should_refresh_profile_token(profile):
+                    return profile
                 refresh_token = trim_auth_value((profile.get("oauth") or {}).get("refresh_token"))
                 if refresh_token is None:
                     return profile
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    return profile
-                token = _refresh_profile_oauth_token(profile.get("api_url"), refresh_token, timeout=remaining)
+                token = _refresh_profile_oauth_token_before(deadline, profile.get("api_url"), refresh_token)
                 if token is None:
                     return profile
                 _apply_profile_token_response(profile, token)
@@ -432,7 +589,20 @@ class ProfileAuth:
                 self._state.config["profiles"] = profiles
                 _save_profile_config(self._state.path, self._state.config)
                 return profile
-        except OSError:
+        except OSError as e:
+            # Without the lock the cached refresh token must not be used. An
+            # unexpired access token still works; an expired one would only
+            # produce opaque 401s, so report why the refresh could not run.
+            if not acquired and not _profile_access_token_usable(profile):
+                raise ls_utils.LangSmithAuthError(
+                    f"Could not refresh the expired OAuth token for LangSmith profile "
+                    f"{self._state.profile_name!r}: failed to acquire the refresh lock next to "
+                    f"{self._state.path} ({e}). Another process may be refreshing it, or the "
+                    "config directory may not be writable; OAuth profiles need a writable "
+                    "config. Use an API key for read-only configs. A lock left by a crashed "
+                    f"process is released automatically after {_OAUTH_REFRESH_LOCK_STALE_AFTER:g} "
+                    "seconds."
+                ) from e
             return profile
 
     def _headers_from_profile(self, profile: Optional[ProfileConfig]) -> dict[str, str]:

@@ -101,6 +101,7 @@ class TestAnnotationQueues:
                         "id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                         "feedback_config": {
                             "type": "continuous",
+                            "allows_multiple_categories": True,
                             "categories": [
                                 {
                                     "value": 0,
@@ -121,9 +122,29 @@ class TestAnnotationQueues:
                     "feedback_config_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                     "is_assertion": True,
                     "is_required": True,
-                    "regex_validator": "string",
+                    "regex_validator": "regex_validator",
+                    "required_if": {
+                        "join": "all",
+                        "rules": [
+                            {
+                                "key": "key",
+                                "op": "is",
+                                "values": [0],
+                            }
+                        ],
+                    },
                     "score_descriptions": {"foo": "string"},
                     "value_descriptions": {"foo": "string"},
+                    "visible_if": {
+                        "join": "all",
+                        "rules": [
+                            {
+                                "key": "key",
+                                "op": "is",
+                                "values": [0],
+                            }
+                        ],
+                    },
                 }
             ],
         )
@@ -238,6 +259,7 @@ class TestAnnotationQueues:
                         "id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                         "feedback_config": {
                             "type": "continuous",
+                            "allows_multiple_categories": True,
                             "categories": [
                                 {
                                     "value": 0,
@@ -258,9 +280,29 @@ class TestAnnotationQueues:
                     "feedback_config_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                     "is_assertion": True,
                     "is_required": True,
-                    "regex_validator": "string",
+                    "regex_validator": "regex_validator",
+                    "required_if": {
+                        "join": "all",
+                        "rules": [
+                            {
+                                "key": "key",
+                                "op": "is",
+                                "values": [0],
+                            }
+                        ],
+                    },
                     "score_descriptions": {"foo": "string"},
                     "value_descriptions": {"foo": "string"},
+                    "visible_if": {
+                        "join": "all",
+                        "rules": [
+                            {
+                                "key": "key",
+                                "op": "is",
+                                "values": [0],
+                            }
+                        ],
+                    },
                 }
             ],
             session_ids=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
@@ -476,6 +518,7 @@ class TestAnnotationQueues:
             assigned_to_me=True,
             dataset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             ids=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e", "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            include_rubric_keys=True,
             limit=1,
             name="name",
             name_contains="name_contains",
@@ -875,6 +918,7 @@ class TestAsyncAnnotationQueues:
                         "id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                         "feedback_config": {
                             "type": "continuous",
+                            "allows_multiple_categories": True,
                             "categories": [
                                 {
                                     "value": 0,
@@ -895,9 +939,29 @@ class TestAsyncAnnotationQueues:
                     "feedback_config_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                     "is_assertion": True,
                     "is_required": True,
-                    "regex_validator": "string",
+                    "regex_validator": "regex_validator",
+                    "required_if": {
+                        "join": "all",
+                        "rules": [
+                            {
+                                "key": "key",
+                                "op": "is",
+                                "values": [0],
+                            }
+                        ],
+                    },
                     "score_descriptions": {"foo": "string"},
                     "value_descriptions": {"foo": "string"},
+                    "visible_if": {
+                        "join": "all",
+                        "rules": [
+                            {
+                                "key": "key",
+                                "op": "is",
+                                "values": [0],
+                            }
+                        ],
+                    },
                 }
             ],
         )
@@ -1012,6 +1076,7 @@ class TestAsyncAnnotationQueues:
                         "id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                         "feedback_config": {
                             "type": "continuous",
+                            "allows_multiple_categories": True,
                             "categories": [
                                 {
                                     "value": 0,
@@ -1032,9 +1097,29 @@ class TestAsyncAnnotationQueues:
                     "feedback_config_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                     "is_assertion": True,
                     "is_required": True,
-                    "regex_validator": "string",
+                    "regex_validator": "regex_validator",
+                    "required_if": {
+                        "join": "all",
+                        "rules": [
+                            {
+                                "key": "key",
+                                "op": "is",
+                                "values": [0],
+                            }
+                        ],
+                    },
                     "score_descriptions": {"foo": "string"},
                     "value_descriptions": {"foo": "string"},
+                    "visible_if": {
+                        "join": "all",
+                        "rules": [
+                            {
+                                "key": "key",
+                                "op": "is",
+                                "values": [0],
+                            }
+                        ],
+                    },
                 }
             ],
             session_ids=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
@@ -1250,6 +1335,7 @@ class TestAsyncAnnotationQueues:
             assigned_to_me=True,
             dataset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             ids=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e", "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            include_rubric_keys=True,
             limit=1,
             name="name",
             name_contains="name_contains",

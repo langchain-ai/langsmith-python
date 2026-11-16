@@ -352,6 +352,28 @@ def my_function(text: str):
 my_function("hello world")
 ```
 
+### OpenAI Agents API (beta)
+
+The wrapped client also traces [Agents API](https://developers.openai.com/api/docs/guides/agents-api/quickstart) sessions. The agent runs on OpenAI's side, so each turn is read from OpenAI's trace export and sent to LangSmith in the background, a few seconds after the turn ends.
+
+```python
+client = wrappers.wrap_openai(OpenAI())
+
+stream = client.beta.agents.sessions.create(
+    agent={"model": "gpt-6-astra", "instructions": "Run commands, report output."},
+    environment={"type": "openai_hosted"},
+    input="Print 6*7 with a shell command.",
+    stream=True,
+)
+result = stream.get_final_result()  # reads the stream until the turn ends
+
+# Deleting a session deletes its OpenAI traces: delete() sends the pending turns first.
+client.beta.agents.sessions.delete(result.session_id)
+```
+
+1. Trace export must be on for your OpenAI organization, and the key needs `api.traces.read` or `api.agents.read`.
+2. Each session is one LangSmith thread, and a turn started inside a `@traceable` function nests under it.
+
 ## Instructor
 
 We provide a convenient integration with [Instructor](https://jxnl.github.io/instructor/), largely by virtue of it essentially just using the OpenAI SDK.
@@ -548,6 +570,32 @@ async def main() -> None:
 
 
 asyncio.run(main())
+```
+
+## Streaming responses
+
+We provide support for streaming responses using Server Side Events (SSE).
+
+```python
+from langsmith import Langsmith
+
+client = Langsmith()
+
+stream = client.runs.streaming.query_v2()
+for streaming in stream:
+    print(streaming.items)
+```
+
+The async client uses the exact same interface.
+
+```python
+from langsmith import AsyncLangsmith
+
+client = AsyncLangsmith()
+
+stream = await client.runs.streaming.query_v2()
+async for streaming in stream:
+    print(streaming.items)
 ```
 
 ## Using types
@@ -1099,7 +1147,7 @@ print(langsmith.__version__)
 
 ## Requirements
 
-Python 3.10 or higher.
+Python 3.11 or higher.
 
 ## Contributing
 

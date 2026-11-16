@@ -88,10 +88,10 @@ class OtelExporter(OTLPSpanExporter):
             project: Project to send traces to. Defaults to `LANGSMITH_PROJECT`
                 env var.
             headers: Additional headers to include in requests.
-            address: (beta) An `AgentAddress` to send traces to instead of a
+            address: An `AgentAddress` to send traces to instead of a
                 project. Defaults to the one `LANGSMITH_AGENT_ID` and
                 `LANGSMITH_AGENT_ENVIRONMENT` name. Naming both a project and
-                an address raises. Agent addressing is enabled per workspace.
+                an address raises.
             **kwargs: Additional arguments passed to `OTLPSpanExporter`.
 
         Raises:
@@ -114,9 +114,7 @@ class OtelExporter(OTLPSpanExporter):
                 "API key is required. Provide it via api_key parameter or LANGSMITH_API_KEY environment variable."
             )
 
-        if address is not None:
-            _addressing.warn_is_beta()
-        elif project == "default" and not ls_utils.get_tracer_project(return_default_value=False):
+        if address is None and project == "default" and not ls_utils.get_tracer_project(return_default_value=False):
             logging.info(
                 "No project specified, using default. "
                 "Configure with LANGSMITH_PROJECT environment variable or "
@@ -184,7 +182,7 @@ class OtelSpanProcessor:
             headers: Additional headers to include in requests.
             SpanProcessor: Optional span processor class. Defaults to
                 `BatchSpanProcessor`.
-            address: (beta) An `AgentAddress` to send traces to instead of a
+            address: An `AgentAddress` to send traces to instead of a
                 project. See `OtelExporter`.
         """
         # Create the exporter

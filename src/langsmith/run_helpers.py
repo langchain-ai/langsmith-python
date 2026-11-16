@@ -184,14 +184,9 @@ def tracing_context(
 ) -> Generator[None, None, None]:
     """Set the tracing context for a block of code.
 
-    !!! warning "Experimental"
-        `address` is in beta. It is enabled per workspace; a
-        workspace without it rejects the runs, so tracing is lost rather than
-        falling back to a project. It may change without notice.
-
     Args:
         project_name: The name of the project to log the run to.
-        address: (beta) An `AgentAddress`, such as `ls.agent_address(id, environment)`, to log the
+        address: An `AgentAddress`, such as `ls.agent_address(id, environment)`, to log the
             run to instead of a project. Cannot be combined with a project in
             the same call. Defaults to the `LANGSMITH_AGENT_*` env vars.
         tags: The tags to add to the run.
@@ -326,7 +321,7 @@ class LangSmithExtra(TypedDict, total=False):
     project_name: Optional[str]
     """Optional name of the project."""
     address: Optional[AgentAddress]
-    """(beta) An `AgentAddress` to log the run to, instead of a project."""
+    """An `AgentAddress` to log the run to, instead of a project."""
     metadata: Optional[dict[str, Any]]
     """Optional metadata for the run."""
     tags: Optional[list[str]]
@@ -415,11 +410,6 @@ def traceable(
 ) -> Union[Callable, Callable[[Callable], Callable]]:
     """Trace a function with langsmith.
 
-    !!! warning "Experimental"
-        `address` is in beta. It is enabled per workspace; a
-        workspace without it rejects the runs, so tracing is lost rather than
-        falling back to a project. It may change without notice.
-
     Args:
         run_type: The type of run (span) to create.
 
@@ -444,7 +434,7 @@ def traceable(
         project_name: The name of the project to log the run to.
 
             Defaults to `None`, which will use the default project.
-        address: (beta) An `AgentAddress`, such as `ls.agent_address(id, environment)`, to log the
+        address: An `AgentAddress`, such as `ls.agent_address(id, environment)`, to log the
             run to instead of a project. Cannot be combined with a project in
             the same call. Defaults to the `LANGSMITH_AGENT_*` env vars.
         process_inputs: Custom serialization / processing function for inputs.
@@ -980,17 +970,12 @@ class trace:
 
     This class can be used as both a synchronous and asynchronous context manager.
 
-    !!! warning "Experimental"
-        `address` is in beta. It is enabled per workspace; a
-        workspace without it rejects the runs, so tracing is lost rather than
-        falling back to a project. It may change without notice.
-
     Args:
         name: Name of the run.
         run_type: Type of run (e.g., `'chain'`, `'llm'`, `'tool'`).
         inputs: Initial input data for the run.
         project_name: Project name to associate the run with.
-        address: (beta) An `AgentAddress`, such as `ls.agent_address(id, environment)`, to log the
+        address: An `AgentAddress`, such as `ls.agent_address(id, environment)`, to log the
             run to instead of a project. Cannot be combined with a project in
             the same call. Defaults to the `LANGSMITH_AGENT_*` env vars.
         parent: Parent run.

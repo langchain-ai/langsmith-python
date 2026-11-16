@@ -1,3 +1,21 @@
+# Shared Types
+
+```python
+from langsmith.types import QueryPatchEvent, QueryPatchOperation
+```
+
+# Sql
+
+Types:
+
+```python
+from langsmith.types import SqlQueryResponse
+```
+
+Methods:
+
+- <code title="post /v2/sql/query">client.sql.<a href="./src/langsmith/resources/sql.py">query</a>(\*\*<a href="src/langsmith/types/sql_query_params.py">params</a>) -> <a href="./src/langsmith/types/sql_query_response.py">SqlQueryResponse</a></code>
+
 # ProductFeedback
 
 Types:
@@ -10,6 +28,22 @@ Methods:
 
 - <code title="post /api/v1/platform/product-feedbacks">client.product_feedback.<a href="./src/langsmith/resources/product_feedback.py">create</a>(\*\*<a href="src/langsmith/types/product_feedback_create_params.py">params</a>) -> <a href="./src/langsmith/types/product_feedback_create_response.py">ProductFeedbackCreateResponse</a></code>
 - <code title="get /api/v1/platform/product-feedbacks/{id}">client.product_feedback.<a href="./src/langsmith/resources/product_feedback.py">retrieve</a>(id) -> <a href="./src/langsmith/types/product_feedback_retrieve_response.py">ProductFeedbackRetrieveResponse</a></code>
+
+# Agents
+
+Types:
+
+```python
+from langsmith.types import Agent
+```
+
+Methods:
+
+- <code title="post /api/v1/agents">client.agents.<a href="./src/langsmith/resources/agents.py">create</a>(\*\*<a href="src/langsmith/types/agent_create_params.py">params</a>) -> <a href="./src/langsmith/types/agent.py">Agent</a></code>
+- <code title="get /api/v1/agents/{agent_id}">client.agents.<a href="./src/langsmith/resources/agents.py">retrieve</a>(agent_id, \*\*<a href="src/langsmith/types/agent_retrieve_params.py">params</a>) -> <a href="./src/langsmith/types/agent.py">Agent</a></code>
+- <code title="patch /api/v1/agents/{agent_id}">client.agents.<a href="./src/langsmith/resources/agents.py">update</a>(agent_id, \*\*<a href="src/langsmith/types/agent_update_params.py">params</a>) -> <a href="./src/langsmith/types/agent.py">Agent</a></code>
+- <code title="get /api/v1/agents">client.agents.<a href="./src/langsmith/resources/agents.py">list</a>(\*\*<a href="src/langsmith/types/agent_list_params.py">params</a>) -> <a href="./src/langsmith/types/agent.py">SyncItemsCursorGetPagination[Agent]</a></code>
+- <code title="delete /api/v1/agents/{agent_id}">client.agents.<a href="./src/langsmith/resources/agents.py">delete</a>(agent_id) -> None</code>
 
 # Fleet
 
@@ -34,6 +68,8 @@ from langsmith.types import (
     CustomChartsSection,
     CustomChartsSectionRequest,
     RunStatsGroupBy,
+    Session,
+    SessionFeedbackStat,
     SessionSortableColumns,
     TimedeltaInput,
     TracerSession,
@@ -44,7 +80,16 @@ from langsmith.types import (
 
 Methods:
 
+- <code title="post /api/v1/sessions">client.sessions.<a href="./src/langsmith/resources/sessions.py">create</a>(\*\*<a href="src/langsmith/types/session_create_params.py">params</a>) -> <a href="./src/langsmith/types/tracer_session.py">TracerSession</a></code>
+- <code title="get /api/v1/sessions/{session_id}">client.sessions.<a href="./src/langsmith/resources/sessions.py">retrieve</a>(project_id, \*\*<a href="src/langsmith/types/session_retrieve_params.py">params</a>) -> <a href="./src/langsmith/types/tracer_session.py">TracerSession</a></code>
+- <code title="patch /api/v1/sessions/{session_id}">client.sessions.<a href="./src/langsmith/resources/sessions.py">update</a>(project_id, \*\*<a href="src/langsmith/types/session_update_params.py">params</a>) -> <a href="./src/langsmith/types/tracer_session.py">TracerSession</a></code>
+- <code title="delete /api/v1/sessions/{session_id}">client.sessions.<a href="./src/langsmith/resources/sessions.py">delete</a>(project_id) -> None</code>
+- <code title="post /api/v2/sessions">client.sessions.<a href="./src/langsmith/resources/sessions.py">create_v2</a>(\*\*<a href="src/langsmith/types/session_create_v2_params.py">params</a>) -> <a href="./src/langsmith/types/session.py">Session</a></code>
+- <code title="post /api/v1/sessions/{session_id}/dashboard">client.sessions.<a href="./src/langsmith/resources/sessions.py">dashboard</a>(session_id, \*\*<a href="src/langsmith/types/session_dashboard_params.py">params</a>) -> <a href="./src/langsmith/types/custom_charts_section.py">CustomChartsSection</a></code>
+- <code title="get /api/v2/sessions">client.sessions.<a href="./src/langsmith/resources/sessions.py">list_v2</a>(\*\*<a href="src/langsmith/types/session_list_v2_params.py">params</a>) -> <a href="./src/langsmith/types/session.py">SyncItemsCursorGetPagination[Session]</a></code>
 - <code title="get /api/v1/sessions/resolutions">client.sessions.<a href="./src/langsmith/resources/sessions.py">resolve</a>(\*\*<a href="src/langsmith/types/session_resolve_params.py">params</a>) -> <a href="./src/langsmith/types/session_resolve_response.py">SessionResolveResponse</a></code>
+- <code title="get /api/v2/sessions/{session_id}">client.sessions.<a href="./src/langsmith/resources/sessions.py">retrieve_v2</a>(session_id, \*\*<a href="src/langsmith/types/session_retrieve_v2_params.py">params</a>) -> <a href="./src/langsmith/types/session.py">Session</a></code>
+- <code title="patch /api/v2/sessions/{session_id}">client.sessions.<a href="./src/langsmith/resources/sessions.py">update_v2</a>(session_id, \*\*<a href="src/langsmith/types/session_update_v2_params.py">params</a>) -> <a href="./src/langsmith/types/session.py">Session</a></code>
 
 # Datasets
 
@@ -57,16 +102,26 @@ from langsmith.types import (
     DatasetTransformation,
     DatasetVersion,
     FeedbackCreateCoreSchema,
-    Missing,
     SortByDatasetColumn,
 )
 ```
 
+Methods:
+
+- <code title="get /api/v2/datasets">client.datasets.<a href="./src/langsmith/resources/datasets/datasets.py">list_v2</a>(\*\*<a href="src/langsmith/types/dataset_list_v2_params.py">params</a>) -> <a href="./src/langsmith/types/dataset.py">SyncItemsCursorGetPagination[Dataset]</a></code>
+
 ## Examples
+
+Types:
+
+```python
+from langsmith.types.datasets import ExampleUpdateMetadataResponse
+```
 
 Methods:
 
 - <code title="delete /api/v1/platform/datasets/{dataset_id}/examples/{example_id}">client.datasets.examples.<a href="./src/langsmith/resources/datasets/examples.py">delete</a>(example_id, \*, dataset_id) -> None</code>
+- <code title="patch /api/v1/platform/datasets/{dataset_id}/examples/metadata">client.datasets.examples.<a href="./src/langsmith/resources/datasets/examples.py">update_metadata</a>(dataset_id, \*\*<a href="src/langsmith/types/datasets/example_update_metadata_params.py">params</a>) -> <a href="./src/langsmith/types/datasets/example_update_metadata_response.py">ExampleUpdateMetadataResponse</a></code>
 
 ## ExperimentRuns
 
@@ -105,6 +160,18 @@ Methods:
 - <code title="post /api/v2/runs/query">client.runs.<a href="./src/langsmith/resources/runs/runs.py">query_v2</a>(\*\*<a href="src/langsmith/types/run_query_v2_params.py">params</a>) -> <a href="./src/langsmith/types/run.py">SyncItemsCursorPostPagination[Run]</a></code>
 - <code title="get /api/v2/runs/{run_id}">client.runs.<a href="./src/langsmith/resources/runs/runs.py">retrieve_v2</a>(run_id, \*\*<a href="src/langsmith/types/run_retrieve_v2_params.py">params</a>) -> <a href="./src/langsmith/types/run.py">Run</a></code>
 
+## Streaming
+
+Types:
+
+```python
+from langsmith.types.runs import StreamingQueryV2Response
+```
+
+Methods:
+
+- <code title="post /api/v2/runs/query">client.runs.streaming.<a href="./src/langsmith/resources/runs/streaming.py">query_v2</a>(\*\*<a href="src/langsmith/types/runs/streaming_query_v2_params.py">params</a>) -> <a href="./src/langsmith/types/runs/streaming_query_v2_response.py">StreamingQueryV2Response</a></code>
+
 ## Share
 
 Types:
@@ -133,6 +200,18 @@ Methods:
 - <code title="post /api/v2/threads/query">client.threads.<a href="./src/langsmith/resources/threads/threads.py">query</a>(\*\*<a href="src/langsmith/types/thread_query_params.py">params</a>) -> <a href="./src/langsmith/types/thread.py">SyncItemsCursorPostPagination[Thread]</a></code>
 - <code title="get /api/v2/threads/{thread_id}/stats">client.threads.<a href="./src/langsmith/resources/threads/threads.py">stats</a>(thread_id, \*\*<a href="src/langsmith/types/thread_stats_params.py">params</a>) -> <a href="./src/langsmith/types/thread_stats.py">ThreadStats</a></code>
 
+## Streaming
+
+Types:
+
+```python
+from langsmith.types.threads import StreamingQueryResponse
+```
+
+Methods:
+
+- <code title="post /api/v2/threads/query">client.threads.streaming.<a href="./src/langsmith/resources/threads/streaming.py">query</a>(\*\*<a href="src/langsmith/types/threads/streaming_query_params.py">params</a>) -> <a href="./src/langsmith/types/threads/streaming_query_response.py">StreamingQueryResponse</a></code>
+
 ## Share
 
 Types:
@@ -157,8 +236,54 @@ from langsmith.types import Trace, TraceAggregates, TraceListRunsResponse
 
 Methods:
 
-- <code title="get /api/v2/traces/{trace_id}/runs">client.traces.<a href="./src/langsmith/resources/traces.py">list_runs</a>(trace_id, \*\*<a href="src/langsmith/types/trace_list_runs_params.py">params</a>) -> <a href="./src/langsmith/types/trace_list_runs_response.py">TraceListRunsResponse</a></code>
-- <code title="post /api/v2/traces/query">client.traces.<a href="./src/langsmith/resources/traces.py">query</a>(\*\*<a href="src/langsmith/types/trace_query_params.py">params</a>) -> <a href="./src/langsmith/types/trace.py">SyncItemsCursorPostPagination[Trace]</a></code>
+- <code title="get /api/v2/traces/{trace_id}/runs">client.traces.<a href="./src/langsmith/resources/traces/traces.py">list_runs</a>(trace_id, \*\*<a href="src/langsmith/types/trace_list_runs_params.py">params</a>) -> <a href="./src/langsmith/types/trace_list_runs_response.py">TraceListRunsResponse</a></code>
+- <code title="post /api/v2/traces/query">client.traces.<a href="./src/langsmith/resources/traces/traces.py">query</a>(\*\*<a href="src/langsmith/types/trace_query_params.py">params</a>) -> <a href="./src/langsmith/types/trace.py">SyncItemsCursorPostPagination[Trace]</a></code>
+
+## Streaming
+
+Types:
+
+```python
+from langsmith.types.traces import StreamingQueryResponse
+```
+
+Methods:
+
+- <code title="post /api/v2/traces/query">client.traces.streaming.<a href="./src/langsmith/resources/traces/streaming.py">query</a>(\*\*<a href="src/langsmith/types/traces/streaming_query_params.py">params</a>) -> <a href="./src/langsmith/types/traces/streaming_query_response.py">StreamingQueryResponse</a></code>
+
+# AISearch
+
+Types:
+
+```python
+from langsmith.types import AISearchParseResponse
+```
+
+Methods:
+
+- <code title="post /api/v2/ai-search/parse">client.ai_search.<a href="./src/langsmith/resources/ai_search.py">parse</a>(\*\*<a href="src/langsmith/types/ai_search_parse_params.py">params</a>) -> <a href="./src/langsmith/types/ai_search_parse_response.py">AISearchParseResponse</a></code>
+
+# Evaluators
+
+Types:
+
+```python
+from langsmith.types import (
+    CodeEvaluatorTopLevel,
+    Evaluator,
+    EvaluatorPagerdutyAlert,
+    EvaluatorTopLevel,
+    EvaluatorWebhook,
+    Rule,
+    EvaluatorListResponse,
+)
+```
+
+Methods:
+
+- <code title="get /api/v1/runs/rules">client.evaluators.<a href="./src/langsmith/resources/evaluators.py">list</a>(\*\*<a href="src/langsmith/types/evaluator_list_params.py">params</a>) -> <a href="./src/langsmith/types/evaluator_list_response.py">EvaluatorListResponse</a></code>
+- <code title="post /api/v1/runs/rules/decision-models">client.evaluators.<a href="./src/langsmith/resources/evaluators.py">create_decision_model</a>(\*\*<a href="src/langsmith/types/evaluator_create_decision_model_params.py">params</a>) -> <a href="./src/langsmith/types/evaluator.py">Evaluator</a></code>
+- <code title="get /api/v2/runs/rules">client.evaluators.<a href="./src/langsmith/resources/evaluators.py">list_v2</a>(\*\*<a href="src/langsmith/types/evaluator_list_v2_params.py">params</a>) -> <a href="./src/langsmith/types/rule.py">SyncItemsCursorGetPagination[Rule]</a></code>
 
 # OnlineEvaluators
 
@@ -321,6 +446,81 @@ Methods:
 
 - <code title="get /api/v1/info">client.info.<a href="./src/langsmith/resources/info.py">list</a>() -> <a href="./src/langsmith/types/info_list_response.py">InfoListResponse</a></code>
 
+# WorkspaceSecrets
+
+Types:
+
+```python
+from langsmith.types import WorkspaceSecret, WorkspaceSecretListResponse
+```
+
+Methods:
+
+- <code title="get /api/v1/workspaces/current/secrets">client.workspace_secrets.<a href="./src/langsmith/resources/workspace_secrets.py">list</a>(\*\*<a href="src/langsmith/types/workspace_secret_list_params.py">params</a>) -> <a href="./src/langsmith/types/workspace_secret_list_response.py">WorkspaceSecretListResponse</a></code>
+- <code title="delete /api/v1/workspaces/current/secrets/{key}">client.workspace_secrets.<a href="./src/langsmith/resources/workspace_secrets.py">delete</a>(key) -> None</code>
+- <code title="put /api/v1/workspaces/current/secrets/{key}">client.workspace_secrets.<a href="./src/langsmith/resources/workspace_secrets.py">upsert</a>(key, \*\*<a href="src/langsmith/types/workspace_secret_upsert_params.py">params</a>) -> <a href="./src/langsmith/types/workspace_secret.py">WorkspaceSecret</a></code>
+
+# Repos
+
+Types:
+
+```python
+from langsmith.types import (
+    CreateRepoResponse,
+    DemoConfig,
+    EPromptOptimizationAlgorithm,
+    GetRepoResponse,
+    PromptimConfig,
+    RepoWithLookups,
+)
+```
+
+Methods:
+
+- <code title="post /api/v1/repos">client.repos.<a href="./src/langsmith/resources/repos/repos.py">create</a>(\*\*<a href="src/langsmith/types/repo_create_params.py">params</a>) -> <a href="./src/langsmith/types/create_repo_response.py">CreateRepoResponse</a></code>
+- <code title="get /api/v1/repos/{owner}/{repo}">client.repos.<a href="./src/langsmith/resources/repos/repos.py">retrieve</a>(repo, \*, owner) -> <a href="./src/langsmith/types/get_repo_response.py">GetRepoResponse</a></code>
+- <code title="patch /api/v1/repos/{owner}/{repo}">client.repos.<a href="./src/langsmith/resources/repos/repos.py">update</a>(repo, \*, owner, \*\*<a href="src/langsmith/types/repo_update_params.py">params</a>) -> <a href="./src/langsmith/types/get_repo_response.py">GetRepoResponse</a></code>
+- <code title="get /api/v1/repos">client.repos.<a href="./src/langsmith/resources/repos/repos.py">list</a>(\*\*<a href="src/langsmith/types/repo_list_params.py">params</a>) -> <a href="./src/langsmith/types/repo_with_lookups.py">SyncOffsetPaginationRepos[RepoWithLookups]</a></code>
+- <code title="delete /api/v1/repos/{owner}/{repo}">client.repos.<a href="./src/langsmith/resources/repos/repos.py">delete</a>(repo, \*, owner) -> object</code>
+
+## Directories
+
+Types:
+
+```python
+from langsmith.types.repos import (
+    DirectorySelector,
+    FileEntry,
+    DirectoryListResponse,
+    DirectoryCommitResponse,
+)
+```
+
+Methods:
+
+- <code title="get /api/v1/platform/hub/repos/{owner}/{repo}/directories">client.repos.directories.<a href="./src/langsmith/resources/repos/directories.py">list</a>(repo, \*, owner, \*\*<a href="src/langsmith/types/repos/directory_list_params.py">params</a>) -> <a href="./src/langsmith/types/repos/directory_list_response.py">DirectoryListResponse</a></code>
+- <code title="delete /api/v1/platform/hub/repos/{owner}/{repo}/directories">client.repos.directories.<a href="./src/langsmith/resources/repos/directories.py">delete</a>(repo, \*, owner, \*\*<a href="src/langsmith/types/repos/directory_delete_params.py">params</a>) -> None</code>
+- <code title="post /api/v1/platform/hub/repos/{owner}/{repo}/directories/commits">client.repos.directories.<a href="./src/langsmith/resources/repos/directories.py">commit</a>(repo, \*, owner, \*\*<a href="src/langsmith/types/repos/directory_commit_params.py">params</a>) -> <a href="./src/langsmith/types/repos/directory_commit_response.py">DirectoryCommitResponse</a></code>
+
+# Commits
+
+Types:
+
+```python
+from langsmith.types import (
+    CommitManifestResponse,
+    CommitWithLookups,
+    CommitCreateResponse,
+    CommitRetrieveResponse,
+)
+```
+
+Methods:
+
+- <code title="post /api/v1/commits/{owner}/{repo}">client.commits.<a href="./src/langsmith/resources/commits.py">create</a>(repo, \*, owner, \*\*<a href="src/langsmith/types/commit_create_params.py">params</a>) -> <a href="./src/langsmith/types/commit_create_response.py">CommitCreateResponse</a></code>
+- <code title="get /api/v1/commits/{owner}/{repo}/{commit}">client.commits.<a href="./src/langsmith/resources/commits.py">retrieve</a>(commit, \*, owner, repo, \*\*<a href="src/langsmith/types/commit_retrieve_params.py">params</a>) -> <a href="./src/langsmith/types/commit_retrieve_response.py">CommitRetrieveResponse</a></code>
+- <code title="get /api/v1/commits/{owner}/{repo}">client.commits.<a href="./src/langsmith/resources/commits.py">list</a>(repo, \*, owner, \*\*<a href="src/langsmith/types/commit_list_params.py">params</a>) -> <a href="./src/langsmith/types/commit_with_lookups.py">SyncOffsetPaginationCommits[CommitWithLookups]</a></code>
+
 # Issues
 
 Types:
@@ -341,7 +541,9 @@ Types:
 ```python
 from langsmith.types import (
     DownloadURLResponse,
+    ProxyConfig,
     SandboxListResponse,
+    SandboxMountConfig,
     SandboxResponse,
     SandboxStatusResponse,
     ServiceURLResponse,

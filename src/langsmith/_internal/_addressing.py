@@ -1,10 +1,5 @@
 """Resolving whether a run is addressed by project or by address.
 
-!!! warning "Beta"
-    Addressing runs to an address is enabled per workspace. A workspace
-    without it rejects the runs, so tracing is lost rather than falling back
-    to a project. This API may change without notice.
-
 A run goes to exactly one destination: a project (`project_name`) or an
 address (`langsmith.agent_address(id, environment)`), which
 names an agent and one of its environments. The server resolves an address to
@@ -38,7 +33,6 @@ from typing import Any, Optional
 
 from langsmith import address as _address
 from langsmith import utils
-from langsmith._internal._beta_decorator import _warn_once
 from langsmith.address import AgentAddress, EnvAddressError
 
 _LOGGER = logging.getLogger(__name__)
@@ -96,50 +90,13 @@ def address_from_lrn(value: Any) -> AgentAddress:
     return _address.agent_address(*match.groups())
 
 
-def warn_is_beta() -> None:
-    """Warn the first time a run is actually addressed to an address.
-
-    `_warn_once` caches on the message, so this fires once per process.
-    """
-    _warn_once(
-        "Addressing runs with `langsmith.address` is in beta and is enabled per "
-        "workspace. A workspace without it rejects the run, so the trace is "
-        "lost rather than falling back to a project. The behavior may change "
-        "without notice."
-    )
-
-
 Tier = tuple[Optional[str], Optional[AgentAddress]]
 """One precedence level: the `(project, address)` it names, either may be unset."""
 
-
-def resolve(*tiers: Tier) -> tuple[Optional[str], Optional[AgentAddress]]:
-    """Settle a run's single destination, as `(project, address)`.
-
-    `tiers` are the levels named in code, highest precedence first; the env
-    vars are the last level, consulted here. The first level that names
-    anything decides, whichever mode it names -- an address in `tracing_context`
-    beats a project on the decorator, and the other way round.
-
-    Raises:
-        utils.LangSmithUserError: If one level named in code names both.
-        EnvAddressError: If the env vars are the deciding level and name both,
-            or half an address.
-    """
-    for level, (project, address) in enumerate(tiers, start=1):
-        if project and address is not None:
-            raise _both_at_one_level(project, address, f"at precedence level {level}")
-        if project:
-            return project, None
-        if address is not None:
-            return None, address
-    env_project = utils.get_tracer_project(return_default_value=False) or None
-    env_address = _address.address_from_env()
-    if env_project and env_address is not None:
-        raise EnvAddressError(str(_both_at_one_level(env_project, env_address, "in the environment")))
-    if env_address is not None:
-        return None, env_address
-    return env_project or "default", None
+# Defined in `langsmith.address`, whose public `resolve_destination` wraps them and which
+# this module imports, so it cannot import this module back.
+resolve = _address._resolve
+_both_at_one_level = _address._both_at_one_level
 
 
 def first_named(*tiers: Tier) -> Tier:
@@ -154,14 +111,6 @@ def first_named(*tiers: Tier) -> Tier:
         if project or address is not None:
             return project or None, address
     return None, None
-
-
-def _both_at_one_level(project: str, address: AgentAddress, where: str) -> utils.LangSmithUserError:
-    return utils.LangSmithUserError(
-        f"A project ({project!r}) and an address ({address!r}) are both set "
-        f"{where}, so neither outranks the other. Set only one there, or set "
-        "the one you want at a higher-precedence level."
-    )
 
 
 def otlp_destination_headers(project: Optional[str], address: Optional[AgentAddress]) -> dict[str, str]:
@@ -274,7 +223,6 @@ def apply_to_payload(payload: dict, *, update: bool = False) -> None:
         address = _address.address_from_env()
     if address is None:
         return
-    warn_is_beta()
     payload["address"] = address_to_lrn(address)
     if not named_project:
         payload.pop("session_name", None)

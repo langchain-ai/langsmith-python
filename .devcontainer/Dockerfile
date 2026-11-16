@@ -1,5 +1,8 @@
-ARG VARIANT="3.10"
+ARG VARIANT="3.11"
 FROM mcr.microsoft.com/vscode/devcontainers/python:0-${VARIANT}
+
+USER root
+RUN apt-get update --error-on=any && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 
 USER vscode
 

@@ -19,6 +19,14 @@ from ..._httpx import httpx
 from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from ..._utils import path_template, maybe_transform, strip_not_given, async_maybe_transform
 from ..._compat import cached_property
+from .streaming import (
+    StreamingResource,
+    AsyncStreamingResource,
+    StreamingResourceWithRawResponse,
+    AsyncStreamingResourceWithRawResponse,
+    StreamingResourceWithStreamingResponse,
+    AsyncStreamingResourceWithStreamingResponse,
+)
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
     to_raw_response_wrapper,
@@ -42,6 +50,10 @@ __all__ = ["ThreadsResource", "AsyncThreadsResource"]
 
 
 class ThreadsResource(SyncAPIResource):
+    @cached_property
+    def streaming(self) -> StreamingResource:
+        return StreamingResource(self._client)
+
     @cached_property
     def share(self) -> ShareResource:
         return ShareResource(self._client)
@@ -293,6 +305,7 @@ class ThreadsResource(SyncAPIResource):
         min_start_time: Union[str, datetime] | Omit = omit,
         page_size: int | Omit = omit,
         project_id: str | Omit = omit,
+        sem_filter: str | Omit = omit,
         thread_filter: str | Omit = omit,
         trace_filter: str | Omit = omit,
         tree_filter: str | Omit = omit,
@@ -304,22 +317,29 @@ class ThreadsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncItemsCursorPostPagination[Thread]:
-        """Query threads within a project (session), with cursor-based pagination.
+        """GET with body payload — no resources created.
 
-        Returns
-        threads matching the given time range and optional filters.
+        Returns the threads in a tracing
+        project matching the query passed as the request payload. Results are filtered
+        by the given time range and optional filters, with cursor-based pagination.
 
-        When `ai_search` is set, `Accept: text/event-stream` is required; requests
-        without it return 406. AI search is unavailable on deployments that route
-        queries to the v1 backend and returns 501 there.
+        `ai_search` cannot be combined with `sem_filter`. With full AI search enabled,
+        `ai_search` translates natural language into query filters and time bounds and
+        cannot be combined with explicit filter expressions. Otherwise, `ai_search`
+        retains legacy semantic-only behavior. Use `sem_filter` for semantic-only
+        matching combined with structured filters. AI search requires organization
+        consent. When semantic matching is needed, `Accept: text/event-stream` is
+        required; requests without it return 406. AI search is unavailable on
+        deployments that route queries to the v1 backend and returns 501 there.
 
         Self-hosted deployments require LangSmith `v0.16` or later.
 
         Args:
-          ai_search: `ai_search` is a plain-language criterion evaluated against the messages from
-              the agent trajectory scoped to the thread. AND-ed with the ordinary filters.
-              Requires semantic filtering enabled for the deployment. Must contain nonempty
-              text of at most 2000 UTF-8 bytes.
+          ai_search: `ai_search` translates natural language into structured filters, semantic
+              criteria and time bounds. Cannot be combined with sem_filter. With full AI
+              search enabled, also cannot be combined with explicit filter expressions;
+              otherwise retains legacy semantic-only behavior. Must contain nonempty text of
+              at most 2000 UTF-8 bytes.
 
           cursor: `cursor` is the opaque string from a previous response's `next_cursor`. Omit on
               the first request; pass the returned cursor to fetch the next page.
@@ -342,6 +362,9 @@ class ThreadsResource(SyncAPIResource):
               non-null.
 
           project_id: `project_id` is the tracing project UUID.
+
+          sem_filter: SemFilter evaluates a plain-language criterion against trajectory messages,
+              AND-ed with structured filters.
 
           thread_filter: `thread_filter` narrows results using a LangSmith filter expression evaluated
               against each complete thread summary. Self-hosted deployments require LangSmith
@@ -383,6 +406,7 @@ class ThreadsResource(SyncAPIResource):
                     "min_start_time": min_start_time,
                     "page_size": page_size,
                     "project_id": project_id,
+                    "sem_filter": sem_filter,
                     "thread_filter": thread_filter,
                     "trace_filter": trace_filter,
                     "tree_filter": tree_filter,
@@ -480,6 +504,10 @@ class ThreadsResource(SyncAPIResource):
 
 
 class AsyncThreadsResource(AsyncAPIResource):
+    @cached_property
+    def streaming(self) -> AsyncStreamingResource:
+        return AsyncStreamingResource(self._client)
+
     @cached_property
     def share(self) -> AsyncShareResource:
         return AsyncShareResource(self._client)
@@ -731,6 +759,7 @@ class AsyncThreadsResource(AsyncAPIResource):
         min_start_time: Union[str, datetime] | Omit = omit,
         page_size: int | Omit = omit,
         project_id: str | Omit = omit,
+        sem_filter: str | Omit = omit,
         thread_filter: str | Omit = omit,
         trace_filter: str | Omit = omit,
         tree_filter: str | Omit = omit,
@@ -742,22 +771,29 @@ class AsyncThreadsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Thread, AsyncItemsCursorPostPagination[Thread]]:
-        """Query threads within a project (session), with cursor-based pagination.
+        """GET with body payload — no resources created.
 
-        Returns
-        threads matching the given time range and optional filters.
+        Returns the threads in a tracing
+        project matching the query passed as the request payload. Results are filtered
+        by the given time range and optional filters, with cursor-based pagination.
 
-        When `ai_search` is set, `Accept: text/event-stream` is required; requests
-        without it return 406. AI search is unavailable on deployments that route
-        queries to the v1 backend and returns 501 there.
+        `ai_search` cannot be combined with `sem_filter`. With full AI search enabled,
+        `ai_search` translates natural language into query filters and time bounds and
+        cannot be combined with explicit filter expressions. Otherwise, `ai_search`
+        retains legacy semantic-only behavior. Use `sem_filter` for semantic-only
+        matching combined with structured filters. AI search requires organization
+        consent. When semantic matching is needed, `Accept: text/event-stream` is
+        required; requests without it return 406. AI search is unavailable on
+        deployments that route queries to the v1 backend and returns 501 there.
 
         Self-hosted deployments require LangSmith `v0.16` or later.
 
         Args:
-          ai_search: `ai_search` is a plain-language criterion evaluated against the messages from
-              the agent trajectory scoped to the thread. AND-ed with the ordinary filters.
-              Requires semantic filtering enabled for the deployment. Must contain nonempty
-              text of at most 2000 UTF-8 bytes.
+          ai_search: `ai_search` translates natural language into structured filters, semantic
+              criteria and time bounds. Cannot be combined with sem_filter. With full AI
+              search enabled, also cannot be combined with explicit filter expressions;
+              otherwise retains legacy semantic-only behavior. Must contain nonempty text of
+              at most 2000 UTF-8 bytes.
 
           cursor: `cursor` is the opaque string from a previous response's `next_cursor`. Omit on
               the first request; pass the returned cursor to fetch the next page.
@@ -780,6 +816,9 @@ class AsyncThreadsResource(AsyncAPIResource):
               non-null.
 
           project_id: `project_id` is the tracing project UUID.
+
+          sem_filter: SemFilter evaluates a plain-language criterion against trajectory messages,
+              AND-ed with structured filters.
 
           thread_filter: `thread_filter` narrows results using a LangSmith filter expression evaluated
               against each complete thread summary. Self-hosted deployments require LangSmith
@@ -821,6 +860,7 @@ class AsyncThreadsResource(AsyncAPIResource):
                     "min_start_time": min_start_time,
                     "page_size": page_size,
                     "project_id": project_id,
+                    "sem_filter": sem_filter,
                     "thread_filter": thread_filter,
                     "trace_filter": trace_filter,
                     "tree_filter": tree_filter,
@@ -935,6 +975,10 @@ class ThreadsResourceWithRawResponse:
         )
 
     @cached_property
+    def streaming(self) -> StreamingResourceWithRawResponse:
+        return StreamingResourceWithRawResponse(self._threads.streaming)
+
+    @cached_property
     def share(self) -> ShareResourceWithRawResponse:
         return ShareResourceWithRawResponse(self._threads.share)
 
@@ -955,6 +999,10 @@ class AsyncThreadsResourceWithRawResponse:
         self.stats = async_to_raw_response_wrapper(
             threads.stats,
         )
+
+    @cached_property
+    def streaming(self) -> AsyncStreamingResourceWithRawResponse:
+        return AsyncStreamingResourceWithRawResponse(self._threads.streaming)
 
     @cached_property
     def share(self) -> AsyncShareResourceWithRawResponse:
@@ -979,6 +1027,10 @@ class ThreadsResourceWithStreamingResponse:
         )
 
     @cached_property
+    def streaming(self) -> StreamingResourceWithStreamingResponse:
+        return StreamingResourceWithStreamingResponse(self._threads.streaming)
+
+    @cached_property
     def share(self) -> ShareResourceWithStreamingResponse:
         return ShareResourceWithStreamingResponse(self._threads.share)
 
@@ -999,6 +1051,10 @@ class AsyncThreadsResourceWithStreamingResponse:
         self.stats = async_to_streamed_response_wrapper(
             threads.stats,
         )
+
+    @cached_property
+    def streaming(self) -> AsyncStreamingResourceWithStreamingResponse:
+        return AsyncStreamingResourceWithStreamingResponse(self._threads.streaming)
 
     @cached_property
     def share(self) -> AsyncShareResourceWithStreamingResponse:

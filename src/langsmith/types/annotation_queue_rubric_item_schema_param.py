@@ -4,17 +4,19 @@ from __future__ import annotations
 
 from typing import Dict, Union, Iterable, Optional
 from datetime import datetime
-from typing_extensions import Literal, Required, Annotated, TypeAlias, TypedDict
+from typing_extensions import Literal, Required, Annotated, TypedDict
 
 from .._utils import PropertyInfo
-from .missing_param import MissingParam
 
 __all__ = [
     "AnnotationQueueRubricItemSchemaParam",
     "FeedbackConfig",
     "FeedbackConfigFeedbackConfig",
     "FeedbackConfigFeedbackConfigCategory",
-    "RegexValidator",
+    "RequiredIf",
+    "RequiredIfRule",
+    "VisibleIf",
+    "VisibleIfRule",
 ]
 
 
@@ -29,6 +31,9 @@ class FeedbackConfigFeedbackConfigCategory(TypedDict, total=False):
 class FeedbackConfigFeedbackConfig(TypedDict, total=False):
     type: Required[Literal["continuous", "categorical", "freeform"]]
     """Enum for feedback types."""
+
+    allows_multiple_categories: bool
+    """Whether a reviewer can pick several categories. Categorical feedback only."""
 
     categories: Optional[Iterable[FeedbackConfigFeedbackConfigCategory]]
 
@@ -57,7 +62,32 @@ class FeedbackConfig(TypedDict, total=False):
     is_lower_score_better: Optional[bool]
 
 
-RegexValidator: TypeAlias = Union[str, MissingParam]
+class RequiredIfRule(TypedDict, total=False):
+    key: Required[str]
+
+    op: Required[Literal["is", "is_one_of", "is_empty", "is_not_empty"]]
+
+    values: Iterable[float]
+
+
+class RequiredIf(TypedDict, total=False):
+    join: Required[Literal["all", "any"]]
+
+    rules: Required[Iterable[RequiredIfRule]]
+
+
+class VisibleIfRule(TypedDict, total=False):
+    key: Required[str]
+
+    op: Required[Literal["is", "is_one_of", "is_empty", "is_not_empty"]]
+
+    values: Iterable[float]
+
+
+class VisibleIf(TypedDict, total=False):
+    join: Required[Literal["all", "any"]]
+
+    rules: Required[Iterable[VisibleIfRule]]
 
 
 class AnnotationQueueRubricItemSchemaParam(TypedDict, total=False):
@@ -73,8 +103,12 @@ class AnnotationQueueRubricItemSchemaParam(TypedDict, total=False):
 
     is_required: Optional[bool]
 
-    regex_validator: Optional[RegexValidator]
+    regex_validator: Optional[str]
+
+    required_if: Optional[RequiredIf]
 
     score_descriptions: Optional[Dict[str, str]]
 
     value_descriptions: Optional[Dict[str, str]]
+
+    visible_if: Optional[VisibleIf]

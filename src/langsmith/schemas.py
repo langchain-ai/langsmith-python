@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+import warnings
+from collections.abc import Iterator, Mapping
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
@@ -10,6 +11,7 @@ from html import escape as _html_escape
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
+    AbstractSet,
     Annotated,
     Any,
     NamedTuple,
@@ -30,7 +32,7 @@ from pydantic import (
     StrictInt,
     field_validator,
 )
-from typing_extensions import Literal, NotRequired, TypedDict
+from typing_extensions import Literal, NotRequired, Self, TypedDict, deprecated
 
 if TYPE_CHECKING:
     # Not imported at runtime: `address` imports `utils`, which imports this module.
@@ -110,7 +112,10 @@ class ExampleCreate(BaseModel):
     id: Optional[UUID] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     inputs: Optional[dict[str, Any]] = Field(default=None)
-    outputs: Optional[dict[str, Any]] = Field(default=None)
+    reference_outputs: Optional[dict[str, Any]] = Field(
+        default=None,
+        serialization_alias="outputs",
+    )
     metadata: Optional[dict[str, Any]] = Field(default=None)
     split: Optional[Union[str, list[str]]] = None
     attachments: Optional[dict[str, _AttachmentLike]] = None
@@ -120,7 +125,91 @@ class ExampleCreate(BaseModel):
 
     def __init__(self, **data):
         """Initialize from dict."""
+        self._normalize_reference_outputs(data)
         super().__init__(**data)
+
+    @staticmethod
+    def _normalize_reference_outputs(data: dict[str, Any]) -> None:
+        if "reference_outputs" in data and "outputs" in data:
+            raise ValueError("Cannot specify both 'reference_outputs' and 'outputs'.")
+        if "outputs" in data:
+            warnings.warn(
+                "'outputs' is deprecated for ExampleCreate. Use 'reference_outputs' instead.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
+            data["reference_outputs"] = data.pop("outputs")
+
+    def model_copy(self, *, update: Optional[Mapping[str, Any]] = None, deep: bool = False) -> Self:
+        """Copy the example, accepting the deprecated outputs update alias."""
+        if update is not None and "outputs" in update:
+            update = dict(update)
+            self._normalize_reference_outputs(update)
+        return super().model_copy(update=update, deep=deep)
+
+    @staticmethod
+    def _normalize_reference_outputs_selector(
+        selector: Optional[Union[AbstractSet[int], AbstractSet[str], Mapping[int, Any], Mapping[str, Any]]],
+    ) -> Optional[Union[AbstractSet[int], AbstractSet[str], Mapping[int, Any], Mapping[str, Any]]]:
+        if selector is None or "outputs" not in selector:
+            return selector
+        if isinstance(selector, Mapping):
+            normalized_mapping: dict[Any, Any] = dict(selector)
+            outputs_selector = normalized_mapping.pop("outputs")
+            normalized_mapping.setdefault("reference_outputs", outputs_selector)
+            return normalized_mapping
+        normalized_set: set[Any] = set(selector)
+        normalized_set.remove("outputs")
+        normalized_set.add("reference_outputs")
+        return normalized_set
+
+    def model_dump(self, **kwargs: Any) -> dict[str, Any]:
+        """Dump the example, accepting the deprecated outputs field selector."""
+        kwargs["include"] = self._normalize_reference_outputs_selector(kwargs.get("include"))
+        kwargs["exclude"] = self._normalize_reference_outputs_selector(kwargs.get("exclude"))
+        return super().model_dump(**kwargs)
+
+    def model_dump_json(self, **kwargs: Any) -> str:
+        """Dump the example as JSON, accepting the deprecated outputs field selector."""
+        kwargs["include"] = self._normalize_reference_outputs_selector(kwargs.get("include"))
+        kwargs["exclude"] = self._normalize_reference_outputs_selector(kwargs.get("exclude"))
+        return super().model_dump_json(**kwargs)
+
+    @deprecated(
+        "The `copy` method is deprecated; use `model_copy` instead. "
+        "See the docstring of `BaseModel.copy` for details about how to handle "
+        "`include` and `exclude`.",
+        category=None,
+    )
+    def copy(
+        self,
+        *,
+        include: Optional[Union[AbstractSet[int], AbstractSet[str], Mapping[int, Any], Mapping[str, Any]]] = None,
+        exclude: Optional[Union[AbstractSet[int], AbstractSet[str], Mapping[int, Any], Mapping[str, Any]]] = None,
+        update: Optional[dict[str, Any]] = None,
+        deep: bool = False,
+    ) -> Self:
+        """Copy the example, accepting the deprecated outputs update alias."""
+        if update is not None and "outputs" in update:
+            update = dict(update)
+            self._normalize_reference_outputs(update)
+        include = self._normalize_reference_outputs_selector(include)
+        exclude = self._normalize_reference_outputs_selector(exclude)
+        return super().copy(include=include, exclude=exclude, update=update, deep=deep)
+
+    @property
+    def outputs(self) -> Optional[dict[str, Any]]:
+        """Deprecated alias for reference_outputs."""
+        return self.reference_outputs
+
+    @outputs.setter
+    def outputs(self, value: Optional[dict[str, Any]]) -> None:
+        warnings.warn(
+            "'outputs' is deprecated for ExampleCreate. Use 'reference_outputs' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.reference_outputs = value
 
 
 ExampleUploadWithAttachments = ExampleCreate
@@ -555,7 +644,7 @@ class RunLikeDict(TypedDict, total=False):
     session_id: Optional[UUID]
     session_name: Optional[str]
     address: Optional[AgentAddress]
-    """(beta) The `AgentAddress` to send the run to, instead of a project."""
+    """The `AgentAddress` to send the run to, instead of a project."""
     reference_example_id: Optional[UUID]
     input_attachments: Optional[dict]
     output_attachments: Optional[dict]
@@ -673,6 +762,9 @@ class FeedbackConfig(TypedDict, total=False):
     categories: Optional[list[FeedbackCategory]]
     """If feedback is categorical, this defines the valid categories the server will accept.
     Not applicable to continuous or freeform feedback types."""  # noqa
+    allows_multiple_categories: bool
+    """Whether a reviewer can pick several categories. Categorical feedback only.
+    Defaults to False."""
 
 
 class FeedbackCreate(FeedbackBase):
@@ -688,7 +780,7 @@ class FeedbackCreate(FeedbackBase):
     # `Any`, not `AgentAddress`: pydantic needs the type at class creation, and importing
     # `address` here is circular. The validator below checks it.
     address: Optional[Any] = Field(default=None, exclude=True)
-    """(beta) The `AgentAddress` to send the feedback to, instead of a project."""
+    """The `AgentAddress` to send the feedback to, instead of a project."""
 
     @field_validator("address")
     @classmethod
@@ -839,10 +931,33 @@ class DatasetShareSchema(TypedDict, total=False):
     """The URL of the shared dataset."""
 
 
+class RubricItemConditionRule(TypedDict, total=False):
+    """One rule in a rubric item's ``required_if`` or ``visible_if`` conditions."""
+
+    key: str
+    """The feedback key of an item earlier in the same rubric."""
+    op: Literal["is", "is_one_of", "is_empty", "is_not_empty"]
+    """How to test that item's feedback. ``is`` takes exactly one value,
+    ``is_one_of`` at least one, and ``is_empty`` / ``is_not_empty`` none."""
+    values: list[float]
+    """Category values, not labels."""
+
+
+class RubricItemConditions(TypedDict):
+    """Rules on earlier rubric items that decide when an item applies."""
+
+    join: Literal["all", "any"]
+    """Whether all rules or any rule must hold."""
+    rules: list[RubricItemConditionRule]
+    """At least one rule."""
+
+
 class AnnotationQueueRubricItem(TypedDict, total=False):
     """Represents a rubric item assigned to an annotation queue.
 
     Links a feedback config to a queue with optional per-queue customization.
+    A rubric item read from one queue can be passed as-is to another queue's
+    ``rubric_items`` to copy it, keeping the same feedback config.
     """
 
     feedback_key: str
@@ -854,7 +969,26 @@ class AnnotationQueueRubricItem(TypedDict, total=False):
     score_descriptions: Optional[dict[str, str]]
     """Display text for score ranges."""
     is_required: Optional[bool]
-    """Whether feedback for this rubric item is required before submission."""
+    """Whether feedback for this rubric item is required whenever it is shown."""
+    required_if: Optional[RubricItemConditions]
+    """Required only while these rules on earlier items hold. On update, omit to
+    keep the current conditions, or pass None to clear them."""
+    visible_if: Optional[RubricItemConditions]
+    """Shown only while these rules on earlier items hold. On update, omit to
+    keep the current conditions, or pass None to clear them."""
+    is_assertion: Optional[bool]
+    """Whether this rubric item is an assertion (used in curation mode)."""
+    regex_validator: Optional[str]
+    """Regex a freeform feedback value must match (searched, not anchored) to
+    be accepted. At most 500 characters."""
+    feedback_config_id: Optional[UUID]
+    """The feedback config this item uses, for keys with more than one. On
+    create or update, the key's enforced config wins over this, and an item
+    that already has a config keeps it."""
+    feedback_config: Optional[FeedbackConfigSchema]
+    """Read-only. The config this item uses, or the key's first config when the
+    item has none yet. None when the config is deleted. Creates and updates
+    ignore it; set ``feedback_config_id`` to choose the config."""
 
 
 class AnnotationQueue(BaseModel):
@@ -879,6 +1013,8 @@ class AnnotationQueueWithDetails(AnnotationQueue):
 
     rubric_instructions: Optional[str] = None
     """The rubric instructions for the annotation queue."""
+    rubric_items: Optional[list[AnnotationQueueRubricItem]] = None
+    """The rubric items for the annotation queue, in order."""
 
 
 class RunKey(TypedDict):
@@ -1745,8 +1881,10 @@ class FeedbackConfigSchema(BaseModel):
     scoring bounds, and valid categories.
     """
 
+    id: Optional[UUID] = None
+    """The ID of this feedback configuration. A key can have more than one."""
     feedback_key: str
-    """The unique key identifying this feedback configuration."""
+    """The feedback key this configuration belongs to."""
     feedback_config: FeedbackConfig
     """The configuration specifying the type, bounds, and categories."""
     tenant_id: UUID
@@ -1755,3 +1893,12 @@ class FeedbackConfigSchema(BaseModel):
     """When this feedback configuration was last modified."""
     is_lower_score_better: Optional[bool] = None
     """Whether a lower score is considered better for this feedback key."""
+    is_enforced: bool = False
+    """Whether this is its key's enforced configuration, which sets the rules
+    for the whole workspace. A key has at most one."""
+    is_first: bool = False
+    """Whether this is its key's first configuration. Feedback that doesn't
+    name a configuration was written against it."""
+    is_deleted: bool = False
+    """Whether this configuration is deleted. Listed only with
+    ``include_all_configs``."""

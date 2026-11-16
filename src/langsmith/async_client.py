@@ -21,7 +21,10 @@ from typing import (
 )
 
 import langsmith
-import langsmith as _langsmith_api_module
+from langsmith._internal import _openapi_auth
+from langsmith._internal._beta_decorator import (
+    LangSmithDeprecationWarning as _LangSmithDeprecationWarning,
+)
 from langsmith._internal._beta_decorator import deprecated as _deprecated
 from langsmith._internal._beta_decorator import (
     suppress_deprecation_warning as _suppress_deprecation_warning,
@@ -30,6 +33,7 @@ from langsmith._httpx import httpx
 from langsmith.client import _get_openapi_base_url
 
 if TYPE_CHECKING:
+    from langsmith.resources.agents import AsyncAgentsResource
     from langsmith.resources.runs import AsyncRunsResource
 
 from langsmith import client as ls_client
@@ -184,6 +188,10 @@ class AsyncClient:
         workspace_id: Optional[str] = None,
         disable_prompt_cache: bool = False,
         cache: Optional[Union[bool, AsyncPromptCache]] = None,
+        *,
+        profile: Optional[str] = None,
+        profile_config_path: Optional[str] = None,
+        prefer_profile_auth: bool = False,
     ):
         """Initialize the async client.
 
@@ -199,6 +207,10 @@ class AsyncClient:
                 (Content-Type, x-api-key, etc.). Custom headers will not override
                 the default required headers.
             workspace_id: The workspace ID. Required for org-scoped API keys.
+            profile: CLI login profile to use instead of `LANGSMITH_PROFILE`.
+            profile_config_path: CLI config file to use instead of `LANGSMITH_CONFIG_FILE`.
+            prefer_profile_auth: Prefer profile credentials, endpoint and workspace over
+                environment values when profile credentials exist; explicit arguments win.
             disable_prompt_cache: Disable prompt caching for this client.
             cache: **[Deprecated]** Control prompt caching behavior.
 
@@ -215,8 +227,23 @@ class AsyncClient:
         env_api_url = ls_client._get_langsmith_env_var_uncached("ENDPOINT")
         env_api_key = ls_client._get_langsmith_env_var_uncached("API_KEY")
         env_workspace_id = ls_client._get_langsmith_env_var_uncached("WORKSPACE_ID")
-        profile_config = _profiles.load_profile_client_config()
-        api_url_ = api_url if api_url is not None else env_api_url or profile_config.api_url
+        profile_config = _profiles.load_profile_client_config(profile=profile, config_path=profile_config_path)
+        use_profile = (
+            prefer_profile_auth and api_key is None and (profile_config.has_oauth or profile_config.api_key is not None)
+        )
+        profile_api_url = profile_config.api_url
+        profile_workspace_id = profile_config.workspace_id
+        if use_profile:
+            # Profile credentials must only be sent to the profile's endpoint.
+            # Never mix in environment endpoint/workspace values, which may point
+            # at a different deployment; fall back to the default endpoint instead.
+            env_api_key = None
+            env_api_url = None
+            env_workspace_id = None
+            profile_api_url = profile_api_url or _profiles.DEFAULT_API_URL
+            # Empty string (rather than None) stops the env var fallback downstream.
+            profile_workspace_id = profile_workspace_id or ""
+        api_url_ = api_url if api_url is not None else env_api_url or profile_api_url
         explicit_or_env_api_key = api_key if api_key is not None else env_api_key
         profile_auth_enabled = api_key is None and env_api_key is None
         use_profile_oauth = profile_auth_enabled and profile_config.has_oauth
@@ -225,11 +252,11 @@ class AsyncClient:
             if explicit_or_env_api_key is not None
             else None
             if use_profile_oauth
-            else profile_config.api_key
+            else profile_config.resolve_api_key()
         )
         self._oauth_access_token = profile_config.oauth_access_token if use_profile_oauth else None
-        workspace_id_ = workspace_id if workspace_id is not None else env_workspace_id or profile_config.workspace_id
-        api_key = ls_utils.get_api_key(api_key_)
+        workspace_id_ = workspace_id if workspace_id is not None else env_workspace_id or profile_workspace_id
+        api_key = None if use_profile_oauth else ls_utils.get_api_key(api_key_)
         api_url_source = ls_client._api_url_source(api_url, env_api_url, profile_config.api_url)
         api_url = ls_utils.get_api_url(api_url_)
         logger.debug("LangSmith API URL %s resolved from %s", api_url, api_url_source)
@@ -302,12 +329,13 @@ class AsyncClient:
         else:
             self._cache = None
 
-        self._langsmith_api = _langsmith_api_module.AsyncLangsmith(
+        self._langsmith_api = _openapi_auth.AsyncClient(
+            header_provider=self._current_openapi_headers,
             api_key=self._api_key,
             tenant_id=self._workspace_id,
             base_url=_get_openapi_base_url(str(self._client.base_url)),
             timeout=self._client.timeout,
-            default_headers=_headers or None,
+            default_headers=_openapi_auth._normalize_headers(_headers) or None,
         )
 
     # ------------------------------------------------------------------
@@ -384,6 +412,14 @@ class AsyncClient:
         return self._langsmith_api.traces
 
     @property
+    def agents(self) -> AsyncAgentsResource:
+        """Manage workspace registry agents and their tracing destinations.
+
+        Deleting an agent also deletes its tracing history and linked runtimes.
+        """
+        return self._langsmith_api.agents
+
+    @property
     def public(self) -> AsyncPublicResource:
         """Access the public shared-run resource."""
         self._schedule_backend_version_check("0.16.0")
@@ -432,6 +468,10 @@ class AsyncClient:
         self._profile_auth_headers = auth_headers
         self._oauth_access_token = self._profile_auth.oauth_access_token
         self._client.headers = httpx.Headers(self._compute_headers())
+
+    async def _current_openapi_headers(self) -> dict[str, str]:
+        await self._ensure_profile_auth()
+        return _openapi_auth._normalize_headers(self._compute_headers())
 
     async def _arequest_with_retries(
         self,
@@ -579,14 +619,7 @@ class AsyncClient:
         revision_id: Optional[ls_client.ID_TYPE] = None,
         **kwargs: Any,
     ) -> None:
-        """Create a run.
-
-        !!! warning "Experimental"
-            `address` sends the run to an address instead of a project. It is
-            in beta and enabled per workspace; a workspace without it rejects
-            the run, so the trace is lost rather than falling back to a
-            project. It may change without notice.
-        """
+        """Create a run."""
         if kwargs.get("address") is not None:
             kwargs["address"] = _addressing.check_address(kwargs["address"])
         # Only `project_name`, this method's own parameter, counts as a caller
@@ -627,12 +660,6 @@ class AsyncClient:
         Args:
             run_id: The run to update.
             **kwargs: The fields to update, and `address`.
-
-                !!! warning "Experimental"
-                    `address` is in beta. It sends the patch to an address,
-                    and must match the post it belongs to: an update that
-                    names none is resolved by run id, as every update was
-                    before. It may change without notice.
         """
         data = {**kwargs, "id": ls_client._as_uuid(run_id)}
         _addressing.apply_to_payload(data, update=True)
@@ -1034,12 +1061,34 @@ class AsyncClient:
     async def create_example(
         self,
         inputs: dict[str, Any],
-        outputs: Optional[dict[str, Any]] = None,
+        reference_outputs: Optional[dict[str, Any]] = cast(Any, ls_client._UNSET),
         dataset_id: Optional[ls_client.ID_TYPE] = None,
         dataset_name: Optional[str] = None,
+        *,
+        outputs: Optional[dict[str, Any]] = cast(Any, ls_client._UNSET),
         **kwargs: Any,
     ) -> ls_schemas.Example:
-        """Create an example."""
+        """Create an example with optional reference outputs.
+
+        Args:
+            inputs: The input values for the example.
+            reference_outputs: The reference output values for the example.
+            dataset_id: The ID of the dataset.
+            dataset_name: The name of the dataset.
+            outputs: Deprecated alias for reference_outputs.
+            **kwargs: Additional example fields.
+        """
+        if reference_outputs is not ls_client._UNSET and outputs is not ls_client._UNSET:
+            raise ValueError("Cannot specify both 'reference_outputs' and 'outputs'.")
+        if outputs is not ls_client._UNSET:
+            warnings.warn(
+                "'outputs' is deprecated. Use 'reference_outputs' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            reference_outputs = outputs
+        elif reference_outputs is ls_client._UNSET:
+            reference_outputs = None
         if dataset_id is None and dataset_name is None:
             raise ValueError("Either dataset_id or dataset_name must be provided")
         if dataset_id is None:
@@ -1048,7 +1097,7 @@ class AsyncClient:
 
         data = {
             "inputs": inputs,
-            "outputs": outputs,
+            "outputs": reference_outputs,
             "dataset_id": str(dataset_id),
             **kwargs,
         }
@@ -1153,10 +1202,27 @@ class AsyncClient:
         *,
         dataset_id: Optional[ls_client.ID_TYPE] = None,
         dataset_name: Optional[str] = None,
+        select: Optional[Sequence[str]] = None,
+        exclude_default_fields: bool = False,
         **kwargs: Any,
     ) -> AsyncIterator[ls_schemas.Example]:
-        """List examples."""
+        """List examples.
+
+        Args:
+            dataset_id: The ID of the dataset to filter by.
+            dataset_name: The name of the dataset to filter by.
+            select: Fields to include in each example, such as "id" or "outputs".
+            exclude_default_fields: Return only the fields in ``select``, plus
+                ``id``. Other default fields (``created_at``, ``modified_at``,
+                ``inputs``, ``name``, ``dataset_id``) are absent unless selected.
+                Select ``dataset_id`` if you need ``Example.url``.
+            **kwargs: Additional query parameters.
+        """
         params = kwargs.copy()
+        if select:
+            params["select"] = [select] if isinstance(select, str) else list(select)
+        if exclude_default_fields:
+            params["exclude_default_fields"] = True
         if dataset_id:
             params["dataset"] = ls_client._as_uuid(dataset_id)
         elif dataset_name:
@@ -1195,12 +1261,9 @@ class AsyncClient:
     ) -> ls_schemas.Feedback:
         """Create feedback for a run.
 
-        !!! warning "Experimental"
-            `address` is in beta. It is enabled per workspace; a
-            workspace without it rejects the feedback, so it is lost rather
-            than falling back to a project. The address must already exist --
-            unlike run ingestion, a feedback part never creates one. It may
-            change without notice.
+        !!! note "Addressed feedback"
+            The `address` must already exist -- unlike run ingestion, a feedback
+            part never creates one.
 
         Args:
             run_id: The ID of the run to provide feedback for. At least one of
@@ -1520,7 +1583,7 @@ class AsyncClient:
         queue_id: Optional[ID_TYPE] = None,
         rubric_instructions: Optional[str] = None,
         rubric_items: Optional[list[ls_schemas.AnnotationQueueRubricItem]] = None,
-    ) -> ls_schemas.AnnotationQueue:
+    ) -> ls_schemas.AnnotationQueueWithDetails:
         """Create an annotation queue on the LangSmith API.
 
         Args:
@@ -1529,9 +1592,12 @@ class AsyncClient:
             queue_id (Optional[Union[UUID, str]]): The ID of the annotation queue.
             rubric_instructions: The rubric instructions for the annotation queue.
             rubric_items: The feedback configs to assign to this queue's rubric.
+                Items read from another queue's ``rubric_items`` can be passed
+                as-is to copy its rubric.
 
         Returns:
-            The created annotation queue object.
+            The created annotation queue. Its ``rubric_items`` is not filled
+            in; call ``read_annotation_queue`` to get the stored rubric.
         """
         body: dict[str, Any] = {
             "name": name,
@@ -1544,24 +1610,29 @@ class AsyncClient:
         response = await self._arequest_with_retries(
             "POST",
             "/annotation-queues",
-            json={k: v for k, v in body.items() if v is not None},
+            content=ls_client._dumps_json({k: v for k, v in body.items() if v is not None}),
         )
         ls_utils.raise_for_status_with_text(response)
-        return ls_schemas.AnnotationQueue(
+        return ls_schemas.AnnotationQueueWithDetails(
             **response.json(),
         )
 
-    async def read_annotation_queue(self, queue_id: ID_TYPE) -> ls_schemas.AnnotationQueue:
+    async def read_annotation_queue(self, queue_id: ID_TYPE) -> ls_schemas.AnnotationQueueWithDetails:
         """Read an annotation queue with the specified `queue_id`.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue to read.
 
         Returns:
-            The annotation queue object.
+            The annotation queue, including its rubric items and the feedback
+            config each one uses.
         """
-        # TODO: Replace when actual endpoint is added
-        return await self.list_annotation_queues(queue_ids=[queue_id]).__anext__()
+        response = await self._arequest_with_retries(
+            "GET",
+            f"/annotation-queues/{ls_client._as_uuid(queue_id, 'queue_id')}",
+        )
+        ls_utils.raise_for_status_with_text(response)
+        return ls_schemas.AnnotationQueueWithDetails(**response.json())
 
     async def update_annotation_queue(
         self,
@@ -1580,6 +1651,7 @@ class AsyncClient:
             description: The new description for the annotation queue.
             rubric_instructions: The new rubric instructions for the queue.
             rubric_items: The feedback configs to assign to this queue's rubric.
+                Replaces the existing rubric.
         """
         body: dict[str, Any] = {}
         if name is not None:
@@ -1593,7 +1665,7 @@ class AsyncClient:
         response = await self._arequest_with_retries(
             "PATCH",
             f"/annotation-queues/{ls_client._as_uuid(queue_id, 'queue_id')}",
-            json=body,
+            content=ls_client._dumps_json(body),
         )
         ls_utils.raise_for_status_with_text(response)
 
@@ -1648,7 +1720,7 @@ class AsyncClient:
                 "The run_ids parameter of add_runs_to_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
                 "Use the runs parameter with RunKey objects instead. "
                 "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs for the migration guide.",
-                DeprecationWarning,
+                _LangSmithDeprecationWarning,
                 stacklevel=2,
             )
             path = base
@@ -1733,30 +1805,51 @@ class AsyncClient:
         feedback_key: str,
         *,
         feedback_config: ls_schemas.FeedbackConfig,
-        is_lower_score_better: Optional[bool] = False,
+        is_lower_score_better: Optional[bool] = None,
+        is_enforced: bool = False,
     ) -> ls_schemas.FeedbackConfigSchema:
         """Create a feedback configuration.
 
         Defines how feedback with a given key should be interpreted.
         If an identical configuration already exists for the key, it is
         returned unchanged. If a different configuration already exists
-        for the key, an error is raised.
+        for the key, the result depends on the workspace: with enforced
+        feedback configs on, the new configuration is added next to the
+        existing ones (unless the key has an enforced configuration);
+        otherwise an HTTP 400 "Feedback config already exists" is raised.
 
         Args:
             feedback_key: The feedback key to configure.
             feedback_config: The configuration defining type, bounds,
                 and categories.
             is_lower_score_better: Whether a lower score is considered
-                better. Defaults to False.
+                better. When omitted, a key that already has configs keeps its
+                direction, and a new key defaults to False.
+            is_enforced: Create the key's enforced configuration, which sets
+                the rules for the whole workspace. Requires the
+                feedback-configs:manage-enforced permission, which workspace
+                admins have. Fails if the key already has an enforced
+                configuration. Defaults to False.
 
         Returns:
             The created or existing feedback configuration.
+
+        Raises:
+            LangSmithError: If a different configuration already exists for
+                the key and the workspace does not allow a second one (HTTP
+                400), if is_enforced is set and the caller lacks the
+                feedback-configs:manage-enforced permission (HTTP 403), or if
+                the key already has an enforced configuration (HTTP 409).
         """
         body: dict[str, Any] = {
             "feedback_key": feedback_key,
             "feedback_config": feedback_config,
-            "is_lower_score_better": is_lower_score_better,
+            "is_enforced": is_enforced,
         }
+        # The direction is shared by every config of the key, so only send it
+        # when the caller sets it; otherwise the key keeps its own.
+        if is_lower_score_better is not None:
+            body["is_lower_score_better"] = is_lower_score_better
         response = await self._arequest_with_retries(
             "POST",
             "/feedback-configs",
@@ -1772,14 +1865,27 @@ class AsyncClient:
         name_contains: Optional[str] = None,
         limit: Optional[int] = None,
         offset: int = 0,
+        include_all_configs: bool = False,
+        is_enforced: Optional[bool] = None,
     ) -> AsyncIterator[ls_schemas.FeedbackConfigSchema]:
         """List feedback configurations.
+
+        By default this returns one configuration per key. A key can have
+        more than one; pass ``include_all_configs=True`` to see them all.
 
         Args:
             feedback_key: Filter by specific feedback keys.
             name_contains: Filter by substring match on the feedback key.
             limit: The maximum number of configurations to return.
             offset: The number of configurations to skip. Defaults to 0.
+            include_all_configs: Return every configuration of each key,
+                deleted ones included, instead of one per key. Defaults to
+                False.
+            is_enforced: Only enforced configurations when True, only
+                unenforced ones when False.
+
+        ``include_all_configs`` and ``is_enforced`` need LangSmith v0.18 or
+        later on self-hosted deployments.
 
         Yields:
             The feedback configurations.
@@ -1792,6 +1898,10 @@ class AsyncClient:
             params["key"] = feedback_key
         if name_contains is not None:
             params["name_contains"] = name_contains
+        if include_all_configs:
+            params["include_all_configs"] = True
+        if is_enforced is not None:
+            params["is_enforced"] = is_enforced
         ix = 0
         async for config in self._aget_paginated_list("/feedback-configs", params=params):
             yield ls_schemas.FeedbackConfigSchema(**config)
@@ -1805,6 +1915,7 @@ class AsyncClient:
         *,
         feedback_config: Optional[ls_schemas.FeedbackConfig] = None,
         is_lower_score_better: Optional[bool] = None,
+        config_id: Optional[ID_TYPE] = None,
     ) -> ls_schemas.FeedbackConfigSchema:
         """Update a feedback configuration.
 
@@ -1812,9 +1923,15 @@ class AsyncClient:
 
         Args:
             feedback_key: The feedback key of the configuration to update.
-            feedback_config: The new configuration values.
+            feedback_config: The new configuration values. Replaces the whole
+                configuration, so include ``allows_multiple_categories`` to
+                keep a multi-select tag multi-select.
             is_lower_score_better: Whether a lower score is considered
                 better.
+            config_id: The configuration to update, for keys with more than
+                one. When omitted, the key's enforced configuration is
+                updated, or else its first one, or else its most recently modified one.
+                Self-hosted deployments need LangSmith v0.18 or later.
 
         Returns:
             The updated feedback configuration.
@@ -1822,10 +1939,81 @@ class AsyncClient:
         body: dict[str, Any] = {
             "feedback_key": feedback_key,
         }
+        if config_id is not None:
+            body["id"] = str(ls_client._as_uuid(config_id, "config_id"))
         if feedback_config is not None:
             body["feedback_config"] = feedback_config
         if is_lower_score_better is not None:
             body["is_lower_score_better"] = is_lower_score_better
+        return await self._patch_feedback_config(body)
+
+    async def add_feedback_categories(
+        self,
+        feedback_key: str,
+        categories: Sequence[ls_schemas.FeedbackCategory],
+        *,
+        config_id: Optional[ID_TYPE] = None,
+    ) -> ls_schemas.FeedbackConfigSchema:
+        """Add categories to a categorical feedback configuration.
+
+        The existing categories and ``allows_multiple_categories`` are kept.
+        Self-hosted deployments need LangSmith v0.18 or later;
+        older versions ignore the change and return the configuration
+        unchanged.
+
+        Args:
+            feedback_key: The feedback key of the configuration to update.
+            categories: The categories to add. Values and labels must not
+                clash with existing ones.
+            config_id: The configuration to update, for keys with more than
+                one. When omitted, the key's enforced configuration is
+                updated, or else its first one, or else its most recently modified one.
+
+        Returns:
+            The updated feedback configuration.
+        """
+        body: dict[str, Any] = {
+            "feedback_key": feedback_key,
+            "add_categories": list(categories),
+        }
+        if config_id is not None:
+            body["id"] = str(ls_client._as_uuid(config_id, "config_id"))
+        return await self._patch_feedback_config(body)
+
+    async def remove_feedback_categories(
+        self,
+        feedback_key: str,
+        values: Sequence[float],
+        *,
+        config_id: Optional[ID_TYPE] = None,
+    ) -> ls_schemas.FeedbackConfigSchema:
+        """Remove categories from a categorical feedback configuration.
+
+        Feedback already written with a removed value is unchanged. The other
+        categories and ``allows_multiple_categories`` are kept. At least two
+        categories must remain. Self-hosted deployments need LangSmith v0.18
+        or later; older versions ignore the change and return the
+        configuration unchanged.
+
+        Args:
+            feedback_key: The feedback key of the configuration to update.
+            values: The values (not labels) of the categories to remove.
+            config_id: The configuration to update, for keys with more than
+                one. When omitted, the key's enforced configuration is
+                updated, or else its first one, or else its most recently modified one.
+
+        Returns:
+            The updated feedback configuration.
+        """
+        body: dict[str, Any] = {
+            "feedback_key": feedback_key,
+            "remove_categories": list(values),
+        }
+        if config_id is not None:
+            body["id"] = str(ls_client._as_uuid(config_id, "config_id"))
+        return await self._patch_feedback_config(body)
+
+    async def _patch_feedback_config(self, body: dict[str, Any]) -> ls_schemas.FeedbackConfigSchema:
         response = await self._arequest_with_retries(
             "PATCH",
             "/feedback-configs",
@@ -1834,19 +2022,34 @@ class AsyncClient:
         ls_utils.raise_for_status_with_text(response)
         return ls_schemas.FeedbackConfigSchema(**response.json())
 
-    async def delete_feedback_config(self, feedback_key: str) -> None:
+    async def delete_feedback_config(
+        self,
+        feedback_key: Optional[str] = None,
+        *,
+        config_id: Optional[ID_TYPE] = None,
+    ) -> None:
         """Delete a feedback configuration.
 
         This performs a soft delete. The configuration can be recreated
-        later with the same key.
+        later with the same key. Pass exactly one of ``feedback_key`` or
+        ``config_id``.
 
         Args:
-            feedback_key: The feedback key of the configuration to delete.
+            feedback_key: Delete every configuration of this feedback key.
+            config_id: Delete only this configuration. Self-hosted
+                deployments need LangSmith v0.18 or later.
         """
+        if (feedback_key is None) == (config_id is None):
+            raise ValueError("Pass exactly one of feedback_key or config_id.")
+        params = (
+            {"id": str(ls_client._as_uuid(config_id, "config_id"))}
+            if config_id is not None
+            else {"feedback_key": feedback_key}
+        )
         response = await self._arequest_with_retries(
             "DELETE",
             "/feedback-configs",
-            params={"feedback_key": feedback_key},
+            params=params,
         )
         ls_utils.raise_for_status_with_text(response)
 

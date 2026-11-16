@@ -412,7 +412,7 @@ async def aevaluate_existing(
         >>> dataset = client.create_dataset(dataset_name)
         >>> example = client.create_example(
         ...     inputs={"question": "What is 2+2?"},
-        ...     outputs={"answer": "4"},
+        ...     reference_outputs={"answer": "4"},
         ...     dataset_id=dataset.id,
         ... )
         >>> async def apredict(inputs: dict) -> dict:
@@ -1226,15 +1226,22 @@ class AsyncExperimentResults:
                 await self._condition.wait()
 
     async def _process_data(self, manager: _AsyncExperimentManager) -> None:
-        tqdm = _load_tqdm()
-        async for item in tqdm(manager.aget_results()):
+        try:
+            tqdm = _load_tqdm()
+            async for item in tqdm(manager.aget_results()):
+                async with self._condition:
+                    self._results.append(item)
+                    self._condition.notify()
+            summary_scores = await manager.aget_summary_scores()
             async with self._condition:
-                self._results.append(item)
-                self._condition.notify()
-        summary_scores = await manager.aget_summary_scores()
-        async with self._condition:
-            self._summary_results = summary_scores
-            self._condition.notify_all()
+                self._summary_results = summary_scores
+        finally:
+            # Wake consumers parked in __anext__ on success *and* failure. If
+            # this task raises without notifying, they wait forever and never
+            # see the exception. The task is marked done before they resume,
+            # so __anext__ can raise it or stop.
+            async with self._condition:
+                self._condition.notify_all()
 
     def to_pandas(self, start: Optional[int] = 0, end: Optional[int] = None) -> DataFrame:
         return _to_pandas(self._results, start=start, end=end)

@@ -170,10 +170,9 @@ def configure(
         api_key: LangSmith API key. Defaults to `LANGSMITH_API_KEY` env var.
         project_name: Project name. Defaults to `LANGSMITH_PROJECT` env var.
         SpanProcessor: Span processor class to use. Defaults to `BatchSpanProcessor`.
-        address: (beta) An `AgentAddress` to send traces to instead of a project.
+        address: An `AgentAddress` to send traces to instead of a project.
             Defaults to the one `LANGSMITH_AGENT_ID` and
-            `LANGSMITH_AGENT_ENVIRONMENT` name. Agent addressing is enabled per
-            workspace.
+            `LANGSMITH_AGENT_ENVIRONMENT` name.
 
     Returns:
         `True` if configuration succeeded, `False` if `TracerProvider` already exists.

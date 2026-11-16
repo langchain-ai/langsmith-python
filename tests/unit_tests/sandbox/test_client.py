@@ -379,11 +379,14 @@ class TestSandboxOperations:
             status_code=204,
         )
 
-        with client.sandbox(snapshot_id="snap-1") as sandbox:
+        with client.sandbox(snapshot_id="snap-1", persistent=False) as sandbox:
             assert sandbox.name == "test-sandbox"
 
         # Verify delete was called
+        import json
+
         requests = httpx_mock.get_requests()
+        assert json.loads(requests[0].content)["persistent"] is False
         assert any(r.method == "DELETE" for r in requests)
 
     def test_sandbox_timeout(self, client: SandboxClient, httpx_mock: HTTPXMock):
@@ -666,7 +669,8 @@ class TestSandboxOperations:
 
         assert exc_info.value.last_status == "provisioning"
 
-    def test_create_sandbox_with_retention(self, client: SandboxClient, httpx_mock: HTTPXMock):
+    @pytest.mark.parametrize("persistent", [None, True, False])
+    def test_create_sandbox_with_retention(self, client: SandboxClient, httpx_mock: HTTPXMock, persistent):
         """Test creating a sandbox with idle and delete-after-stop retention."""
         httpx_mock.add_response(
             method="POST",
@@ -685,6 +689,7 @@ class TestSandboxOperations:
             snapshot_id="snap-1",
             idle_ttl_seconds=600,
             delete_after_stop_seconds=86400,
+            persistent=persistent,
         )
 
         assert sandbox.idle_ttl_seconds == 600
@@ -695,6 +700,10 @@ class TestSandboxOperations:
 
         request = httpx_mock.get_request()
         payload = json.loads(request.content)
+        if persistent is None:
+            assert "persistent" not in payload
+        else:
+            assert payload["persistent"] is persistent
         assert payload["idle_ttl_seconds"] == 600
         assert payload["delete_after_stop_seconds"] == 86400
 
@@ -716,8 +725,52 @@ class TestSandboxOperations:
 
         request = httpx_mock.get_request()
         payload = json.loads(request.content)
+        assert "persistent" not in payload
         assert "idle_ttl_seconds" not in payload
         assert "delete_after_stop_seconds" not in payload
+
+    def test_create_sandbox_memory_and_labels(self, client: SandboxClient, httpx_mock: HTTPXMock):
+        """Memory and label options are sent only when set and read back from the response."""
+        httpx_mock.add_response(
+            method="POST",
+            url="http://test-server:8080/boxes",
+            json={
+                "name": "test-sandbox",
+                "dataplane_url": "https://sandbox-router.example.com/sb-123",
+                "preserve_memory_on_stop": True,
+                "labels": {"env": "prod", "team": "agents"},
+            },
+            status_code=201,
+        )
+        httpx_mock.add_response(
+            method="POST",
+            url="http://test-server:8080/boxes",
+            json={
+                "name": "test-sandbox",
+                "dataplane_url": "https://sandbox-router.example.com/sb-123",
+                "preserve_memory_on_stop": False,
+            },
+            status_code=201,
+        )
+
+        sandbox = client.create_sandbox(
+            snapshot_id="snap-1",
+            preserve_memory_on_stop=True,
+            restore_memory=False,
+            labels={"team": "agents"},
+        )
+        client.create_sandbox(snapshot_id="snap-1")
+
+        import json
+
+        set_payload, unset_payload = (json.loads(r.content) for r in httpx_mock.get_requests())
+        assert set_payload["preserve_memory_on_stop"] is True
+        assert set_payload["restore_memory"] is False
+        assert set_payload["labels"] == {"team": "agents"}
+        for key in ("preserve_memory_on_stop", "restore_memory", "labels"):
+            assert key not in unset_payload
+        assert sandbox.preserve_memory_on_stop is True
+        assert sandbox.labels == {"env": "prod", "team": "agents"}
 
     def test_create_sandbox_retention_validation_negative(self, client: SandboxClient):
         """Negative retention values raise ValueError."""

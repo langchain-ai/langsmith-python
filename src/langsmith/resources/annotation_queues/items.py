@@ -78,7 +78,8 @@ class ItemsResource(SyncAPIResource):
         and project_id.
 
         Args:
-          extend_trace_retention: Extend trace retention for added run items
+          extend_trace_retention: Defaults to false. When true, upgrade the traces of added runs from base to
+              extended retention. Thread items are not upgraded.
 
           extra_headers: Send extra headers
 
@@ -465,7 +466,8 @@ class AsyncItemsResource(AsyncAPIResource):
         and project_id.
 
         Args:
-          extend_trace_retention: Extend trace retention for added run items
+          extend_trace_retention: Defaults to false. When true, upgrade the traces of added runs from base to
+              extended retention. Thread items are not upgraded.
 
           extra_headers: Send extra headers
 

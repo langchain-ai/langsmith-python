@@ -88,6 +88,7 @@ class SandboxesResource(SyncAPIResource):
         start_time: Union[str, datetime],
         cursor: str | Omit = omit,
         granularity: Literal["HOUR", "RESOURCE"] | Omit = omit,
+        include_daily: bool | Omit = omit,
         include_totals: bool | Omit = omit,
         page_size: int | Omit = omit,
         resource_ids: SequenceNotStr[str] | Omit = omit,
@@ -118,9 +119,13 @@ class SandboxesResource(SyncAPIResource):
           granularity: HOUR returns hourly buckets. RESOURCE sums each resource over the requested
               interval and sets period_start to start_time.
 
+          include_daily: Include bounded daily physical usage for the top 10 resources per metric and
+              Other. Requires RESOURCE and include_totals. Omitted when unrestricted access or
+              service support is unavailable. CLI: use --format raw to show this summary.
+
           include_totals: Include usage totals across the filtered interval (RESOURCE only). Omitted when
               unrestricted resource access cannot be verified or the service does not support
-              totals.
+              totals. CLI: use --format raw to show this summary.
 
           page_size: Maximum rows to return
 
@@ -150,6 +155,7 @@ class SandboxesResource(SyncAPIResource):
                         "start_time": start_time,
                         "cursor": cursor,
                         "granularity": granularity,
+                        "include_daily": include_daily,
                         "include_totals": include_totals,
                         "page_size": page_size,
                         "resource_ids": resource_ids,
@@ -201,6 +207,7 @@ class AsyncSandboxesResource(AsyncAPIResource):
         start_time: Union[str, datetime],
         cursor: str | Omit = omit,
         granularity: Literal["HOUR", "RESOURCE"] | Omit = omit,
+        include_daily: bool | Omit = omit,
         include_totals: bool | Omit = omit,
         page_size: int | Omit = omit,
         resource_ids: SequenceNotStr[str] | Omit = omit,
@@ -231,9 +238,13 @@ class AsyncSandboxesResource(AsyncAPIResource):
           granularity: HOUR returns hourly buckets. RESOURCE sums each resource over the requested
               interval and sets period_start to start_time.
 
+          include_daily: Include bounded daily physical usage for the top 10 resources per metric and
+              Other. Requires RESOURCE and include_totals. Omitted when unrestricted access or
+              service support is unavailable. CLI: use --format raw to show this summary.
+
           include_totals: Include usage totals across the filtered interval (RESOURCE only). Omitted when
               unrestricted resource access cannot be verified or the service does not support
-              totals.
+              totals. CLI: use --format raw to show this summary.
 
           page_size: Maximum rows to return
 
@@ -263,6 +274,7 @@ class AsyncSandboxesResource(AsyncAPIResource):
                         "start_time": start_time,
                         "cursor": cursor,
                         "granularity": granularity,
+                        "include_daily": include_daily,
                         "include_totals": include_totals,
                         "page_size": page_size,
                         "resource_ids": resource_ids,

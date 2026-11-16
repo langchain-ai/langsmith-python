@@ -173,9 +173,9 @@ def serialize_feedback_dict(
     extend_trace_retention = feedback_create.pop("extend_trace_retention", True)
     if not extend_trace_retention:
         feedback_create["_skip_trace_upgrade"] = True
-        # Multipart feedback parts validate against FeedbackCreateSchema, which
-        # does not read _skip_trace_upgrade. Keep extend_trace_retention for
-        # that path while _skip_trace_upgrade serves the redis queue path.
+        # Multipart ingestion reads neither flag, so queued feedback always
+        # extends trace retention. Client.create_feedback sends opt-out
+        # feedback through POST /feedback, which honors extend_trace_retention.
         feedback_create["extend_trace_retention"] = False
     if "id" not in feedback_create:
         feedback_create["id"] = uuid.uuid4()

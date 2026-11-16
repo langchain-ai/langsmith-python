@@ -22,6 +22,9 @@ class OnlineEvaluatorListParams(TypedDict, total=False):
     limit: int
     """Maximum number of results (1-100)"""
 
+    metadata: str
+    """Filter by metadata containment using a JSON object"""
+
     name_contains: str
     """Filter by name substring (also searches creator names)"""
 
