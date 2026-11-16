@@ -13,6 +13,8 @@ class ItemListResponse(BaseModel):
 
     added_at: Optional[str] = None
 
+    assigned_to: Optional[List[str]] = None
+
     completed_by: Optional[List[str]] = None
 
     effective_added_at: Optional[str] = None
