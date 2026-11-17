@@ -1,6 +1,7 @@
 """Test the LangSmith client."""
 
 import asyncio
+import copy
 import dataclasses
 import gc
 import inspect
@@ -88,6 +89,71 @@ from langsmith.utils import LangSmithRateLimitError, LangSmithUserError
 from tests.unit_tests.conftest import parse_request_data
 
 _CREATED_AT = datetime(2015, 1, 1, 0, 0, 0)
+
+
+@pytest.mark.parametrize("multipart", [False, True])
+@pytest.mark.parametrize("infer_dataset", [False, True])
+@pytest.mark.parametrize(
+    "optional_field",
+    ["inputs", "outputs", "metadata", "splits", "attachments", "attachments_operations", "dataset_ids"],
+)
+def test_update_examples_explicit_none_matches_omission(
+    multipart: bool, infer_dataset: bool, optional_field: str
+) -> None:
+    dataset_id = uuid.UUID(int=1)
+    example_ids = [uuid.UUID(int=2), uuid.UUID(int=3)]
+    arguments: dict[str, Any] = {
+        "example_ids": example_ids,
+        "inputs": [{"question": "changed"}, {}],
+        "outputs": [None, {}],
+        "metadata": [{"keep": True}, {}],
+    }
+    arguments.pop(optional_field, None)
+    original_arguments = copy.deepcopy(arguments)
+    response = MagicMock(spec=requests.Response)
+    response.status_code = 200
+    response.json.return_value = {"count": 2, "example_ids": [str(id_) for id_ in example_ids]}
+    client = Client(
+        api_url="http://localhost:1984",
+        api_key="offline-unused",
+        auto_batch_tracing=False,
+        info=ls_schemas.LangSmithInfo(instance_flags={"dataset_examples_multipart_enabled": multipart}),
+    )
+
+    def capture_update(kwargs: dict[str, Any]) -> list[dict[str, Any]]:
+        with (
+            mock.patch.object(Client, "read_example", return_value=SimpleNamespace(dataset_id=dataset_id)),
+            mock.patch.object(Client, "request_with_retries", return_value=response) as request,
+            mock.patch.object(
+                Client,
+                "_update_examples_multipart",
+                return_value={"count": 2, "example_ids": [str(id_) for id_ in example_ids]},
+            ) as upload,
+        ):
+            result = client.update_examples(dataset_id=None if infer_dataset else dataset_id, **kwargs)
+            assert result["count"] == 2
+            if multipart:
+                request.assert_not_called()
+                return [
+                    update.model_dump(mode="json", exclude_none=True) for update in upload.call_args.kwargs["updates"]
+                ]
+            upload.assert_not_called()
+            request.assert_called_once()
+            return json.loads(request.call_args.kwargs["data"])
+
+    try:
+        expected = capture_update(arguments)
+        actual = capture_update({**arguments, optional_field: None})
+        assert actual == expected
+        assert [update["id"] for update in actual] == [str(id_) for id_ in example_ids]
+        if optional_field != "inputs":
+            assert [update["inputs"] for update in actual] == arguments["inputs"]
+        if optional_field != "outputs":
+            assert "outputs" not in actual[0]
+            assert actual[1]["outputs"] == {}
+        assert arguments == original_arguments
+    finally:
+        client.close()
 
 
 def test_is_localhost() -> None:
