@@ -868,6 +868,7 @@ class _LangSmithHttpAdapter(requests_adapters.HTTPAdapter):
         "_pool_maxsize",
         "_pool_block",
         "_blocksize",
+        "_pool_kwargs",
     ]
 
     def __init__(
@@ -877,14 +878,18 @@ class _LangSmithHttpAdapter(requests_adapters.HTTPAdapter):
         max_retries: Union[Retry, int, None] = requests_adapters.DEFAULT_RETRIES,
         pool_block: bool = requests_adapters.DEFAULT_POOLBLOCK,
         blocksize: int = 16384,  # default from urllib3.BaseHTTPSConnection
+        pool_kwargs: Optional[Mapping[str, Any]] = None,
     ) -> None:
         self._blocksize = blocksize
+        # Set before super().__init__(), which calls init_poolmanager().
+        self._pool_kwargs: dict[str, Any] = dict(pool_kwargs or {})
         super().__init__(pool_connections, pool_maxsize, max_retries, pool_block)
 
     def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        pool_kwargs = {**self._pool_kwargs, **pool_kwargs}
         if URLLIB3_SUPPORTS_BLOCKSIZE:
             # urllib3 before 2.0 doesn't support blocksize
-            pool_kwargs["blocksize"] = self._blocksize
+            pool_kwargs.setdefault("blocksize", self._blocksize)
         try:
             return super().init_poolmanager(connections, maxsize, block, **pool_kwargs)
         except TypeError:
@@ -895,6 +900,10 @@ class _LangSmithHttpAdapter(requests_adapters.HTTPAdapter):
                 pool_kwargs.pop("blocksize")
                 return super().init_poolmanager(connections, maxsize, block, **pool_kwargs)
             raise
+
+    def proxy_manager_for(self, proxy: str, **proxy_kwargs: Any) -> Any:
+        # Proxied connections get the caller's pool kwargs too (e.g. socket_options).
+        return super().proxy_manager_for(proxy, **{**self._pool_kwargs, **proxy_kwargs})
 
 
 class ListThreadsItem(TypedDict):
@@ -1047,6 +1056,7 @@ class Client:
         tracing_error_callback: Optional[Callable[[Exception], None]] = None,
         disable_prompt_cache: bool = False,
         cache: Optional[Union[bool, PromptCache]] = None,
+        http_pool_kwargs: Optional[Mapping[str, Any]] = None,
     ) -> None:
         """Initialize a `Client` instance.
 
@@ -1229,6 +1239,37 @@ class Client:
 
                     # Or disable for a specific client
                     client = Client(disable_prompt_cache=True)
+                    ```
+            http_pool_kwargs: Extra keyword arguments for the urllib3 connection pools
+                behind `session`, such as `socket_options`.
+
+                Passed to every pool the client's `HTTPAdapter` creates, including
+                proxied ones. The SDK's own retry and pool-size settings still apply.
+                Use this instead of mounting an adapter on `session`, which the client
+                replaces. Not applied to the `httpx`-based client that serves v2
+                endpoints.
+
+                !!! example
+
+                    ```python
+                    import socket
+
+                    from urllib3.connection import HTTPConnection
+
+                    # Probe idle pooled connections so a load balancer or NAT that
+                    # silently drops idle flows doesn't leave dead sockets in the pool.
+                    client = Client(
+                        http_pool_kwargs={
+                            "socket_options": HTTPConnection.default_socket_options
+                            + [
+                                (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
+                                # Linux names; macOS uses TCP_KEEPALIVE for the idle time.
+                                (socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 60),
+                                (socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 30),
+                                (socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3),
+                            ],
+                        },
+                    )
                     ```
 
         Raises:
@@ -1422,6 +1463,7 @@ class Client:
             # number of threads used for batch tracing, plus 1 for other
             # requests.
             pool_maxsize=_AUTO_SCALE_UP_NTHREADS_LIMIT + 1,
+            pool_kwargs=http_pool_kwargs,
         )
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
