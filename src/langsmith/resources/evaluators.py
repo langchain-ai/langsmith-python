@@ -68,8 +68,9 @@ class EvaluatorsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluatorListResponse:
-        """
-        List all run rules.
+        """List run rules.
+
+        Supplied filters are combined; a rule must match all of them.
 
         Deprecated: use GET /api/v2/runs/rules, which returns cursor-paginated results.
 
@@ -340,8 +341,9 @@ class AsyncEvaluatorsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluatorListResponse:
-        """
-        List all run rules.
+        """List run rules.
+
+        Supplied filters are combined; a rule must match all of them.
 
         Deprecated: use GET /api/v2/runs/rules, which returns cursor-paginated results.
 
