@@ -8272,6 +8272,77 @@ async def test_async_run_is_shared_does_not_warn_about_read_run_shared_link() ->
             assert await client.run_is_shared(run_id) is True
 
 
+_QUEUE_METHODS = [
+    ("add_runs_to_annotation_queue", "client.annotation_queues.items.create()"),
+    ("get_run_from_annotation_queue", "client.annotation_queues.items.list()"),
+    ("list_runs_from_annotation_queue", "client.annotation_queues.items.list()"),
+    ("delete_run_from_annotation_queue", "client.annotation_queues.items.delete_all()"),
+]
+
+
+def _queue_call_kwargs(method: str, run_id: uuid.UUID) -> dict:
+    return {
+        "add_runs_to_annotation_queue": {"run_ids": [run_id]},
+        "get_run_from_annotation_queue": {"index": 0},
+        "list_runs_from_annotation_queue": {},
+        "delete_run_from_annotation_queue": {"run_id": run_id},
+    }[method]
+
+
+@pytest.mark.parametrize("method,replacement", _QUEUE_METHODS)
+def test_annotation_queue_run_methods_are_deprecated(method: str, replacement: str) -> None:
+    """Each legacy queue method warns once, naming its items API replacement."""
+    client = Client(api_url="http://localhost:1984", api_key="123", session=mock.Mock())
+    run_id = uuid.uuid4()
+
+    with (
+        mock.patch.object(Client, "request_with_retries", return_value=_share_response(run_id)),
+        mock.patch.object(Client, "_get_paginated_list", return_value=iter([])),
+    ):
+        with pytest.warns(DeprecationWarning) as recorded:
+            result = getattr(client, method)(uuid.uuid4(), **_queue_call_kwargs(method, run_id))
+            if method == "list_runs_from_annotation_queue":
+                list(result)
+
+    messages = _deprecation_messages(recorded)
+    assert len(messages) == 1, messages
+    assert f"{method}() is deprecated" in messages[0]
+    assert f"Use {replacement} instead." in messages[0]
+
+
+@pytest.mark.parametrize("method,replacement", _QUEUE_METHODS)
+async def test_async_annotation_queue_run_methods_are_deprecated(method: str, replacement: str) -> None:
+    """The async client's queue methods carry the same deprecations."""
+    from langsmith.async_client import AsyncClient
+
+    async def no_pages(*args, **kwargs):
+        return
+        yield
+
+    client = AsyncClient(api_url="http://localhost:1984", api_key="123")
+    run_id = uuid.uuid4()
+
+    with (
+        mock.patch.object(
+            AsyncClient,
+            "_arequest_with_retries",
+            new=mock.AsyncMock(return_value=_share_response(run_id)),
+        ),
+        mock.patch.object(AsyncClient, "_aget_paginated_list", new=no_pages),
+    ):
+        with pytest.warns(DeprecationWarning) as recorded:
+            result = getattr(client, method)(uuid.uuid4(), **_queue_call_kwargs(method, run_id))
+            if method == "list_runs_from_annotation_queue":
+                _ = [r async for r in result]
+            else:
+                await result
+
+    messages = _deprecation_messages(recorded)
+    assert len(messages) == 1, messages
+    assert f"{method}() is deprecated" in messages[0]
+    assert f"Use {replacement} instead." in messages[0]
+
+
 def _gtr_example_id() -> uuid.UUID:
     return uuid.UUID("11111111-1111-1111-1111-111111111111")
 
@@ -8338,7 +8409,7 @@ def _gtr_v2_run() -> SimpleNamespace:
     ("instance_flags", "expect_v2"),
     [
         ({"ch_query_enabled": True}, False),
-        ({"ch_query_enabled": True, "sdb_query_enabled": True}, False),
+        ({"ch_query_enabled": True, "sdb_query_enabled": True}, True),
         ({"ch_query_enabled": False, "sdb_query_enabled": True}, True),
     ],
 )

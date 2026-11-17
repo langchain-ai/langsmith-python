@@ -4,12 +4,13 @@ import time
 import uuid
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from decimal import Decimal
 from pathlib import Path
 from typing import AsyncGenerator, Generator, Optional, Sequence
 
 import pytest  # type: ignore
+import requests
 
+from langsmith import APIError
 from langsmith import schemas as ls_schemas
 from langsmith import utils as ls_utils
 from langsmith import uuid7
@@ -39,7 +40,52 @@ def langchain_client() -> Generator[Client, None, None]:
     )
 
 
-def poll_runs_until_count(
+_RUN_SELECTS: list = [
+    "ID",
+    "NAME",
+    "RUN_TYPE",
+    "STATUS",
+    "INPUTS",
+    "OUTPUTS",
+    "PARENT_RUN_IDS",
+    "PROJECT_ID",
+    "TRACE_ID",
+    "DOTTED_ORDER",
+    "TAGS",
+    "METADATA",
+    "ATTACHMENTS",
+    "REFERENCE_EXAMPLE_ID",
+    "PROMPT_TOKENS",
+    "COMPLETION_TOKENS",
+    "TOTAL_TOKENS",
+    "PROMPT_COST",
+    "COMPLETION_COST",
+    "TOTAL_COST",
+    "PROMPT_TOKEN_DETAILS",
+    "COMPLETION_TOKEN_DETAILS",
+    "PROMPT_COST_DETAILS",
+    "COMPLETION_COST_DETAILS",
+]
+
+
+# v2 returns run_type and status as stored (lowercase), not as the uppercase
+# enum the API documents, so asserts compare them uppercased.
+async def query_runs(langchain_client: Client, project_name: str, filter_: Optional[str] = None, **kwargs) -> list:
+    project_id = str(langchain_client.read_project(project_name=project_name).id)
+    if filter_ is not None:
+        kwargs["filter"] = filter_
+    return [
+        run
+        async for run in langchain_client.runs.query_v2(
+            project_ids=[project_id],
+            min_start_time=TEST_RUN_START,
+            selects=_RUN_SELECTS,
+            **kwargs,
+        )
+    ]
+
+
+async def poll_runs_until_count(
     langchain_client: Client,
     project_name: str,
     count: int,
@@ -51,21 +97,19 @@ def poll_runs_until_count(
     retries = 0
     while retries < max_retries:
         try:
-            runs = list(
-                langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=filter_)
-            )
+            runs = await query_runs(langchain_client, project_name, filter_)
             if len(runs) == count:
-                if not require_success or all([run.status == "success" for run in runs]):
+                if not require_success or all([run.status.upper() == "SUCCESS" for run in runs]):
                     return runs
-        except ls_utils.LangSmithError:
+        except (ls_utils.LangSmithError, APIError):
             logger.debug("Error polling runs", exc_info=True)
-        time.sleep(sleep_time)
+        await asyncio.sleep(sleep_time)
         retries += 1
     raise AssertionError(f"Failed to get {count} runs after {max_retries} attempts.")
 
 
-@pytest.mark.require_clickhouse
-def test_nested_runs(
+@pytest.mark.require_v2
+async def test_nested_runs(
     langchain_client: Client,
 ):
     project_name = "__My Tracer Project - test_nested_runs" + uuid.uuid4().hex
@@ -90,28 +134,26 @@ def test_nested_runs(
     )
     for _ in range(30):
         try:
-            runs = list(
-                langchain_client.list_runs(
-                    start_time=TEST_RUN_START,
-                    project_name=project_name,
-                    filter=f"and(eq(metadata_key,'test_run'),eq(metadata_value,'{run_meta}'))",
-                )
+            runs = await query_runs(
+                langchain_client,
+                project_name,
+                f"and(eq(metadata_key,'test_run'),eq(metadata_value,'{run_meta}'))",
             )
             assert len(runs) == 3
             break
-        except (ls_utils.LangSmithError, AssertionError):
-            time.sleep(1)
+        except (ls_utils.LangSmithError, APIError, AssertionError):
+            await asyncio.sleep(1)
     else:
         raise AssertionError("Failed to get runs after 30 attempts.")
     assert len(runs) == 3
     runs_dict = {run.name: run for run in runs}
-    assert runs_dict["my_chain_run"].parent_run_id is None
-    assert runs_dict["my_chain_run"].run_type == "chain"
+    assert not runs_dict["my_chain_run"].parent_run_ids
+    assert runs_dict["my_chain_run"].run_type.upper() == "CHAIN"
     assert runs_dict["my_chain_run"].tags == ["foo", "bar"]
-    assert runs_dict["my_run"].parent_run_id == runs_dict["my_chain_run"].id
-    assert runs_dict["my_run"].run_type == "chain"
-    assert runs_dict["my_llm_run"].parent_run_id == runs_dict["my_run"].id
-    assert runs_dict["my_llm_run"].run_type == "llm"
+    assert runs_dict["my_run"].parent_run_ids[-1] == runs_dict["my_chain_run"].id
+    assert runs_dict["my_run"].run_type.upper() == "CHAIN"
+    assert runs_dict["my_llm_run"].parent_run_ids[-1] == runs_dict["my_run"].id
+    assert runs_dict["my_llm_run"].run_type.upper() == "LLM"
     assert runs_dict["my_llm_run"].inputs == {"text": "foo"}
 
 
@@ -135,8 +177,8 @@ async def test_list_runs_multi_project(langchain_client: Client):
         )
     filter_ = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{run_meta}"))'
 
-    poll_runs_until_count(langchain_client, project_names[0], 1, filter_=filter_, max_retries=30)
-    poll_runs_until_count(langchain_client, project_names[1], 1, filter_=filter_)
+    await poll_runs_until_count(langchain_client, project_names[0], 1, filter_=filter_, max_retries=30)
+    await poll_runs_until_count(langchain_client, project_names[1], 1, filter_=filter_)
     runs = list(
         langchain_client.list_runs(
             start_time=TEST_RUN_START,
@@ -149,7 +191,7 @@ async def test_list_runs_multi_project(langchain_client: Client):
     assert runs[0].session_id != runs[1].session_id
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @skip_if_rate_limited
 async def test_nested_async_runs_with_threadpool(langchain_client: Client):
     """Test nested runs with a mix of async and sync functions."""
@@ -206,19 +248,15 @@ async def test_nested_async_runs_with_threadpool(langchain_client: Client):
     )
     executor.shutdown(wait=True)
     filter_ = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{meta}"))'
-    runs = poll_runs_until_count(langchain_client, project_name, 17, filter_=filter_, max_retries=30)
-    trace_runs = list(
-        langchain_client.list_runs(
-            start_time=TEST_RUN_START, trace_id=runs[0].trace_id, project_name=project_name, filter=filter_
-        )
-    )
+    runs = await poll_runs_until_count(langchain_client, project_name, 17, filter_=filter_, max_retries=30)
+    trace_runs = await query_runs(langchain_client, project_name, filter_, trace_id=runs[0].trace_id)
     assert len(trace_runs) == 17
     assert len(runs) == 17
-    assert sum([run.run_type == "llm" for run in runs]) == 8
+    assert sum([run.run_type.upper() == "LLM" for run in runs]) == 8
     assert sum([run.name == "async_llm" for run in runs]) == 6
     assert sum([run.name == "my_llm_run" for run in runs]) == 2
-    assert sum([run.run_type == "tool" for run in runs]) == 6
-    assert sum([run.run_type == "chain" for run in runs]) == 3
+    assert sum([run.run_type.upper() == "TOOL" for run in runs]) == 6
+    assert sum([run.run_type.upper() == "CHAIN" for run in runs]) == 3
     # sort by dotted_order
     runs = sorted(runs, key=lambda run: run.dotted_order)
     trace_runs = sorted(trace_runs, key=lambda run: run.dotted_order)
@@ -230,18 +268,18 @@ async def test_nested_async_runs_with_threadpool(langchain_client: Client):
         name_to_ids_map[run.name].append(run.id)
     for run in runs:
         if run.name == "async_llm":
-            assert run.parent_run_id in name_to_ids_map["my_tool_run"]
+            assert run.parent_run_ids[-1] in name_to_ids_map["my_tool_run"]
         if run.name == "my_tool_run":
-            assert run.parent_run_id in name_to_ids_map["my_run"]
+            assert run.parent_run_ids[-1] in name_to_ids_map["my_run"]
         if run.name == "my_llm_run":
-            assert run.parent_run_id in name_to_ids_map["my_run"]
+            assert run.parent_run_ids[-1] in name_to_ids_map["my_run"]
         if run.name == "my_run":
-            assert run.parent_run_id in name_to_ids_map["my_chain_run"]
+            assert run.parent_run_ids[-1] in name_to_ids_map["my_chain_run"]
         if run.name == "my_chain_run":
-            assert run.parent_run_id is None
+            assert not run.parent_run_ids
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @skip_if_rate_limited
 async def test_context_manager(langchain_client: Client) -> None:
     project_name = "__My Tracer Project - test_context_manager"
@@ -261,14 +299,14 @@ async def test_context_manager(langchain_client: Client) -> None:
             await asyncio.gather(*runs)
         run_tree.end(outputs={"End val": "my_context2"})
     _filter = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{meta}"))'
-    poll_runs_until_count(langchain_client, project_name, 8, filter_=_filter)
-    runs_ = list(langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=_filter))
+    await poll_runs_until_count(langchain_client, project_name, 8, filter_=_filter)
+    runs_ = await query_runs(langchain_client, project_name, _filter)
     assert len(runs_) == 8
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @skip_if_rate_limited
-def test_sync_generator(langchain_client: Client):
+async def test_sync_generator(langchain_client: Client):
     project_name = "__My Tracer Project - test_sync_generator"
     run_meta = uuid.uuid4().hex
 
@@ -285,17 +323,17 @@ def test_sync_generator(langchain_client: Client):
     )
     assert results == ["Yielded 0", "Yielded 1", "Yielded 2", "Yielded 3", "Yielded 4"]
     _filter = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{run_meta}"))'
-    poll_runs_until_count(langchain_client, project_name, 1, max_retries=20, filter_=_filter)
-    runs = list(langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=_filter))
+    await poll_runs_until_count(langchain_client, project_name, 1, max_retries=20, filter_=_filter)
+    runs = await query_runs(langchain_client, project_name, _filter)
     run = runs[0]
-    assert run.run_type == "chain"
+    assert run.run_type.upper() == "CHAIN"
     assert run.name == "my_generator"
     assert run.outputs == {"output": ["Yielded 0", "Yielded 1", "Yielded 2", "Yielded 3", "Yielded 4"]}
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @skip_if_rate_limited
-def test_sync_generator_reduce_fn(langchain_client: Client):
+async def test_sync_generator_reduce_fn(langchain_client: Client):
     project_name = "__My Tracer Project - test_sync_generator_reduce_fn"
     run_meta = uuid.uuid4().hex
 
@@ -315,15 +353,15 @@ def test_sync_generator_reduce_fn(langchain_client: Client):
     )
     filter_ = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{run_meta}"))'
     assert results == ["Yielded 0", "Yielded 1", "Yielded 2", "Yielded 3", "Yielded 4"]
-    poll_runs_until_count(langchain_client, project_name, 1, max_retries=20, filter_=filter_)
-    runs = list(langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=filter_))
+    await poll_runs_until_count(langchain_client, project_name, 1, max_retries=20, filter_=filter_)
+    runs = await query_runs(langchain_client, project_name, filter_)
     run = runs[0]
-    assert run.run_type == "chain"
+    assert run.run_type.upper() == "CHAIN"
     assert run.name == "my_generator"
     assert run.outputs == {"my_output": " ".join(["Yielded 0", "Yielded 1", "Yielded 2", "Yielded 3", "Yielded 4"])}
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 async def test_async_generator(langchain_client: Client):
     project_name = "__My Tracer Project - test_async_generator"
     run_meta = uuid.uuid4().hex
@@ -349,10 +387,10 @@ async def test_async_generator(langchain_client: Client):
         "Async yielded 4",
     ]
     _filter = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{run_meta}"))'
-    poll_runs_until_count(langchain_client, project_name, 1, max_retries=20, filter_=_filter)
-    runs = list(langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=_filter))
+    await poll_runs_until_count(langchain_client, project_name, 1, max_retries=20, filter_=_filter)
+    runs = await query_runs(langchain_client, project_name, _filter)
     run = runs[0]
-    assert run.run_type == "chain"
+    assert run.run_type.upper() == "CHAIN"
     assert run.name == "my_async_generator"
     assert run.outputs == {
         "output": [
@@ -365,7 +403,7 @@ async def test_async_generator(langchain_client: Client):
     }
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @skip_if_rate_limited
 async def test_async_generator_reduce_fn(langchain_client: Client):
     project_name = "__My Tracer Project - test_async_generator_reduce_fn" + uuid.uuid4().hex
@@ -395,10 +433,10 @@ async def test_async_generator_reduce_fn(langchain_client: Client):
         "Async yielded 4",
     ]
     filter_ = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{run_meta}"))'
-    poll_runs_until_count(langchain_client, project_name, 1, max_retries=30, sleep_time=5, filter_=filter_)
-    runs = list(langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=filter_))
+    await poll_runs_until_count(langchain_client, project_name, 1, max_retries=30, sleep_time=5, filter_=filter_)
+    runs = await query_runs(langchain_client, project_name, filter_)
     run = runs[0]
-    assert run.run_type == "chain"
+    assert run.run_type.upper() == "CHAIN"
     assert run.name == "my_async_generator"
     assert run.outputs == {
         "my_output": " ".join(
@@ -413,7 +451,7 @@ async def test_async_generator_reduce_fn(langchain_client: Client):
     }
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @skip_if_rate_limited
 async def test_end_metadata_with_run_tree(langchain_client: Client):
     project_name = "__My Tracer Project - test_end_metadata_with_run_tree" + uuid.uuid4().hex
@@ -430,18 +468,18 @@ async def test_end_metadata_with_run_tree(langchain_client: Client):
     run_tree.post()
 
     filter_ = f'eq(id, "{run_id}")'
-    poll_runs_until_count(langchain_client, project_name, 1, filter_=filter_)
+    await poll_runs_until_count(langchain_client, project_name, 1, filter_=filter_)
 
-    runs_ = list(langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=filter_))
+    runs_ = await query_runs(langchain_client, project_name, filter_)
     run = runs_[0]
-    assert run.run_type == "chain"
+    assert run.run_type.upper() == "CHAIN"
     assert run.metadata["final_metadata"] == run_id.hex
     assert run.outputs == {"result": "success"}
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @skip_if_rate_limited
-def test_trace_file_path(langchain_client: Client) -> None:
+async def test_trace_file_path(langchain_client: Client) -> None:
     """Test that you can trace attachments with file paths"""
     project_name = "__test_trace_file_path3" + uuid.uuid4().hex
     run_meta = uuid.uuid4().hex
@@ -466,16 +504,22 @@ def test_trace_file_path(langchain_client: Client) -> None:
         langsmith_extra=dict(project_name=project_name, metadata={"test_run": run_meta}),
     )
     _filter = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{run_meta}"))'
-    poll_runs_until_count(langchain_client, project_name, 1, max_retries=30, filter_=_filter)
-    runs = list(langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=_filter))
+    await poll_runs_until_count(langchain_client, project_name, 1, max_retries=30, filter_=_filter)
+    runs = await query_runs(langchain_client, project_name, _filter)
     assert len(runs) == 1
     run = runs[0]
     assert run.attachments
-    assert run.attachments["foo"]["reader"].read() == (Path(__file__).parent / "test_data/parrot-icon.png").read_bytes()
-    assert run.attachments["bar"]["reader"].read() == (Path(__file__).parent / "test_data/parrot-icon.png").read_bytes()
+    assert (
+        requests.get(run.attachments["foo"]).content
+        == (Path(__file__).parent / "test_data/parrot-icon.png").read_bytes()
+    )
+    assert (
+        requests.get(run.attachments["bar"]).content
+        == (Path(__file__).parent / "test_data/parrot-icon.png").read_bytes()
+    )
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @pytest.mark.skip()
 async def test_trace_to_multiple_projects(langchain_client: Client):
     """Test tracing to multiple projects."""
@@ -508,37 +552,37 @@ async def test_trace_to_multiple_projects(langchain_client: Client):
 
     filter_ = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{run_meta}"))'
 
-    runs1 = poll_runs_until_count(langchain_client, project_names[0], 2, filter_=filter_)
+    runs1 = await poll_runs_until_count(langchain_client, project_names[0], 2, filter_=filter_)
     assert len(runs1) == 2
     runs1_dict = {run.name: run for run in runs1}
-    assert runs1_dict["my_chain"].parent_run_id is None
-    assert runs1_dict["my_chain"].run_type == "chain"
-    assert runs1_dict["my_llm"].parent_run_id == runs1_dict["my_chain"].id
-    assert runs1_dict["my_llm"].run_type == "llm"
+    assert not runs1_dict["my_chain"].parent_run_ids
+    assert runs1_dict["my_chain"].run_type.upper() == "CHAIN"
+    assert runs1_dict["my_llm"].parent_run_ids[-1] == runs1_dict["my_chain"].id
+    assert runs1_dict["my_llm"].run_type.upper() == "LLM"
     assert runs1_dict["my_llm"].inputs == {"text": "test_input"}
-    assert runs1_dict["my_chain"].reference_example_id == reference_example_id
+    assert runs1_dict["my_chain"].reference_example_id == str(reference_example_id)
 
-    runs2 = poll_runs_until_count(langchain_client, project_names[1], 2, filter_=filter_)
+    runs2 = await poll_runs_until_count(langchain_client, project_names[1], 2, filter_=filter_)
     assert len(runs2) == 2
     runs2_dict = {run.name: run for run in runs2}
-    assert runs2_dict["my_chain"].parent_run_id is None
-    assert runs2_dict["my_chain"].run_type == "chain"
-    assert runs2_dict["my_llm"].parent_run_id == runs2_dict["my_chain"].id
-    assert runs2_dict["my_llm"].run_type == "llm"
+    assert not runs2_dict["my_chain"].parent_run_ids
+    assert runs2_dict["my_chain"].run_type.upper() == "CHAIN"
+    assert runs2_dict["my_llm"].parent_run_ids[-1] == runs2_dict["my_chain"].id
+    assert runs2_dict["my_llm"].run_type.upper() == "LLM"
     assert runs2_dict["my_llm"].inputs == {"text": "test_input"}
     assert runs2_dict["my_chain"].reference_example_id is None
 
     assert runs1_dict["my_chain"].id != runs2_dict["my_chain"].id
     assert runs1_dict["my_llm"].id != runs2_dict["my_llm"].id
 
-    assert runs1_dict["my_llm"].parent_run_id == runs1_dict["my_chain"].id
-    assert runs2_dict["my_llm"].parent_run_id == runs2_dict["my_chain"].id
+    assert runs1_dict["my_llm"].parent_run_ids[-1] == runs1_dict["my_chain"].id
+    assert runs2_dict["my_llm"].parent_run_ids[-1] == runs2_dict["my_chain"].id
 
     assert runs1_dict["my_chain"].trace_id != runs2_dict["my_chain"].trace_id
 
 
-@pytest.mark.require_clickhouse
-def test_usage_metadata(langchain_client: Client):
+@pytest.mark.require_v2
+async def test_usage_metadata(langchain_client: Client):
     project_name = "__My Tracer Project - test_usage_metadata"
     usage_metadata = {
         "input_tokens": 10,
@@ -592,25 +636,19 @@ def test_usage_metadata(langchain_client: Client):
     for func in funcs:
         func("foo")
     _filter = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{run_meta}"))'
-    poll_runs_until_count(langchain_client, project_name, len(funcs), max_retries=20, filter_=_filter)
-    runs = list(langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=_filter))
+    await poll_runs_until_count(langchain_client, project_name, len(funcs), max_retries=20, filter_=_filter)
+    runs = await query_runs(langchain_client, project_name, _filter)
     for run in runs:
-        assert run.input_tokens == 10
-        assert run.output_tokens == 20
+        assert run.prompt_tokens == 10
+        assert run.completion_tokens == 20
         assert run.total_tokens == 30
-        assert run.input_cost == Decimal("1e-6")
-        assert run.output_cost == Decimal("2e-6")
-        assert run.total_cost == Decimal("3e-6")
-        assert run.input_token_details == {"audio": 1, "foo": 2}
-        assert run.output_token_details == {"reasoning": 3, "foo": 4}
-        assert run.input_cost_details == {
-            "audio": Decimal("1e-7"),
-            "foo": Decimal("2e-7"),
-        }
-        assert run.output_cost_details == {
-            "reasoning": Decimal("3e-7"),
-            "foo": Decimal("4e-7"),
-        }
+        assert run.prompt_cost == pytest.approx(1e-6)
+        assert run.completion_cost == pytest.approx(2e-6)
+        assert run.total_cost == pytest.approx(3e-6)
+        assert run.prompt_token_details.raw == {"audio": 1, "foo": 2}
+        assert run.completion_token_details.raw == {"reasoning": 3, "foo": 4}
+        assert run.prompt_cost_details.raw == pytest.approx({"audio": 1e-7, "foo": 2e-7})
+        assert run.completion_cost_details.raw == pytest.approx({"reasoning": 3e-7, "foo": 4e-7})
 
     @configured_traceable
     def my_func4(inputs: str):
@@ -630,7 +668,7 @@ def test_usage_metadata(langchain_client: Client):
             pass
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @skip_if_rate_limited
 async def test_usage_metadata_async(langchain_client: Client):
     project_name = "__My Tracer Project - test_async_usage_metadata"
@@ -687,26 +725,20 @@ async def test_usage_metadata_async(langchain_client: Client):
         await func("foo")
 
     _filter = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{run_meta}"))'
-    poll_runs_until_count(langchain_client, project_name, len(funcs), max_retries=20, filter_=_filter)
-    runs = list(langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, filter=_filter))
+    await poll_runs_until_count(langchain_client, project_name, len(funcs), max_retries=20, filter_=_filter)
+    runs = await query_runs(langchain_client, project_name, _filter)
 
     for run in runs:
-        assert run.input_tokens == 10
-        assert run.output_tokens == 20
+        assert run.prompt_tokens == 10
+        assert run.completion_tokens == 20
         assert run.total_tokens == 30
-        assert run.input_cost == Decimal("1e-6")
-        assert run.output_cost == Decimal("2e-6")
-        assert run.total_cost == Decimal("3e-6")
-        assert run.input_token_details == {"audio": 1, "foo": 2}
-        assert run.output_token_details == {"reasoning": 3, "foo": 4}
-        assert run.input_cost_details == {
-            "audio": Decimal("1e-7"),
-            "foo": Decimal("2e-7"),
-        }
-        assert run.output_cost_details == {
-            "reasoning": Decimal("3e-7"),
-            "foo": Decimal("4e-7"),
-        }
+        assert run.prompt_cost == pytest.approx(1e-6)
+        assert run.completion_cost == pytest.approx(2e-6)
+        assert run.total_cost == pytest.approx(3e-6)
+        assert run.prompt_token_details.raw == {"audio": 1, "foo": 2}
+        assert run.completion_token_details.raw == {"reasoning": 3, "foo": 4}
+        assert run.prompt_cost_details.raw == pytest.approx({"audio": 1e-7, "foo": 2e-7})
+        assert run.completion_cost_details.raw == pytest.approx({"reasoning": 3e-7, "foo": 4e-7})
 
     @configured_traceable
     async def my_func4(inputs: str):
@@ -727,7 +759,7 @@ async def test_usage_metadata_async(langchain_client: Client):
 
 
 # TODO: Don't skip this test after langchain-ai/langchain#31493 is merged
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @pytest.mark.skip(reason="Skipping test that requires langchain to be updated")
 async def test_langchain_trace_to_multiple_projects(langchain_client: Client):
     """Test tracing LangChain components to multiple projects."""
@@ -761,15 +793,15 @@ async def test_langchain_trace_to_multiple_projects(langchain_client: Client):
 
     filter_ = f'and(eq(metadata_key, "test_run"), eq(metadata_value, "{run_meta}"))'
 
-    runs1 = poll_runs_until_count(langchain_client, project_names[0], 1, filter_=filter_)
+    runs1 = await poll_runs_until_count(langchain_client, project_names[0], 1, filter_=filter_)
     assert len(runs1) == 1
     run1 = runs1[0]
     assert run1.name == "echo_input"
-    assert run1.reference_example_id == reference_example_id
+    assert run1.reference_example_id == str(reference_example_id)
     assert run1.inputs == {"x": "hello"}
     assert run1.outputs == {"output": "Echo: hello"}
 
-    runs2 = poll_runs_until_count(langchain_client, project_names[1], 1, filter_=filter_)
+    runs2 = await poll_runs_until_count(langchain_client, project_names[1], 1, filter_=filter_)
     assert len(runs2) == 1
     run2 = runs2[0]
     assert run2.name == "echo_input"
@@ -789,7 +821,7 @@ async def test_langchain_trace_to_multiple_projects(langchain_client: Client):
 
 @pytest.mark.require_clickhouse
 @skip_if_rate_limited
-def test_load_child_runs_populates_tree(langchain_client: Client):
+async def test_load_child_runs_populates_tree(langchain_client: Client):
     """_load_child_runs must return child runs with correctly-mapped fields.
 
     Child-run loading is unsupported on SmithDB-only backends (`_load_child_runs`
@@ -812,7 +844,7 @@ def test_load_child_runs_populates_tree(langchain_client: Client):
         langsmith_extra=dict(project_name=project_name, metadata={"test_run": run_meta}),
     )
     filter_ = f'and(eq(metadata_key,"test_run"),eq(metadata_value,"{run_meta}"))'
-    poll_runs_until_count(langchain_client, project_name, 2, max_retries=20, filter_=filter_)
+    await poll_runs_until_count(langchain_client, project_name, 2, max_retries=20, filter_=filter_)
 
     # Get the root run from the API — no child_runs yet.
     [parent] = list(
@@ -845,9 +877,8 @@ def poll_nested_traces_until_tree(
 ) -> list[ls_schemas.Run]:
     """Poll _load_nested_traces until one root with at least one child appears.
 
-    Deliberately polls _load_nested_traces rather than poll_runs_until_count:
-    the latter is built on list_runs, which has no v2 routing and so returns 501
-    on SmithDB-only backends.
+    Deliberately polls _load_nested_traces rather than poll_runs_until_count, so
+    the poll goes through the same backend routing the test asserts on.
     """
     from langsmith.beta._evals import _load_nested_traces
 

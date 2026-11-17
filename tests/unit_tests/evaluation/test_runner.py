@@ -1859,8 +1859,13 @@ def _experiment_session() -> ls_schemas.TracerSession:
     )
 
 
-def test_load_traces_uses_v2_when_smithdb_only() -> None:
-    """ClickHouse off + SmithDB on → query_v2 (/v2/runs/query), never v1 list_runs."""
+@pytest.mark.parametrize(
+    "ch_query_enabled",
+    [False, True],
+    ids=["smithdb-only", "dual"],
+)
+def test_load_traces_uses_v2_when_smithdb_is_enabled(ch_query_enabled: bool) -> None:
+    """SmithDB on → query_v2 (/v2/runs/query), never v1 list_runs."""
     project = _experiment_session()
     gen_runs = [_make_generated_run(), _make_generated_run()]
 
@@ -1874,7 +1879,7 @@ def test_load_traces_uses_v2_when_smithdb_only() -> None:
 
     client = mock.Mock()
     client.info.instance_flags = {
-        "ch_query_enabled": False,
+        "ch_query_enabled": ch_query_enabled,
         "sdb_query_enabled": True,
     }
     client._get_langsmith_api_sync.return_value.runs.query_v2 = _query_v2
@@ -1891,13 +1896,10 @@ def test_load_traces_uses_v2_when_smithdb_only() -> None:
     [
         ({}, "clickhouse-only (sdb_query_enabled absent)"),
         ({"ch_query_enabled": True}, "clickhouse-only (explicit)"),
-        # Dual: SmithDB is available but ClickHouse still serves queries, so the
-        # legacy path stays in use until ClickHouse is actually switched off.
-        ({"ch_query_enabled": True, "sdb_query_enabled": True}, "dual"),
     ],
 )
-def test_load_traces_uses_v1_unless_smithdb_only(instance_flags, case) -> None:
-    """Keep the v1 client.list_runs path whenever ClickHouse can serve queries."""
+def test_load_traces_uses_v1_on_clickhouse_only(instance_flags, case) -> None:
+    """Keep the v1 client.list_runs path when SmithDB cannot serve queries."""
     project = _experiment_session()
     client = mock.Mock()
     client.info.instance_flags = instance_flags

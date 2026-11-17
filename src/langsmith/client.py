@@ -5332,7 +5332,7 @@ class Client:
         import pandas as pd  # type: ignore
 
         backend = _v2_migration_utils.get_query_backend(self.info.instance_flags)
-        if backend != _v2_migration_utils.QueryBackend.SMITHDB_ONLY:
+        if backend == _v2_migration_utils.QueryBackend.CLICKHOUSE_ONLY:
             # Suppressed: get_test_results() is supported, so callers have nothing
             # to migrate; how it fetches runs is an implementation detail.
             with _suppress_deprecation_warning():
@@ -5378,7 +5378,7 @@ class Client:
             # Convert to `schemas.Run` so both branches yield the same datamodel:
             # the v2 model types `reference_example_id` as `str`, which would not
             # match the `UUID` example ids when joining the two dataframes below.
-            runs = (_v2_migration_utils._v2_run_to_schema(r) for r in pager)
+            runs = (_v2_migration_utils._v2_run_to_schema(r, host_url=self._host_url) for r in pager)
         results: list[dict] = []
         example_ids = []
 
@@ -8041,18 +8041,25 @@ class Client:
             client = Client()
 
             inputs = {"x": 1}
-            with trace(name="foobar", inputs=inputs) as root_run:
+            with trace(name="foobar", inputs=inputs, client=client) as root_run:
                 result = foo(**inputs)
                 result = bar(**result)
                 root_run.outputs = result
                 trace_id = root_run.id
                 child_runs = root_run.child_runs
 
+            # The ID of the project (session) the runs were traced to. Runs are
+            # sent in the background, so flush first: the project is created
+            # when its first run arrives.
+            client.flush()
+            session_id = client.read_project(project_name=root_run.session_name).id
+
             # Provide feedback for a trace (a.k.a. a root run)
             client.create_feedback(
                 key="user_feedback",
                 score=1,
                 trace_id=trace_id,
+                session_id=session_id,
             )
 
             # Provide feedback for a child run
@@ -8064,6 +8071,7 @@ class Client:
                 # trace_id= is optional but recommended to enable batched and backgrounded
                 # feedback ingestion.
                 trace_id=trace_id,
+                session_id=session_id,
             )
             ```
         """
@@ -9166,6 +9174,11 @@ class Client:
         )
         ls_utils.raise_for_status_with_text(response)
 
+    @_deprecated(
+        "add_runs_to_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.annotation_queues.items.create() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs for the migration guide."
+    )
     def add_runs_to_annotation_queue(
         self,
         queue_id: ID_TYPE,
@@ -9175,15 +9188,19 @@ class Client:
     ) -> None:
         """Add runs to an annotation queue with the specified `queue_id`.
 
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.annotation_queues.items.create` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs for the migration guide.
+            Will be removed after Jan 31, 2027.
+
         Provide exactly one of `runs` or `run_ids`:
 
-        - `runs` (preferred): each entry carries the run's full lookup key
+        - `runs`: each entry carries the run's full lookup key
           (`run_id`, `session_id`, `start_time`, and an optional
           `source_proposed_example_id`). This lets the run be located directly,
           without a scan, and is required for workspaces served by SmithDB.
-        - `run_ids`: a plain list of run IDs. This path is deprecated and will
-          be removed after Jan 31, 2027; prefer `runs`.
-          See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs.
+        - `run_ids`: a plain list of run IDs.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue.
@@ -9202,13 +9219,6 @@ class Client:
             path = f"/annotation-queues/{_as_uuid(queue_id, 'queue_id')}/runs/by-key"
             json_body = [_serialize_run_key(run, i) for i, run in enumerate(runs)]
         elif run_ids is not None:
-            warnings.warn(
-                "The run_ids parameter of add_runs_to_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
-                "Use the runs parameter with RunKey objects instead. "
-                "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs for the migration guide.",
-                _LangSmithDeprecationWarning,
-                stacklevel=2,
-            )
             path = f"/annotation-queues/{_as_uuid(queue_id, 'queue_id')}/runs"
             json_body = [str(_as_uuid(id_, f"run_ids[{i}]")) for i, id_ in enumerate(run_ids)]
         else:
@@ -9216,8 +9226,19 @@ class Client:
         response = self.request_with_retries("POST", path, json=json_body)
         ls_utils.raise_for_status_with_text(response)
 
+    @_deprecated(
+        "delete_run_from_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.annotation_queues.items.delete_all() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration for the migration guide."
+    )
     def delete_run_from_annotation_queue(self, queue_id: ID_TYPE, *, run_id: ID_TYPE) -> None:
         """Delete a run from an annotation queue with the specified `queue_id` and `run_id`.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.annotation_queues.items.delete_all` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue.
@@ -9233,8 +9254,19 @@ class Client:
         )
         ls_utils.raise_for_status_with_text(response)
 
+    @_deprecated(
+        "get_run_from_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.annotation_queues.items.list() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide."
+    )
     def get_run_from_annotation_queue(self, queue_id: ID_TYPE, *, index: int) -> ls_schemas.RunWithAnnotationQueueInfo:
         """Get a run from an annotation queue at the specified index.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.annotation_queues.items.list` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue.
@@ -9256,6 +9288,11 @@ class Client:
         ls_utils.raise_for_status_with_text(response)
         return ls_schemas.RunWithAnnotationQueueInfo(**response.json())
 
+    @_deprecated(
+        "list_runs_from_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.annotation_queues.items.list() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide."
+    )
     def list_runs_from_annotation_queue(
         self,
         queue_id: ID_TYPE,
@@ -9264,6 +9301,12 @@ class Client:
         limit: Optional[int] = None,
     ) -> Iterator[ls_schemas.RunWithAnnotationQueueInfo]:
         """List runs in an annotation queue with the specified `queue_id`.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.annotation_queues.items.list` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue.

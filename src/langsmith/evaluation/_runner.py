@@ -1145,10 +1145,10 @@ def _load_traces_for_experiment(
     """Load nested traces for a given project."""
     is_root = None if load_nested else True
     runs: Iterable[schemas.Run]
-    # v1 `/runs/query` returns 501 when ClickHouse query support is disabled;
-    # only then fall back to v2. Dual backends keep using the legacy path.
+    # Use v2 wherever SmithDB serves queries; v1 `/runs/query` only works while
+    # ClickHouse does, so it stays for ClickHouse-only backends.
     backend = _v2_migration_utils.get_query_backend(client.info.instance_flags)
-    if backend == _v2_migration_utils.QueryBackend.SMITHDB_ONLY:
+    if backend != _v2_migration_utils.QueryBackend.CLICKHOUSE_ONLY:
         if not isinstance(project, schemas.TracerSession):
             project = _load_experiment(project, client)
         runs = _v2_migration_utils._load_traces_v2(project, client, is_root=is_root)

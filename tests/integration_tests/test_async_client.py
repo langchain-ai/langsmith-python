@@ -4,6 +4,7 @@ import uuid
 
 import pytest
 
+from langsmith import APIError
 from langsmith import utils as ls_utils
 from langsmith import uuid7
 from langsmith.async_client import AsyncClient
@@ -32,7 +33,7 @@ async def async_client():
     await client.aclose()
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @pytest.mark.asyncio
 @skip_if_rate_limited
 async def test_create_run(async_client: AsyncClient):
@@ -50,16 +51,21 @@ async def test_create_run(async_client: AsyncClient):
         start_time=start_time,
     )
 
+    async def read_run():
+        return await async_client.runs.retrieve_v2(
+            str(run_id), project_id=str(project_id), start_time=start_time, selects=["NAME", "INPUTS"]
+        )
+
     async def check_run():
         try:
-            run = await async_client.read_run(run_id, project_id=project_id)
+            run = await read_run()
             return run.name == "test_run"
-        except ls_utils.LangSmithError:
+        except APIError:
             return False
 
     await wait_for(check_run)
 
-    run = await async_client.read_run(run_id, project_id=project_id)
+    run = await read_run()
     assert run.name == "test_run"
     assert run.inputs == {"input": "hello"}
 

@@ -7,6 +7,7 @@ import re
 import pytest
 import vcr
 
+from langsmith import RateLimitError
 from langsmith import utils as ls_utils
 from langsmith._internal import _patch as patch_vcr
 
@@ -20,7 +21,7 @@ TEST_RUN_START = datetime.datetime.now(datetime.timezone.utc) - datetime.timedel
 
 
 def skip_if_rate_limited(fn):
-    """Decorator to skip a test if it raises LangSmithRateLimitError.
+    """Decorator to skip a test if it raises a LangSmith rate limit error.
 
     Works for both sync and async tests.
     """
@@ -31,7 +32,7 @@ def skip_if_rate_limited(fn):
         async def _async_wrapped(*args, **kwargs):
             try:
                 return await fn(*args, **kwargs)
-            except ls_utils.LangSmithRateLimitError as e:
+            except (ls_utils.LangSmithRateLimitError, RateLimitError) as e:
                 pytest.skip(f"LangSmith rate limited: {e}")
 
         return _async_wrapped
@@ -40,7 +41,7 @@ def skip_if_rate_limited(fn):
     def _wrapped(*args, **kwargs):
         try:
             return fn(*args, **kwargs)
-        except ls_utils.LangSmithRateLimitError as e:
+        except (ls_utils.LangSmithRateLimitError, RateLimitError) as e:
             pytest.skip(f"LangSmith rate limited: {e}")
 
     return _wrapped

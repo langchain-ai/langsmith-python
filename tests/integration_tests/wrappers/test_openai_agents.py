@@ -8,6 +8,7 @@ from agents import Agent, Runner, function_tool, set_trace_processors
 
 import langsmith
 from langsmith.wrappers import OpenAIAgentsTracingProcessor, wrap_openai
+from tests.integration_tests.conftest import TEST_RUN_START
 from tests.integration_tests.test_client import safe_delete_dataset
 
 LS_TEST_CLIENT_INFO = {
@@ -92,7 +93,7 @@ async def test_openai_agents_tracing_processor():
     assert "ls_integration_version" in metadata, agent_run
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @pytest.mark.xfail(reason="Flaky test - may fail intermittently")
 async def test_openai_agents_with_evaluate():
     client = langsmith.Client()
@@ -148,17 +149,29 @@ async def test_openai_agents_with_evaluate():
             blocking=True,
         )
         await asyncio.sleep(5)
-        experiment_results = client.get_experiment_results(name=experiment.experiment_name)
-        assert experiment_results["stats"].run_count == 1
-        assert experiment_results["stats"].feedback_stats.get("alignment", {}).get("n") == 1
-        assert experiment_results["stats"].feedback_stats.get("alignment", {}).get("avg") == 1
-        examples = list(experiment_results["examples_with_runs"])
-        assert len(examples) == 1
-        run = client.read_run(examples[0].runs[0].id, load_child_runs=True)
-        assert len(run.child_runs) == 1
-        assert run.child_runs[0].name == "Agent workflow"
-        assert len(run.child_runs[0].child_runs) == 1
-        assert run.child_runs[0].child_runs[0].name == "Captain Obvious"
+        project_id = str(client.read_project(project_name=experiment.experiment_name).id)
+        runs = [
+            run
+            async for run in client.runs.query_v2(
+                project_ids=[project_id],
+                min_start_time=TEST_RUN_START,
+                selects=["ID", "NAME", "PARENT_RUN_IDS", "FEEDBACK_STATS"],
+            )
+        ]
+
+        def children_of(parent_id: str) -> list:
+            return [r for r in runs if r.parent_run_ids and r.parent_run_ids[-1] == parent_id]
+
+        roots = [r for r in runs if not r.parent_run_ids]
+        assert len(roots) == 1
+        assert roots[0].feedback_stats["alignment"].n == 1
+        assert roots[0].feedback_stats["alignment"].avg == 1
+        agent_runs = children_of(roots[0].id)
+        assert len(agent_runs) == 1
+        assert agent_runs[0].name == "Agent workflow"
+        agent_children = children_of(agent_runs[0].id)
+        assert len(agent_children) == 1
+        assert agent_children[0].name == "Captain Obvious"
     finally:
         safe_delete_dataset(client, dataset_name=dataset_name)
 

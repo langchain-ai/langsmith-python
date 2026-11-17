@@ -22,9 +22,6 @@ from typing import (
 
 import langsmith
 from langsmith._internal import _openapi_auth
-from langsmith._internal._beta_decorator import (
-    LangSmithDeprecationWarning as _LangSmithDeprecationWarning,
-)
 from langsmith._internal._beta_decorator import deprecated as _deprecated
 from langsmith._internal._beta_decorator import (
     suppress_deprecation_warning as _suppress_deprecation_warning,
@@ -714,7 +711,7 @@ class AsyncClient:
             project_id=str(ls_client._as_uuid(project_id)),
             selects=_V2_RUN_SELECTS,
         )
-        return _v2_run_to_schema(run)
+        return _v2_run_to_schema(run, host_url=self._host_url)
 
     @_deprecated(
         "list_runs() is deprecated and will be removed after Jan 31, 2027. "
@@ -1594,6 +1591,11 @@ class AsyncClient:
         )
         ls_utils.raise_for_status_with_text(response)
 
+    @_deprecated(
+        "add_runs_to_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.annotation_queues.items.create() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs for the migration guide."
+    )
     async def add_runs_to_annotation_queue(
         self,
         queue_id: ID_TYPE,
@@ -1603,15 +1605,19 @@ class AsyncClient:
     ) -> None:
         """Add runs to an annotation queue with the specified `queue_id`.
 
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.annotation_queues.items.create` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs for the migration guide.
+            Will be removed after Jan 31, 2027.
+
         Provide exactly one of `runs` or `run_ids`:
 
-        - `runs` (preferred): each entry carries the run's full lookup key
+        - `runs`: each entry carries the run's full lookup key
           (`run_id`, `session_id`, `start_time`, and an optional
           `source_proposed_example_id`). This lets the run be located directly,
           without a scan, and is required for workspaces served by SmithDB.
-        - `run_ids`: a plain list of run IDs. This path is deprecated and will
-          be removed after Jan 31, 2027; prefer `runs`.
-          See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs.
+        - `run_ids`: a plain list of run IDs.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue.
@@ -1628,13 +1634,6 @@ class AsyncClient:
             path = f"{base}/by-key"
             json_body = [ls_client._serialize_run_key(run, i) for i, run in enumerate(runs)]
         elif run_ids is not None:
-            warnings.warn(
-                "The run_ids parameter of add_runs_to_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
-                "Use the runs parameter with RunKey objects instead. "
-                "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs for the migration guide.",
-                _LangSmithDeprecationWarning,
-                stacklevel=2,
-            )
             path = base
             json_body = [str(ls_client._as_uuid(id_, f"run_ids[{i}]")) for i, id_ in enumerate(run_ids)]
         else:
@@ -1642,8 +1641,19 @@ class AsyncClient:
         response = await self._arequest_with_retries("POST", path, json=json_body)
         ls_utils.raise_for_status_with_text(response)
 
+    @_deprecated(
+        "delete_run_from_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.annotation_queues.items.delete_all() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration for the migration guide."
+    )
     async def delete_run_from_annotation_queue(self, queue_id: ID_TYPE, *, run_id: ID_TYPE) -> None:
         """Delete a run from an annotation queue with the specified `queue_id` and `run_id`.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.annotation_queues.items.delete_all` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue.
@@ -1656,10 +1666,21 @@ class AsyncClient:
         )
         ls_utils.raise_for_status_with_text(response)
 
+    @_deprecated(
+        "get_run_from_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.annotation_queues.items.list() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide."
+    )
     async def get_run_from_annotation_queue(
         self, queue_id: ID_TYPE, *, index: int
     ) -> ls_schemas.RunWithAnnotationQueueInfo:
         """Get a run from an annotation queue at the specified index.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.annotation_queues.items.list` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue.
@@ -1677,6 +1698,11 @@ class AsyncClient:
         ls_utils.raise_for_status_with_text(response)
         return ls_schemas.RunWithAnnotationQueueInfo(**response.json())
 
+    @_deprecated(
+        "list_runs_from_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.annotation_queues.items.list() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide."
+    )
     async def list_runs_from_annotation_queue(
         self,
         queue_id: ID_TYPE,
@@ -1685,6 +1711,12 @@ class AsyncClient:
         limit: Optional[int] = None,
     ) -> AsyncIterator[ls_schemas.RunWithAnnotationQueueInfo]:
         """List runs in an annotation queue with the specified `queue_id`.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.annotation_queues.items.list` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue.
