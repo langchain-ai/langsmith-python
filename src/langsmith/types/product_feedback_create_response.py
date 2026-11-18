@@ -26,6 +26,6 @@ class ProductFeedbackCreateResponse(BaseModel):
 
     message: str
 
-    source: Literal["LANGSMITH_CLI"]
+    source: Literal["LANGSMITH_CLI", "LANGSMITH_MCP"]
 
     client: Optional[Client] = None
