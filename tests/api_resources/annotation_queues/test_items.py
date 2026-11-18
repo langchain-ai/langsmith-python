@@ -169,8 +169,10 @@ class TestItems:
         item = client.annotation_queues.items.list(
             queue_id="queue_id",
             status="needs_my_review",
+            agreement="disagreed",
             cursor="cursor",
             direction="forward",
+            has_unresolved_keys=True,
             item_type="RUN",
             max_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             min_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
@@ -336,7 +338,9 @@ class TestItems:
         item = client.annotation_queues.items.retrieve_count(
             queue_id="queue_id",
             status="status",
+            agreement="disagreed",
             end_time="end_time",
+            has_unresolved_keys=True,
             max_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             min_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             start_time="start_time",
@@ -582,8 +586,10 @@ class TestAsyncItems:
         item = await async_client.annotation_queues.items.list(
             queue_id="queue_id",
             status="needs_my_review",
+            agreement="disagreed",
             cursor="cursor",
             direction="forward",
+            has_unresolved_keys=True,
             item_type="RUN",
             max_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             min_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
@@ -749,7 +755,9 @@ class TestAsyncItems:
         item = await async_client.annotation_queues.items.retrieve_count(
             queue_id="queue_id",
             status="status",
+            agreement="disagreed",
             end_time="end_time",
+            has_unresolved_keys=True,
             max_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             min_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             start_time="start_time",

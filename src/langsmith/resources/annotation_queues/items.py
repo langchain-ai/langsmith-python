@@ -160,8 +160,10 @@ class ItemsResource(SyncAPIResource):
         queue_id: str,
         *,
         status: Literal["needs_my_review", "needs_others_review", "archived"],
+        agreement: Literal["disagreed"] | Omit = omit,
         cursor: str | Omit = omit,
         direction: Literal["forward", "backward"] | Omit = omit,
+        has_unresolved_keys: bool | Omit = omit,
         item_type: Literal["RUN", "THREAD"] | Omit = omit,
         max_start_time: Union[str, datetime] | Omit = omit,
         min_start_time: Union[str, datetime] | Omit = omit,
@@ -186,9 +188,18 @@ class ItemsResource(SyncAPIResource):
         Args:
           status: Review section: needs_my_review, needs_others_review, or archived
 
+          agreement: Only completed items whose reviewers disagreed on at least one rubric key.
+              Returns 501 unless multi-reviewer queues are on for the workspace. Requires
+              status=archived
+
           cursor: Opaque pagination cursor
 
           direction: Pagination direction. backward requires cursor
+
+          has_unresolved_keys: Only completed items that do (true) or do not (false) still have a disagreed
+              rubric key with no final answer. Items with no agreement result match neither
+              value. Returns 501 unless multi-reviewer queues are on for the workspace.
+              Requires status=archived
 
           item_type: Filter to RUN or THREAD
 
@@ -221,8 +232,10 @@ class ItemsResource(SyncAPIResource):
                 query=maybe_transform(
                     {
                         "status": status,
+                        "agreement": agreement,
                         "cursor": cursor,
                         "direction": direction,
+                        "has_unresolved_keys": has_unresolved_keys,
                         "item_type": item_type,
                         "max_start_time": max_start_time,
                         "min_start_time": min_start_time,
@@ -322,7 +335,9 @@ class ItemsResource(SyncAPIResource):
         queue_id: str,
         *,
         status: str,
+        agreement: Literal["disagreed"] | Omit = omit,
         end_time: str | Omit = omit,
+        has_unresolved_keys: bool | Omit = omit,
         max_start_time: Union[str, datetime] | Omit = omit,
         min_start_time: Union[str, datetime] | Omit = omit,
         start_time: str | Omit = omit,
@@ -343,7 +358,16 @@ class ItemsResource(SyncAPIResource):
         Args:
           status: Count bucket: all, needs_my_review, needs_others_review, or archived.
 
+          agreement: Count only completed items whose reviewers disagreed on at least one rubric key.
+              Returns 501 unless multi-reviewer queues are on for the workspace. Requires
+              status=archived
+
           end_time: Archived strictly before this time. Only used when status=archived
+
+          has_unresolved_keys: Count only completed items that do (true) or do not (false) still have a
+              disagreed rubric key with no final answer. Items with no agreement result match
+              neither value. Returns 501 unless multi-reviewer queues are on for the
+              workspace. Requires status=archived
 
           max_start_time: Trace started at or before this time
 
@@ -371,7 +395,9 @@ class ItemsResource(SyncAPIResource):
                 query=maybe_transform(
                     {
                         "status": status,
+                        "agreement": agreement,
                         "end_time": end_time,
+                        "has_unresolved_keys": has_unresolved_keys,
                         "max_start_time": max_start_time,
                         "min_start_time": min_start_time,
                         "start_time": start_time,
@@ -548,8 +574,10 @@ class AsyncItemsResource(AsyncAPIResource):
         queue_id: str,
         *,
         status: Literal["needs_my_review", "needs_others_review", "archived"],
+        agreement: Literal["disagreed"] | Omit = omit,
         cursor: str | Omit = omit,
         direction: Literal["forward", "backward"] | Omit = omit,
+        has_unresolved_keys: bool | Omit = omit,
         item_type: Literal["RUN", "THREAD"] | Omit = omit,
         max_start_time: Union[str, datetime] | Omit = omit,
         min_start_time: Union[str, datetime] | Omit = omit,
@@ -574,9 +602,18 @@ class AsyncItemsResource(AsyncAPIResource):
         Args:
           status: Review section: needs_my_review, needs_others_review, or archived
 
+          agreement: Only completed items whose reviewers disagreed on at least one rubric key.
+              Returns 501 unless multi-reviewer queues are on for the workspace. Requires
+              status=archived
+
           cursor: Opaque pagination cursor
 
           direction: Pagination direction. backward requires cursor
+
+          has_unresolved_keys: Only completed items that do (true) or do not (false) still have a disagreed
+              rubric key with no final answer. Items with no agreement result match neither
+              value. Returns 501 unless multi-reviewer queues are on for the workspace.
+              Requires status=archived
 
           item_type: Filter to RUN or THREAD
 
@@ -609,8 +646,10 @@ class AsyncItemsResource(AsyncAPIResource):
                 query=maybe_transform(
                     {
                         "status": status,
+                        "agreement": agreement,
                         "cursor": cursor,
                         "direction": direction,
+                        "has_unresolved_keys": has_unresolved_keys,
                         "item_type": item_type,
                         "max_start_time": max_start_time,
                         "min_start_time": min_start_time,
@@ -710,7 +749,9 @@ class AsyncItemsResource(AsyncAPIResource):
         queue_id: str,
         *,
         status: str,
+        agreement: Literal["disagreed"] | Omit = omit,
         end_time: str | Omit = omit,
+        has_unresolved_keys: bool | Omit = omit,
         max_start_time: Union[str, datetime] | Omit = omit,
         min_start_time: Union[str, datetime] | Omit = omit,
         start_time: str | Omit = omit,
@@ -731,7 +772,16 @@ class AsyncItemsResource(AsyncAPIResource):
         Args:
           status: Count bucket: all, needs_my_review, needs_others_review, or archived.
 
+          agreement: Count only completed items whose reviewers disagreed on at least one rubric key.
+              Returns 501 unless multi-reviewer queues are on for the workspace. Requires
+              status=archived
+
           end_time: Archived strictly before this time. Only used when status=archived
+
+          has_unresolved_keys: Count only completed items that do (true) or do not (false) still have a
+              disagreed rubric key with no final answer. Items with no agreement result match
+              neither value. Returns 501 unless multi-reviewer queues are on for the
+              workspace. Requires status=archived
 
           max_start_time: Trace started at or before this time
 
@@ -759,7 +809,9 @@ class AsyncItemsResource(AsyncAPIResource):
                 query=await async_maybe_transform(
                     {
                         "status": status,
+                        "agreement": agreement,
                         "end_time": end_time,
+                        "has_unresolved_keys": has_unresolved_keys,
                         "max_start_time": max_start_time,
                         "min_start_time": min_start_time,
                         "start_time": start_time,
