@@ -73,7 +73,11 @@ class StreamingResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Stream[QueryPatchEvent]:
-        """
+        """GET with body payload — no resources created.
+
+        Returns the traces matching the
+        query passed as the request payload.
+
         Returns a paginated list of traces (root runs) for a single tracing project.
         Each item carries the trace's root run plus optional trace-wide aggregates
         (`total_tokens`, `total_cost`, `first_token_time`) under `trace_aggregates`, so
@@ -268,7 +272,11 @@ class AsyncStreamingResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncStream[QueryPatchEvent]:
-        """
+        """GET with body payload — no resources created.
+
+        Returns the traces matching the
+        query passed as the request payload.
+
         Returns a paginated list of traces (root runs) for a single tracing project.
         Each item carries the trace's root run plus optional trace-wide aggregates
         (`total_tokens`, `total_cost`, `first_token_time`) under `trace_aggregates`, so
