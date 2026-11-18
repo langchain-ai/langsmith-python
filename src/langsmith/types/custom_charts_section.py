@@ -683,6 +683,7 @@ class ChartSingleCustomChartResponseSerializedSeries(BaseModel):
             "startable_runs_wait_max_by_priority",
             "startable_runs_by_priority",
             "running_runs_by_priority",
+            "out_of_memory_restarts",
         ]
     ] = None
     """LGP Metrics you can chart."""
@@ -1340,6 +1341,7 @@ class SubSectionChartSeries(BaseModel):
             "startable_runs_wait_max_by_priority",
             "startable_runs_by_priority",
             "running_runs_by_priority",
+            "out_of_memory_restarts",
         ]
     ] = None
     """LGP Metrics you can chart."""
