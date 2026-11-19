@@ -833,10 +833,10 @@ def _is_localhost(url: str) -> bool:
         True if the URL is localhost, False otherwise.
     """
     try:
-        netloc = urllib_parse.urlsplit(url).netloc.split(":")[0].lower().strip("[]")
-        if netloc in _LOCALHOST_NAMES:
+        hostname = urllib_parse.urlsplit(url).hostname or ""
+        if hostname in _LOCALHOST_NAMES:
             return True
-        ip = socket.gethostbyname(netloc)
+        ip = socket.gethostbyname(hostname)
         return ip == "127.0.0.1" or ip.startswith("0.0.0.0") or ip.startswith("::")
     except (socket.gaierror, RuntimeError):
         # RuntimeError catches pytest-socket's SocketBlockedError in test environments
