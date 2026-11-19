@@ -162,7 +162,11 @@ class RunsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncItemsCursorPostPagination[Run]:
-        """
+        """GET with body payload — no resources created.
+
+        Returns the runs matching the
+        query passed as the request payload.
+
         Returns a paginated list of runs for the given projects within min/max
         start_time. Supports filters, cursor pagination, and `selects` to select fields
         to return.
@@ -546,7 +550,11 @@ class AsyncRunsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Run, AsyncItemsCursorPostPagination[Run]]:
-        """
+        """GET with body payload — no resources created.
+
+        Returns the runs matching the
+        query passed as the request payload.
+
         Returns a paginated list of runs for the given projects within min/max
         start_time. Supports filters, cursor pagination, and `selects` to select fields
         to return.

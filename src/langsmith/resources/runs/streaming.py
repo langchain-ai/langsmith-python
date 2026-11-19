@@ -83,7 +83,11 @@ class StreamingResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Stream[QueryPatchEvent]:
-        """
+        """GET with body payload — no resources created.
+
+        Returns the runs matching the
+        query passed as the request payload.
+
         Returns a paginated list of runs for the given projects within min/max
         start_time. Supports filters, cursor pagination, and `selects` to select fields
         to return.
@@ -328,7 +332,11 @@ class AsyncStreamingResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncStream[QueryPatchEvent]:
-        """
+        """GET with body payload — no resources created.
+
+        Returns the runs matching the
+        query passed as the request payload.
+
         Returns a paginated list of runs for the given projects within min/max
         start_time. Supports filters, cursor pagination, and `selects` to select fields
         to return.
