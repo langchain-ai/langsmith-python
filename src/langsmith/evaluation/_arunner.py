@@ -1196,7 +1196,10 @@ class _AsyncExperimentManager(_ExperimentManagerMixin):
         }
         full_args = list(args) + list(default_args[len(args) :])
         full_kwargs = {**default_kwargs, **kwargs}
-        return self.__class__(*full_args, **full_kwargs)
+        manager = self.__class__(*full_args, **full_kwargs)
+        if full_kwargs["experiment"] is None:
+            manager._experiment_name = self._experiment_name
+        return manager
 
 
 class AsyncExperimentResults:

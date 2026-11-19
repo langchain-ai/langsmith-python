@@ -23,6 +23,7 @@ import pytest
 from langchain_core.runnables import chain as as_runnable
 
 from langsmith import Client, aevaluate, evaluate
+from langsmith import run_helpers as rh
 from langsmith import schemas as ls_schemas
 from langsmith._internal._v2_migration_utils import _v2_run_to_schema
 from langsmith.evaluation import evaluate_comparative
@@ -701,10 +702,12 @@ async def test_aevaluate_disable_evaluator_tracing(
 
 
 @pytest.mark.skipif(sys.version_info < (3, 9), reason="requires python3.9 or higher")
-@pytest.mark.parametrize("blocking", [False, True])
+@pytest.mark.parametrize("blocking,upload_parameter", [(False, "upload_runs"), (True, "upload_results")])
 @pytest.mark.parametrize("as_runnable", [False, True])
 @pytest.mark.parametrize("upload_results", [False, True])
-def test_evaluate_results(blocking: bool, as_runnable: bool, upload_results: bool) -> None:
+def test_evaluate_results(
+    blocking: bool, as_runnable: bool, upload_results: bool, upload_parameter: str, capsys
+) -> None:
     session = mock.Mock()
     ds_name = "my-dataset"
     ds_id = "00886375-eb2a-4038-9032-efff60309896"
@@ -734,6 +737,8 @@ def test_evaluate_results(blocking: bool, as_runnable: bool, upload_results: boo
     client._tenant_id = uuid.UUID(tenant_id)
 
     ordering_of_stuff: List[str] = []
+    evaluator_experiments = []
+    summary_experiments = []
     locked = False
 
     lock = Lock()
@@ -766,6 +771,7 @@ def test_evaluate_results(blocking: bool, as_runnable: bool, upload_results: boo
             predict = RunnableLambda(predict)
 
     def score_value_first(run, example):
+        evaluator_experiments.append(rh.get_tracing_context()["metadata"]["experiment"])
         ordering_of_stuff.append("evaluate")
         return {"score": 0.3}
 
@@ -801,6 +807,7 @@ def test_evaluate_results(blocking: bool, as_runnable: bool, upload_results: boo
         ]
 
     def summary_eval_runs_examples(runs_, examples_):
+        summary_experiments.append(rh.get_tracing_context()["metadata"]["experiment"])
         return {"score": len(runs_[0].dotted_order)}
 
     def summary_eval_inputs_outputs(inputs, outputs):
@@ -833,8 +840,9 @@ def test_evaluate_results(blocking: bool, as_runnable: bool, upload_results: boo
         evaluators=evaluators,
         summary_evaluators=summary_evaluators,
         num_repetitions=NUM_REPETITIONS,
+        experiment_prefix="my-exp",
         blocking=blocking,
-        upload_results=upload_results,
+        **{upload_parameter: upload_results},
         max_concurrency=None,
     )
     if not blocking:
@@ -858,6 +866,8 @@ def test_evaluate_results(blocking: bool, as_runnable: bool, upload_results: boo
         assert total_quick > (SPLIT_SIZE * NUM_REPETITIONS - 1) - tolerance
 
     for r in results:
+        if not upload_results:
+            assert r["run"].session_name == results.experiment_name
         assert r["run"].outputs["output"] == r["example"].inputs["in"] + 1  # type: ignore
         assert set(r["run"].outputs.keys()) == {"output"}  # type: ignore
         assert len(r["evaluation_results"]["results"]) == len(evaluators) + 1
@@ -874,6 +884,10 @@ def test_evaluate_results(blocking: bool, as_runnable: bool, upload_results: boo
         assert ordering_of_stuff[:N_PREDS] != ["predict"] * N_PREDS
     else:
         assert not fake_request.created_session
+        assert capsys.readouterr().out.strip() == f"Starting evaluation of experiment: {results.experiment_name}"
+        assert results.experiment_name.startswith("my-exp-")
+        assert set(evaluator_experiments) == {results.experiment_name}
+        assert set(summary_experiments) == {results.experiment_name}
 
     # It's delayed, so it'll be the penultimate event
     # Will run all other preds and evals, then this, then the last eval
@@ -992,7 +1006,7 @@ def test_evaluate_raises_for_async():
 @pytest.mark.parametrize("blocking", [False, True])
 @pytest.mark.parametrize("as_runnable", [False, True])
 @pytest.mark.parametrize("upload_results", [False, True])
-async def test_aevaluate_results(blocking: bool, as_runnable: bool, upload_results: bool) -> None:
+async def test_aevaluate_results(blocking: bool, as_runnable: bool, upload_results: bool, capsys) -> None:
     session = mock.Mock()
     ds_name = "my-dataset"
     ds_id = "00886375-eb2a-4038-9032-efff60309896"
@@ -1022,6 +1036,8 @@ async def test_aevaluate_results(blocking: bool, as_runnable: bool, upload_resul
     client._tenant_id = uuid.UUID(tenant_id)
 
     ordering_of_stuff: List[str] = []
+    evaluator_experiments = []
+    summary_experiments = []
     locked = False
 
     lock = asyncio.Lock()
@@ -1055,6 +1071,7 @@ async def test_aevaluate_results(blocking: bool, as_runnable: bool, upload_resul
             predict = RunnableLambda(predict)
 
     async def score_value_first(run, example):
+        evaluator_experiments.append(rh.get_tracing_context()["metadata"]["experiment"])
         ordering_of_stuff.append("evaluate")
         return {"score": 0.3}
 
@@ -1090,6 +1107,7 @@ async def test_aevaluate_results(blocking: bool, as_runnable: bool, upload_resul
         ]
 
     def summary_eval_runs_examples(runs_, examples_):
+        summary_experiments.append(rh.get_tracing_context()["metadata"]["experiment"])
         return {"score": len(runs_[0].dotted_order)}
 
     def summary_eval_inputs_outputs(inputs, outputs):
@@ -1122,6 +1140,7 @@ async def test_aevaluate_results(blocking: bool, as_runnable: bool, upload_resul
         evaluators=evaluators,
         summary_evaluators=summary_evaluators,
         num_repetitions=NUM_REPETITIONS,
+        experiment_prefix="my-exp",
         blocking=blocking,
         upload_results=upload_results,
         max_concurrency=None,
@@ -1150,6 +1169,8 @@ async def test_aevaluate_results(blocking: bool, as_runnable: bool, upload_resul
         assert max(deltas) > (total / 3)
 
     async for r in results:
+        if not upload_results:
+            assert r["run"].session_name == results.experiment_name
         assert r["run"].outputs["output"] == r["example"].inputs["in"] + 1  # type: ignore
         assert set(r["run"].outputs.keys()) == {"output"}  # type: ignore
         assert all(er.score is not None or er.value is not None for er in r["evaluation_results"]["results"])
@@ -1172,6 +1193,10 @@ async def test_aevaluate_results(blocking: bool, as_runnable: bool, upload_resul
         assert fake_request.created_session["name"]
     else:
         assert not fake_request.created_session
+        assert capsys.readouterr().out.strip() == f"Starting evaluation of experiment: {results.experiment_name}"
+        assert results.experiment_name.startswith("my-exp-")
+        assert set(evaluator_experiments) == {results.experiment_name}
+        assert set(summary_experiments) == {results.experiment_name}
 
     async def score_value(run, example):
         return {"score": 0.7}

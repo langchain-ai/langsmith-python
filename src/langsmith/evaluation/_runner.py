@@ -1371,9 +1371,8 @@ class _ExperimentManagerMixin:
                 f"View the evaluation results for experiment: '{self.experiment_name}' at:\n{comparison_url}\n\n"
             )
         else:
-            # HACKHACK
             print(  # noqa: T201
-                "Starting evaluation of experiment: %s", self.experiment_name
+                f"Starting evaluation of experiment: {self.experiment_name}"
             )
 
 
@@ -1922,7 +1921,10 @@ class _ExperimentManager(_ExperimentManagerMixin):
         }
         full_args = list(args) + list(default_args[len(args) :])
         full_kwargs = {**default_kwargs, **kwargs}
-        return self.__class__(*full_args, **full_kwargs)
+        manager = self.__class__(*full_args, **full_kwargs)
+        if full_kwargs["experiment"] is None:
+            manager._experiment_name = self._experiment_name
+        return manager
 
 
 def _pop_upload_runs(upload_runs: Optional[UPLOAD_RUNS_T], kwargs: dict[str, Any]) -> UPLOAD_RUNS_T:
