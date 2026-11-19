@@ -839,34 +839,42 @@ async def test_load_child_runs_populates_tree(langchain_client: Client):
     def child_fn(x: int) -> int:
         return x + 1
 
-    parent_fn(
-        1,
-        langsmith_extra=dict(project_name=project_name, metadata={"test_run": run_meta}),
-    )
-    filter_ = f'and(eq(metadata_key,"test_run"),eq(metadata_value,"{run_meta}"))'
-    await poll_runs_until_count(langchain_client, project_name, 2, max_retries=20, filter_=filter_)
-
-    # Get the root run from the API — no child_runs yet.
-    [parent] = list(
-        langchain_client.list_runs(
-            start_time=TEST_RUN_START,
-            project_name=project_name,
-            filter=filter_,
-            execution_order=1,
+    project = langchain_client.create_project(project_name)
+    try:
+        parent_fn(
+            1,
+            langsmith_extra=dict(project_name=project_name, metadata={"test_run": run_meta}),
         )
-    )
-    assert parent.child_runs is None or parent.child_runs == []
+        filter_ = f'and(eq(metadata_key,"test_run"),eq(metadata_value,"{run_meta}"))'
+        for _ in range(20):
+            parents = list(
+                langchain_client.list_runs(
+                    start_time=TEST_RUN_START,
+                    project_id=project.id,
+                    filter=filter_,
+                    execution_order=1,
+                )
+            )
+            if parents:
+                [parent] = parents
+                assert parent.child_runs is None or parent.child_runs == []
+                populated = langchain_client._load_child_runs(parent)
+                if populated.child_runs:
+                    break
+            await asyncio.sleep(2)
+        else:
+            pytest.fail(f"Legacy run queries did not return a parent with children for {project_name}")
 
-    populated = langchain_client._load_child_runs(parent)
-
-    assert populated.child_runs is not None
-    assert len(populated.child_runs) == 1
-    child = populated.child_runs[0]
-    # run_type must be lowercase regardless of path (v2 uppercases it on the wire)
-    assert child.run_type == "llm"
-    # status must also be lowercase
-    assert child.status in {"success", "error"}
-    assert child.parent_run_id == parent.id
+        assert populated.child_runs is not None
+        assert len(populated.child_runs) == 1
+        child = populated.child_runs[0]
+        # run_type must be lowercase regardless of path (v2 uppercases it on the wire)
+        assert child.run_type == "llm"
+        # status must also be lowercase
+        assert child.status in {"success", "error"}
+        assert child.parent_run_id == parent.id
+    finally:
+        langchain_client.delete_project(project_id=project.id)
 
 
 def poll_nested_traces_until_tree(
