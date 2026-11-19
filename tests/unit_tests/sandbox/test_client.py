@@ -772,6 +772,29 @@ class TestSandboxOperations:
         assert sandbox.preserve_memory_on_stop is True
         assert sandbox.labels == {"env": "prod", "team": "agents"}
 
+    def test_create_sandbox_tag_value_ids(self, client: SandboxClient, httpx_mock: HTTPXMock):
+        """Tag value IDs are sent only when set, as a list."""
+        for _ in range(2):
+            httpx_mock.add_response(
+                method="POST",
+                url="http://test-server:8080/boxes",
+                json={"name": "test-sandbox", "dataplane_url": "https://sandbox-router.example.com/sb-123"},
+                status_code=201,
+            )
+
+        client.create_sandbox(snapshot_id="snap-1", tag_value_ids=("0a1b2c3d-0000-7000-8000-000000000001",))
+        client.create_sandbox(snapshot_id="snap-1")
+
+        import json
+
+        set_payload, unset_payload = (json.loads(r.content) for r in httpx_mock.get_requests())
+        assert set_payload["tag_value_ids"] == ["0a1b2c3d-0000-7000-8000-000000000001"]
+        assert "tag_value_ids" not in unset_payload
+
+    def test_create_sandbox_tag_value_ids_rejects_a_string(self, client: SandboxClient):
+        with pytest.raises(TypeError, match="tag_value_ids"):
+            client.create_sandbox(snapshot_id="snap-1", tag_value_ids="0a1b2c3d-0000-7000-8000-000000000001")
+
     def test_create_sandbox_retention_validation_negative(self, client: SandboxClient):
         """Negative retention values raise ValueError."""
         with pytest.raises(ValueError, match="must be >= 0"):

@@ -680,6 +680,29 @@ class TestAsyncSandboxOperations:
         assert "idle_ttl_seconds" not in payload
         assert "delete_after_stop_seconds" not in payload
 
+    async def test_create_sandbox_tag_value_ids(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
+        """Tag value IDs are sent only when set, as a list."""
+        for _ in range(2):
+            httpx_mock.add_response(
+                method="POST",
+                url="http://test-server:8080/boxes",
+                json={"name": "test-sandbox", "dataplane_url": "https://sandbox-router.example.com/tenant/sb-123"},
+                status_code=201,
+            )
+
+        await client.create_sandbox(snapshot_id="snap-1", tag_value_ids=("0a1b2c3d-0000-7000-8000-000000000001",))
+        await client.create_sandbox(snapshot_id="snap-1")
+
+        import json
+
+        set_payload, unset_payload = (json.loads(r.content) for r in httpx_mock.get_requests())
+        assert set_payload["tag_value_ids"] == ["0a1b2c3d-0000-7000-8000-000000000001"]
+        assert "tag_value_ids" not in unset_payload
+
+    async def test_create_sandbox_tag_value_ids_rejects_a_string(self, client: AsyncSandboxClient):
+        with pytest.raises(TypeError, match="tag_value_ids"):
+            await client.create_sandbox(snapshot_id="snap-1", tag_value_ids="0a1b2c3d-0000-7000-8000-000000000001")
+
     async def test_create_sandbox_memory_and_labels(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Memory and label options are sent only when set and read back from the response."""
         httpx_mock.add_response(

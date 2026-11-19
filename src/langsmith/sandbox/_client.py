@@ -522,6 +522,7 @@ class SandboxClient:
         mem_bytes: Optional[int] = None,
         fs_capacity_bytes: Optional[int] = None,
         labels: Optional[dict[str, str]] = None,
+        tag_value_ids: Optional[Sequence[str]] = None,
         mount_config: Optional[SandboxMountConfig] = None,
         proxy_config: Optional[SandboxProxyConfig] = None,
         run_config: Optional[Union[RunConfig, dict[str, Any]]] = None,
@@ -574,6 +575,11 @@ class SandboxClient:
             labels: Free-form key/value metadata stored with the sandbox and
                 returned on reads. Labels from the source snapshot are
                 inherited unless overridden here.
+            tag_value_ids: IDs of governed LangSmith tag values to attach to the
+                sandbox. A cloud identity scoped to a tag (``subject_scope``
+                ``"tag:<id>"`` in a ``proxy_config`` or ``mount_config`` rule)
+                needs that tag here: the identity is fixed when the sandbox is
+                created.
             run_config: User, working directory and environment the sandbox
                 boots with, overriding the snapshot's: ``user`` and
                 ``work_dir`` replace, ``env_vars`` merge. The sandbox's own
@@ -652,6 +658,10 @@ class SandboxClient:
             payload["fs_capacity_bytes"] = fs_capacity_bytes
         if labels is not None:
             payload["labels"] = labels
+        if tag_value_ids is not None:
+            if isinstance(tag_value_ids, str):
+                raise TypeError("tag_value_ids must be a sequence of tag value IDs, not a string")
+            payload["tag_value_ids"] = list(tag_value_ids)
         if mount_config is not None:
             validate_mount_config_proxy_config(mount_config, proxy_config)
             payload["mount_config"] = mount_config
