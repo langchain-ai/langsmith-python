@@ -404,6 +404,7 @@ from langsmith.types.annotation_queues import (
     ItemDeleteAllResponse,
     ItemRetrieveCountResponse,
     ItemRetrievePlacementResponse,
+    ItemSetFinalResponse,
 )
 ```
 
@@ -412,10 +413,12 @@ Methods:
 - <code title="post /api/v1/platform/annotation-queues/{queue_id}/items">client.annotation_queues.items.<a href="./src/langsmith/resources/annotation_queues/items.py">create</a>(queue_id, \*\*<a href="src/langsmith/types/annotation_queues/item_create_params.py">params</a>) -> <a href="./src/langsmith/types/annotation_queues/item_create_response.py">ItemCreateResponse</a></code>
 - <code title="patch /api/v1/platform/annotation-queues/{queue_id}/items/{item_id}">client.annotation_queues.items.<a href="./src/langsmith/resources/annotation_queues/items.py">update</a>(item_id, \*, queue_id, \*\*<a href="src/langsmith/types/annotation_queues/item_update_params.py">params</a>) -> <a href="./src/langsmith/types/annotation_queues/item_update_response.py">ItemUpdateResponse</a></code>
 - <code title="get /api/v1/platform/annotation-queues/{queue_id}/items">client.annotation_queues.items.<a href="./src/langsmith/resources/annotation_queues/items.py">list</a>(queue_id, \*\*<a href="src/langsmith/types/annotation_queues/item_list_params.py">params</a>) -> <a href="./src/langsmith/types/annotation_queues/item_list_response.py">SyncItemsCursorGetPagination[ItemListResponse]</a></code>
+- <code title="delete /api/v1/platform/annotation-queues/{queue_id}/items/{item_id}/finals/{key}">client.annotation_queues.items.<a href="./src/langsmith/resources/annotation_queues/items.py">clear_final</a>(key, \*, queue_id, item_id) -> None</code>
 - <code title="post /api/v1/platform/annotation-queues/items/{queue_item_id}/status">client.annotation_queues.items.<a href="./src/langsmith/resources/annotation_queues/items.py">create_status</a>(queue_item_id, \*\*<a href="src/langsmith/types/annotation_queues/item_create_status_params.py">params</a>) -> <a href="./src/langsmith/types/annotation_queues/item_create_status_response.py">ItemCreateStatusResponse</a></code>
 - <code title="post /api/v1/platform/annotation-queues/{queue_id}/items/delete">client.annotation_queues.items.<a href="./src/langsmith/resources/annotation_queues/items.py">delete_all</a>(queue_id, \*\*<a href="src/langsmith/types/annotation_queues/item_delete_all_params.py">params</a>) -> <a href="./src/langsmith/types/annotation_queues/item_delete_all_response.py">ItemDeleteAllResponse</a></code>
 - <code title="get /api/v1/platform/annotation-queues/{queue_id}/items/count">client.annotation_queues.items.<a href="./src/langsmith/resources/annotation_queues/items.py">retrieve_count</a>(queue_id, \*\*<a href="src/langsmith/types/annotation_queues/item_retrieve_count_params.py">params</a>) -> <a href="./src/langsmith/types/annotation_queues/item_retrieve_count_response.py">ItemRetrieveCountResponse</a></code>
 - <code title="get /api/v1/platform/annotation-queues/{queue_id}/items/{item_id}/placement">client.annotation_queues.items.<a href="./src/langsmith/resources/annotation_queues/items.py">retrieve_placement</a>(item_id, \*, queue_id) -> <a href="./src/langsmith/types/annotation_queues/item_retrieve_placement_response.py">ItemRetrievePlacementResponse</a></code>
+- <code title="put /api/v1/platform/annotation-queues/{queue_id}/items/{item_id}/finals/{key}">client.annotation_queues.items.<a href="./src/langsmith/resources/annotation_queues/items.py">set_final</a>(key, \*, queue_id, item_id, \*\*<a href="src/langsmith/types/annotation_queues/item_set_final_params.py">params</a>) -> <a href="./src/langsmith/types/annotation_queues/item_set_final_response.py">ItemSetFinalResponse</a></code>
 
 # PromptWebhooks
 
