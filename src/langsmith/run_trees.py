@@ -206,6 +206,8 @@ _REPLICAS = contextvars.ContextVar[Optional[Sequence[WriteReplica]]]("_REPLICAS"
 
 _DISTRIBUTED_PARENT_ID = contextvars.ContextVar[Optional[str]]("_DISTRIBUTED_PARENT_ID", default=None)
 
+_UNMERGED_PARENT_IDS = contextvars.ContextVar[frozenset[UUID]]("_UNMERGED_PARENT_IDS", default=frozenset())
+
 _SENTINEL = cast(None, object())
 
 
@@ -740,6 +742,8 @@ class RunTree(ls_schemas.RunBase):
             child_extra = {}
             child_meta = {}
         parent_meta = (self.extra or {}).get("metadata") or {}
+        if self.id in _UNMERGED_PARENT_IDS.get():
+            parent_meta = {}
         child_extra["metadata"] = {**parent_meta, **child_meta}
         # upfront resolution of start_time so run_id can be derived from it.
         child_start_time = start_time or datetime.now(timezone.utc)

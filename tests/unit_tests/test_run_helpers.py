@@ -41,6 +41,7 @@ from langsmith.run_helpers import (
     _processing_failed,
     as_runnable,
     get_current_run_tree,
+    get_tracing_context,
     is_traceable_function,
     trace,
     traceable,
@@ -2625,6 +2626,57 @@ def test_tracing_context_replicas_apply_to_distributed_root_run(parent_kind: str
     assert seen["nested_replicas"] == replicas
     # No reroot: the downstream root still points at the real upstream run id.
     assert seen["parent_run_id"] == upstream.id
+
+
+@pytest.mark.parametrize(
+    ("inherit_kwargs", "expected_tags", "expected_metadata"),
+    [
+        ({}, ["call", "step"], {"step_only": True}),
+        ({"inherit_parent_tags_and_metadata": False}, ["call"], {}),
+    ],
+)
+def test_tracing_context_inherit_parent_tags_and_metadata_controls_what_runs_get(
+    inherit_kwargs: dict[str, bool], expected_tags: list[str], expected_metadata: dict[str, Any]
+):
+    step = RunTree(name="step", run_type="chain", tags=["step"], extra={"metadata": {"step_only": True}})
+    other = RunTree(name="other", run_type="chain")
+    seen = {}
+
+    def labels(run: RunTree) -> dict[str, Any]:
+        return {key: run.metadata[key] for key in ("step_only", "label", "call_only") if key in run.metadata}
+
+    @traceable(run_type="llm", name="call", metadata={"call_only": True})
+    def call():
+        call_run = get_current_run_tree()
+        seen["call"] = labels(call_run)
+        seen["call_child"] = labels(call_run.create_child(name="call_child", run_type="chain"))
+
+    with tracing_context(enabled="local"):
+        with tracing_context(parent=step, tags=["call"], metadata={"label": "call"}, **inherit_kwargs):
+            context = get_tracing_context()
+            call()
+            with trace(name="block", run_type="chain") as block:
+                seen["block"] = labels(block)
+            with tracing_context(parent=step):
+                seen["step_child_merged_again"] = labels(step.create_child(name="again", run_type="chain"))
+            with tracing_context(**get_tracing_context()):
+                seen["step_child_restored"] = labels(step.create_child(name="restored", run_type="chain"))
+            seen["step_child"] = labels(step.create_child(name="step_child", run_type="chain"))
+            with tracing_context(parent=other, inherit_parent_tags_and_metadata=False):
+                seen["step_child_beside_other"] = labels(step.create_child(name="beside", run_type="chain"))
+        seen["after"] = labels(step.create_child(name="after", run_type="chain"))
+
+    assert context["tags"] == expected_tags
+    assert seen == {
+        "call": {**expected_metadata, "label": "call", "call_only": True},
+        "call_child": {**expected_metadata, "label": "call", "call_only": True},
+        "block": {**expected_metadata, "label": "call"},
+        "step_child": expected_metadata,
+        "step_child_beside_other": expected_metadata,
+        "step_child_restored": expected_metadata,
+        "step_child_merged_again": {"step_only": True},
+        "after": {"step_only": True},
+    }
 
 
 def _clean_agent_addressing_env(monkeypatch: pytest.MonkeyPatch, **values: str) -> None:

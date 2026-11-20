@@ -180,6 +180,7 @@ def tracing_context(
     client: Optional[ls_client.Client] = None,
     replicas: Optional[Sequence[Union[WriteReplica, str]]] = None,
     distributed_parent_id: Optional[str] = None,
+    inherit_parent_tags_and_metadata: bool = True,
     **kwargs: Any,
 ) -> Generator[None, None, None]:
     """Set the tracing context for a block of code.
@@ -205,6 +206,7 @@ def tracing_context(
             Example: `[{"api_url": "https://api.example.com", "auth": {"api_key": "key"}, "project_name": "proj"}]`
             or `[{"project_name": "my_experiment", "updates": {"reference_example_id": None}}]`
         distributed_parent_id: The distributed parent ID for distributed tracing. Defaults to None.
+        inherit_parent_tags_and_metadata: Whether runs in this block also get the parent run's tags and metadata. Defaults to True.
     """
     if kwargs:
         # warn
@@ -230,9 +232,10 @@ def tracing_context(
     )
     distributed_parent_id_to_use = distributed_parent_id
     if distributed_parent_id_to_use is None and parent_run is not None:
-        # TODO(angus): decide if we want to merge tags and metadata
-        tags = sorted(set(tags or []) | set(parent_run.tags or []))
-        metadata = {**parent_run.metadata, **(metadata or {})}
+        if inherit_parent_tags_and_metadata:
+            # TODO(angus): decide if we want to merge tags and metadata
+            tags = sorted(set(tags or []) | set(parent_run.tags or []))
+            metadata = {**parent_run.metadata, **(metadata or {})}
         distributed_parent_id_to_use = parent_run.id  # type: ignore[assignment]
     enabled = enabled if enabled is not None else current_context.get("enabled")
     _set_tracing_context(
@@ -248,10 +251,17 @@ def tracing_context(
             "distributed_parent_id": distributed_parent_id_to_use,
         }
     )
+    previous_unmerged_parent_ids = run_trees._UNMERGED_PARENT_IDS.get()
+    if parent_run is not None:
+        if not inherit_parent_tags_and_metadata:
+            run_trees._UNMERGED_PARENT_IDS.set(previous_unmerged_parent_ids | {parent_run.id})
+        elif distributed_parent_id is None:
+            run_trees._UNMERGED_PARENT_IDS.set(previous_unmerged_parent_ids - {parent_run.id})
     try:
         yield
     finally:
         _set_tracing_context(current_context)
+        run_trees._UNMERGED_PARENT_IDS.set(previous_unmerged_parent_ids)
 
 
 # Alias for backwards compatibility
