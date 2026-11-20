@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -90,6 +91,34 @@ def _acknowledges_reconnect(msg: dict, command_id: Optional[str]) -> bool:
         command_id,
     )
     return False
+
+
+def _log_command_reconnect(
+    command_id: Optional[str],
+    attempt: int,
+    max_attempts: int,
+    elapsed: float,
+    error: SandboxConnectionError,
+    delay: float,
+) -> None:
+    """Log a command stream disconnect before attempting to reattach."""
+    closed = error.__cause__
+    close_info = (
+        f" (close received: {getattr(closed, 'rcvd', None)}; sent: {getattr(closed, 'sent', None)})"
+        if closed is not None and (hasattr(closed, "rcvd") or hasattr(closed, "sent"))
+        else ""
+    )
+    logger.warning(
+        "Sandbox command %s lost its connection %.1fs in; reattaching (attempt %d/%d, delay %.1fs). %s: %s%s",
+        command_id,
+        elapsed,
+        attempt,
+        max_attempts,
+        delay,
+        type(error).__name__,
+        error,
+        close_info,
+    )
 
 
 class _StreamEndedBeforeStarted(SandboxOperationError):
@@ -971,6 +1000,7 @@ class CommandHandle:
         self._last_stdout_offset = stdout_offset
         self._last_stderr_offset = stderr_offset
         self._reconnect_attempts = 0
+        self._started_at = time.monotonic()
 
         # New executions (command_id=""): eager_start reads "started" message.
         # Reconnections (command_id set): the "started" message is the server's
@@ -1071,7 +1101,6 @@ class CommandHandle:
         - After kill():                  no reconnect, error propagates
         """
         add_sandbox_metadata(self._sandbox.id)
-        import time
 
         self._reconnect_attempts = 0
         while True:
@@ -1102,11 +1131,23 @@ class CommandHandle:
                     ) from e
 
                 is_hot_reload = isinstance(e, SandboxServerReloadError)
-                if not is_hot_reload:
-                    delay = min(
+                delay = (
+                    0.0
+                    if is_hot_reload
+                    else min(
                         self._BACKOFF_BASE * (2 ** (self._reconnect_attempts - 1)),
                         self._BACKOFF_MAX,
                     )
+                )
+                _log_command_reconnect(
+                    self._command_id,
+                    self._reconnect_attempts,
+                    self.MAX_AUTO_RECONNECTS,
+                    time.monotonic() - self._started_at,
+                    e,
+                    delay,
+                )
+                if delay:
                     time.sleep(delay)
 
                 assert self._command_id is not None
@@ -1267,6 +1308,7 @@ class AsyncCommandHandle:
         self._last_stdout_offset = stdout_offset
         self._last_stderr_offset = stderr_offset
         self._reconnect_attempts = 0
+        self._started_at = time.monotonic()
 
         # New executions (command_id=""): _ensure_started reads "started".
         # Reconnections (command_id set): the "started" message is the server's
@@ -1390,11 +1432,23 @@ class AsyncCommandHandle:
                     ) from e
 
                 is_hot_reload = isinstance(e, SandboxServerReloadError)
-                if not is_hot_reload:
-                    delay = min(
+                delay = (
+                    0.0
+                    if is_hot_reload
+                    else min(
                         self._BACKOFF_BASE * (2 ** (self._reconnect_attempts - 1)),
                         self._BACKOFF_MAX,
                     )
+                )
+                _log_command_reconnect(
+                    self._command_id,
+                    self._reconnect_attempts,
+                    self.MAX_AUTO_RECONNECTS,
+                    time.monotonic() - self._started_at,
+                    e,
+                    delay,
+                )
+                if delay:
                     await asyncio.sleep(delay)
 
                 assert self._command_id is not None
