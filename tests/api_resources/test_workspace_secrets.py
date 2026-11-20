@@ -9,10 +9,8 @@ import pytest
 
 from langsmith import Langsmith, AsyncLangsmith
 from tests.utils import assert_matches_type
-from langsmith.types import (
-    WorkspaceSecret,
-    WorkspaceSecretListResponse,
-)
+from langsmith.types import WorkspaceSecret
+from langsmith.pagination import SyncItemsCursorGetPagination, AsyncItemsCursorGetPagination
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -24,15 +22,17 @@ class TestWorkspaceSecrets:
     @parametrize
     def test_method_list(self, client: Langsmith) -> None:
         workspace_secret = client.workspace_secrets.list()
-        assert_matches_type(WorkspaceSecretListResponse, workspace_secret, path=["response"])
+        assert_matches_type(SyncItemsCursorGetPagination[WorkspaceSecret], workspace_secret, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_list_with_all_params(self, client: Langsmith) -> None:
         workspace_secret = client.workspace_secrets.list(
+            cursor="cursor",
             include_configs=True,
+            page_size=1,
         )
-        assert_matches_type(WorkspaceSecretListResponse, workspace_secret, path=["response"])
+        assert_matches_type(SyncItemsCursorGetPagination[WorkspaceSecret], workspace_secret, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -43,7 +43,7 @@ class TestWorkspaceSecrets:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         workspace_secret = response.parse()
-        assert_matches_type(WorkspaceSecretListResponse, workspace_secret, path=["response"])
+        assert_matches_type(SyncItemsCursorGetPagination[WorkspaceSecret], workspace_secret, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -53,7 +53,7 @@ class TestWorkspaceSecrets:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             workspace_secret = response.parse()
-            assert_matches_type(WorkspaceSecretListResponse, workspace_secret, path=["response"])
+            assert_matches_type(SyncItemsCursorGetPagination[WorkspaceSecret], workspace_secret, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -169,15 +169,17 @@ class TestAsyncWorkspaceSecrets:
     @parametrize
     async def test_method_list(self, async_client: AsyncLangsmith) -> None:
         workspace_secret = await async_client.workspace_secrets.list()
-        assert_matches_type(WorkspaceSecretListResponse, workspace_secret, path=["response"])
+        assert_matches_type(AsyncItemsCursorGetPagination[WorkspaceSecret], workspace_secret, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_list_with_all_params(self, async_client: AsyncLangsmith) -> None:
         workspace_secret = await async_client.workspace_secrets.list(
+            cursor="cursor",
             include_configs=True,
+            page_size=1,
         )
-        assert_matches_type(WorkspaceSecretListResponse, workspace_secret, path=["response"])
+        assert_matches_type(AsyncItemsCursorGetPagination[WorkspaceSecret], workspace_secret, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -188,7 +190,7 @@ class TestAsyncWorkspaceSecrets:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         workspace_secret = await response.parse()
-        assert_matches_type(WorkspaceSecretListResponse, workspace_secret, path=["response"])
+        assert_matches_type(AsyncItemsCursorGetPagination[WorkspaceSecret], workspace_secret, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -198,7 +200,7 @@ class TestAsyncWorkspaceSecrets:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             workspace_secret = await response.parse()
-            assert_matches_type(WorkspaceSecretListResponse, workspace_secret, path=["response"])
+            assert_matches_type(AsyncItemsCursorGetPagination[WorkspaceSecret], workspace_secret, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

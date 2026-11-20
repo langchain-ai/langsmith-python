@@ -8,5 +8,11 @@ __all__ = ["WorkspaceSecretListParams"]
 
 
 class WorkspaceSecretListParams(TypedDict, total=False):
+    cursor: str
+    """Opaque cursor from a previous response"""
+
     include_configs: bool
-    """If true, include the hosts each secret may be sent to."""
+    """Include the hosts each secret may be sent to"""
+
+    page_size: int
+    """Number of secrets per page"""
