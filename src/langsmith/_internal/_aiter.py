@@ -280,39 +280,53 @@ def aiter_with_concurrency(
             res = await item
             return (ix, res)
 
+    def close_unstarted_item(task: asyncio.Task[Any], item: Coroutine[None, None, T]) -> None:
+        # A cancelled wrapper may never have started awaiting its item.
+        if task.cancelled() and inspect.iscoroutine(item) and inspect.getcoroutinestate(item) == inspect.CORO_CREATED:
+            item.close()
+
     async def process_generator():
         tasks = {}
-        accepts_context = asyncio_accepts_context()
-        ix = 0
-        async for item in generator:
-            if accepts_context:
-                context = contextvars.copy_context()
-                task = asyncio.create_task(process_item(ix, item), context=context)
-            else:
-                task = asyncio.create_task(process_item(ix, item))
-            tasks[ix] = task
-            ix += 1
-            if _eager_consumption_timeout > 0:
-                try:
-                    for _fut in asyncio.as_completed(
-                        tasks.values(),
-                        timeout=_eager_consumption_timeout,
-                    ):
-                        task_idx, res = await _fut
+        try:
+            accepts_context = asyncio_accepts_context()
+            ix = 0
+            async for item in generator:
+                if accepts_context:
+                    context = contextvars.copy_context()
+                    task = asyncio.create_task(process_item(ix, item), context=context)
+                else:
+                    task = asyncio.create_task(process_item(ix, item))
+                task.add_done_callback(functools.partial(close_unstarted_item, item=item))
+                tasks[ix] = task
+                ix += 1
+                if _eager_consumption_timeout > 0:
+                    try:
+                        for _fut in asyncio.as_completed(
+                            tasks.values(),
+                            timeout=_eager_consumption_timeout,
+                        ):
+                            task_idx, res = await _fut
+                            yield res
+                            del tasks[task_idx]
+                    except asyncio.TimeoutError:
+                        pass
+                if n is not None and len(tasks) >= n:
+                    done, _ = await asyncio.wait(tasks.values(), return_when=asyncio.FIRST_COMPLETED)
+                    for task in done:
+                        task_idx, res = task.result()
                         yield res
                         del tasks[task_idx]
-                except asyncio.TimeoutError:
-                    pass
-            if n is not None and len(tasks) >= n:
-                done, _ = await asyncio.wait(tasks.values(), return_when=asyncio.FIRST_COMPLETED)
-                for task in done:
-                    task_idx, res = task.result()
-                    yield res
-                    del tasks[task_idx]
 
-        for task in asyncio.as_completed(tasks.values()):
-            _, res = await task
-            yield res
+            for task in asyncio.as_completed(tasks.values()):
+                task_idx, res = await task
+                yield res
+                del tasks[task_idx]
+        finally:
+            for task_to_cancel in tasks.values():
+                if not task_to_cancel.done():
+                    task_to_cancel.cancel()
+            if tasks:
+                await asyncio.gather(*tasks.values(), return_exceptions=True)
 
     return process_generator()
 
