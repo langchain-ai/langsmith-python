@@ -47,6 +47,10 @@ class TestThreads:
             filter='eq(status, "error")',
             max_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             min_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+            stride={
+                "unit": "HOUR",
+                "value": 1,
+            },
             thread_filter="gte(turn_count, 3)",
             trace_filter='eq(status, "error")',
             tree_filter='has(tags, "production")',
@@ -278,6 +282,10 @@ class TestAsyncThreads:
             filter='eq(status, "error")',
             max_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             min_start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+            stride={
+                "unit": "HOUR",
+                "value": 1,
+            },
             thread_filter="gte(turn_count, 3)",
             trace_filter='eq(status, "error")',
             tree_filter='has(tags, "production")',

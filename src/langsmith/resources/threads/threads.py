@@ -108,6 +108,7 @@ class ThreadsResource(SyncAPIResource):
         filter: str | Omit = omit,
         max_start_time: Union[str, datetime] | Omit = omit,
         min_start_time: Union[str, datetime] | Omit = omit,
+        stride: thread_aggregate_stats_params.Stride | Omit = omit,
         thread_filter: str | Omit = omit,
         trace_filter: str | Omit = omit,
         tree_filter: str | Omit = omit,
@@ -123,7 +124,7 @@ class ThreadsResource(SyncAPIResource):
         Returns aggregate statistics for
         threads in a tracing project. The response includes the thread counts, run
         counts, latency percentiles, rates, token totals, and cost totals requested in
-        `select`.
+        `select`. Set `stride` to return the statistics as a time series in `buckets`.
 
         Self-hosted deployments require LangSmith `v0.17` or later.
 
@@ -144,6 +145,10 @@ class ThreadsResource(SyncAPIResource):
 
           min_start_time: `min_start_time` is the inclusive lower bound on thread activity (RFC3339
               date-time). Defaults to 1 day before now (UTC) when omitted.
+
+          stride: `stride` returns the statistics as a time series in `buckets`. Each thread
+              counts once, in the bucket containing the start of its most recent trace. Omit
+              for a single aggregate over the whole window.
 
           thread_filter: `thread_filter` narrows eligible threads using a LangSmith filter expression
               evaluated against the complete thread summary.
@@ -171,6 +176,7 @@ class ThreadsResource(SyncAPIResource):
                     "filter": filter,
                     "max_start_time": max_start_time,
                     "min_start_time": min_start_time,
+                    "stride": stride,
                     "thread_filter": thread_filter,
                     "trace_filter": trace_filter,
                     "tree_filter": tree_filter,
@@ -562,6 +568,7 @@ class AsyncThreadsResource(AsyncAPIResource):
         filter: str | Omit = omit,
         max_start_time: Union[str, datetime] | Omit = omit,
         min_start_time: Union[str, datetime] | Omit = omit,
+        stride: thread_aggregate_stats_params.Stride | Omit = omit,
         thread_filter: str | Omit = omit,
         trace_filter: str | Omit = omit,
         tree_filter: str | Omit = omit,
@@ -577,7 +584,7 @@ class AsyncThreadsResource(AsyncAPIResource):
         Returns aggregate statistics for
         threads in a tracing project. The response includes the thread counts, run
         counts, latency percentiles, rates, token totals, and cost totals requested in
-        `select`.
+        `select`. Set `stride` to return the statistics as a time series in `buckets`.
 
         Self-hosted deployments require LangSmith `v0.17` or later.
 
@@ -598,6 +605,10 @@ class AsyncThreadsResource(AsyncAPIResource):
 
           min_start_time: `min_start_time` is the inclusive lower bound on thread activity (RFC3339
               date-time). Defaults to 1 day before now (UTC) when omitted.
+
+          stride: `stride` returns the statistics as a time series in `buckets`. Each thread
+              counts once, in the bucket containing the start of its most recent trace. Omit
+              for a single aggregate over the whole window.
 
           thread_filter: `thread_filter` narrows eligible threads using a LangSmith filter expression
               evaluated against the complete thread summary.
@@ -625,6 +636,7 @@ class AsyncThreadsResource(AsyncAPIResource):
                     "filter": filter,
                     "max_start_time": max_start_time,
                     "min_start_time": min_start_time,
+                    "stride": stride,
                     "thread_filter": thread_filter,
                     "trace_filter": trace_filter,
                     "tree_filter": tree_filter,
