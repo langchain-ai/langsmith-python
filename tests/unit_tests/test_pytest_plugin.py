@@ -73,3 +73,20 @@ def test_table_counts_collected_tests_without_results():
     assert "test_example.py::test_missing" in output
     assert "queued" in output
     assert "50%" in output
+
+
+def test_langsmith_output_with_tracking_disabled_error_is_readable(monkeypatch):
+    monkeypatch.setattr(pytest_plugin.ls_utils, "test_tracking_is_disabled", lambda: True)
+    monkeypatch.delenv("PYTEST_XDIST_TESTRUNUID", raising=False)
+    config = SimpleNamespace(
+        addinivalue_line=lambda *args: None,
+        getoption=lambda name: name == "--langsmith-output",
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        pytest_plugin.pytest_configure(config)
+
+    assert str(exc_info.value) == (
+        "--langsmith-output not supported when env var LANGSMITH_TEST_TRACKING='false'. "
+        "Please remove the '--langsmith-output' option or enable test tracking."
+    )
