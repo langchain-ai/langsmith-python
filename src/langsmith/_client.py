@@ -52,6 +52,7 @@ if TYPE_CHECKING:
         ai_search,
         sandboxes,
         evaluators,
+        workspace_tags,
         prompt_webhooks,
         product_feedback,
         annotation_queues,
@@ -78,6 +79,7 @@ if TYPE_CHECKING:
     from .resources.online_evaluators import OnlineEvaluatorsResource, AsyncOnlineEvaluatorsResource
     from .resources.workspace_secrets import WorkspaceSecretsResource, AsyncWorkspaceSecretsResource
     from .resources.sandboxes.sandboxes import SandboxesResource, AsyncSandboxesResource
+    from .resources.workspace_tags.workspace_tags import WorkspaceTagsResource, AsyncWorkspaceTagsResource
     from .resources.annotation_queues.annotation_queues import AnnotationQueuesResource, AsyncAnnotationQueuesResource
 
 __all__ = [
@@ -263,6 +265,12 @@ class Langsmith(SyncAPIClient):
         from .resources.workspace_secrets import WorkspaceSecretsResource
 
         return WorkspaceSecretsResource(self)
+
+    @cached_property
+    def workspace_tags(self) -> WorkspaceTagsResource:
+        from .resources.workspace_tags import WorkspaceTagsResource
+
+        return WorkspaceTagsResource(self)
 
     @cached_property
     def repos(self) -> ReposResource:
@@ -601,6 +609,12 @@ class AsyncLangsmith(AsyncAPIClient):
         return AsyncWorkspaceSecretsResource(self)
 
     @cached_property
+    def workspace_tags(self) -> AsyncWorkspaceTagsResource:
+        from .resources.workspace_tags import AsyncWorkspaceTagsResource
+
+        return AsyncWorkspaceTagsResource(self)
+
+    @cached_property
     def repos(self) -> AsyncReposResource:
         from .resources.repos import AsyncReposResource
 
@@ -873,6 +887,12 @@ class LangsmithWithRawResponse:
         return WorkspaceSecretsResourceWithRawResponse(self._client.workspace_secrets)
 
     @cached_property
+    def workspace_tags(self) -> workspace_tags.WorkspaceTagsResourceWithRawResponse:
+        from .resources.workspace_tags import WorkspaceTagsResourceWithRawResponse
+
+        return WorkspaceTagsResourceWithRawResponse(self._client.workspace_tags)
+
+    @cached_property
     def repos(self) -> repos.ReposResourceWithRawResponse:
         from .resources.repos import ReposResourceWithRawResponse
 
@@ -1004,6 +1024,12 @@ class AsyncLangsmithWithRawResponse:
         from .resources.workspace_secrets import AsyncWorkspaceSecretsResourceWithRawResponse
 
         return AsyncWorkspaceSecretsResourceWithRawResponse(self._client.workspace_secrets)
+
+    @cached_property
+    def workspace_tags(self) -> workspace_tags.AsyncWorkspaceTagsResourceWithRawResponse:
+        from .resources.workspace_tags import AsyncWorkspaceTagsResourceWithRawResponse
+
+        return AsyncWorkspaceTagsResourceWithRawResponse(self._client.workspace_tags)
 
     @cached_property
     def repos(self) -> repos.AsyncReposResourceWithRawResponse:
@@ -1139,6 +1165,12 @@ class LangsmithWithStreamedResponse:
         return WorkspaceSecretsResourceWithStreamingResponse(self._client.workspace_secrets)
 
     @cached_property
+    def workspace_tags(self) -> workspace_tags.WorkspaceTagsResourceWithStreamingResponse:
+        from .resources.workspace_tags import WorkspaceTagsResourceWithStreamingResponse
+
+        return WorkspaceTagsResourceWithStreamingResponse(self._client.workspace_tags)
+
+    @cached_property
     def repos(self) -> repos.ReposResourceWithStreamingResponse:
         from .resources.repos import ReposResourceWithStreamingResponse
 
@@ -1270,6 +1302,12 @@ class AsyncLangsmithWithStreamedResponse:
         from .resources.workspace_secrets import AsyncWorkspaceSecretsResourceWithStreamingResponse
 
         return AsyncWorkspaceSecretsResourceWithStreamingResponse(self._client.workspace_secrets)
+
+    @cached_property
+    def workspace_tags(self) -> workspace_tags.AsyncWorkspaceTagsResourceWithStreamingResponse:
+        from .resources.workspace_tags import AsyncWorkspaceTagsResourceWithStreamingResponse
+
+        return AsyncWorkspaceTagsResourceWithStreamingResponse(self._client.workspace_tags)
 
     @cached_property
     def repos(self) -> repos.AsyncReposResourceWithStreamingResponse:

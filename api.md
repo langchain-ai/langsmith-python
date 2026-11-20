@@ -463,6 +463,50 @@ Methods:
 - <code title="delete /api/v1/workspaces/current/secrets/{key}">client.workspace_secrets.<a href="./src/langsmith/resources/workspace_secrets.py">delete</a>(key) -> None</code>
 - <code title="put /api/v1/workspaces/current/secrets/{key}">client.workspace_secrets.<a href="./src/langsmith/resources/workspace_secrets.py">upsert</a>(key, \*\*<a href="src/langsmith/types/workspace_secret_upsert_params.py">params</a>) -> <a href="./src/langsmith/types/workspace_secret.py">WorkspaceSecret</a></code>
 
+# WorkspaceTags
+
+Types:
+
+```python
+from langsmith.types import TagKeyWithValues, WorkspaceTagListResponse
+```
+
+Methods:
+
+- <code title="get /api/v1/workspaces/current/tags">client.workspace_tags.<a href="./src/langsmith/resources/workspace_tags/workspace_tags.py">list</a>(\*\*<a href="src/langsmith/types/workspace_tag_list_params.py">params</a>) -> <a href="./src/langsmith/types/workspace_tag_list_response.py">WorkspaceTagListResponse</a></code>
+
+## Keys
+
+Types:
+
+```python
+from langsmith.types.workspace_tags import TagKey, KeyListResponse
+```
+
+Methods:
+
+- <code title="post /api/v1/workspaces/current/tag-keys">client.workspace_tags.keys.<a href="./src/langsmith/resources/workspace_tags/keys/keys.py">create</a>(\*\*<a href="src/langsmith/types/workspace_tags/key_create_params.py">params</a>) -> <a href="./src/langsmith/types/workspace_tags/tag_key.py">TagKey</a></code>
+- <code title="get /api/v1/workspaces/current/tag-keys/{tag_key_id}">client.workspace_tags.keys.<a href="./src/langsmith/resources/workspace_tags/keys/keys.py">retrieve</a>(tag_key_id) -> <a href="./src/langsmith/types/workspace_tags/tag_key.py">TagKey</a></code>
+- <code title="patch /api/v1/workspaces/current/tag-keys/{tag_key_id}">client.workspace_tags.keys.<a href="./src/langsmith/resources/workspace_tags/keys/keys.py">update</a>(tag_key_id, \*\*<a href="src/langsmith/types/workspace_tags/key_update_params.py">params</a>) -> <a href="./src/langsmith/types/workspace_tags/tag_key.py">TagKey</a></code>
+- <code title="get /api/v1/workspaces/current/tag-keys">client.workspace_tags.keys.<a href="./src/langsmith/resources/workspace_tags/keys/keys.py">list</a>() -> <a href="./src/langsmith/types/workspace_tags/key_list_response.py">KeyListResponse</a></code>
+- <code title="delete /api/v1/workspaces/current/tag-keys/{tag_key_id}">client.workspace_tags.keys.<a href="./src/langsmith/resources/workspace_tags/keys/keys.py">delete</a>(tag_key_id) -> None</code>
+
+### Values
+
+Types:
+
+```python
+from langsmith.types.workspace_tags.keys import TagValue, ValueListResponse
+```
+
+Methods:
+
+- <code title="post /api/v1/workspaces/current/tag-keys/{tag_key_id}/tag-values">client.workspace_tags.keys.values.<a href="./src/langsmith/resources/workspace_tags/keys/values.py">create</a>(tag_key_id, \*\*<a href="src/langsmith/types/workspace_tags/keys/value_create_params.py">params</a>) -> <a href="./src/langsmith/types/workspace_tags/keys/tag_value.py">TagValue</a></code>
+- <code title="get /api/v1/workspaces/current/tag-keys/{tag_key_id}/tag-values/{tag_value_id}">client.workspace_tags.keys.values.<a href="./src/langsmith/resources/workspace_tags/keys/values.py">retrieve</a>(tag_value_id, \*, tag_key_id) -> <a href="./src/langsmith/types/workspace_tags/keys/tag_value.py">TagValue</a></code>
+- <code title="patch /api/v1/workspaces/current/tag-keys/{tag_key_id}/tag-values/{tag_value_id}">client.workspace_tags.keys.values.<a href="./src/langsmith/resources/workspace_tags/keys/values.py">update</a>(tag_value_id, \*, tag_key_id, \*\*<a href="src/langsmith/types/workspace_tags/keys/value_update_params.py">params</a>) -> <a href="./src/langsmith/types/workspace_tags/keys/tag_value.py">TagValue</a></code>
+- <code title="get /api/v1/workspaces/current/tag-keys/{tag_key_id}/tag-values">client.workspace_tags.keys.values.<a href="./src/langsmith/resources/workspace_tags/keys/values.py">list</a>(tag_key_id) -> <a href="./src/langsmith/types/workspace_tags/keys/value_list_response.py">ValueListResponse</a></code>
+- <code title="delete /api/v1/workspaces/current/tag-keys/{tag_key_id}/tag-values/{tag_value_id}">client.workspace_tags.keys.values.<a href="./src/langsmith/resources/workspace_tags/keys/values.py">delete</a>(tag_value_id, \*, tag_key_id) -> None</code>
+
 # Repos
 
 Types:

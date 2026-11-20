@@ -47,6 +47,7 @@ from .agent_update_params import AgentUpdateParams as AgentUpdateParams
 from .commit_with_lookups import CommitWithLookups as CommitWithLookups
 from .evaluator_top_level import EvaluatorTopLevel as EvaluatorTopLevel
 from .run_query_v2_params import RunQueryV2Params as RunQueryV2Params
+from .tag_key_with_values import TagKeyWithValues as TagKeyWithValues
 from .thread_query_params import ThreadQueryParams as ThreadQueryParams
 from .thread_stats_params import ThreadStatsParams as ThreadStatsParams
 from .commit_create_params import CommitCreateParams as CommitCreateParams
@@ -97,10 +98,12 @@ from .trace_list_runs_response import TraceListRunsResponse as TraceListRunsResp
 from .evaluator_pagerduty_alert import EvaluatorPagerdutyAlert as EvaluatorPagerdutyAlert
 from .online_evaluator_run_rule import OnlineEvaluatorRunRule as OnlineEvaluatorRunRule
 from .thread_list_traces_params import ThreadListTracesParams as ThreadListTracesParams
+from .workspace_tag_list_params import WorkspaceTagListParams as WorkspaceTagListParams
 from .online_evaluator_spend_day import OnlineEvaluatorSpendDay as OnlineEvaluatorSpendDay
 from .prompt_webhook_test_params import PromptWebhookTestParams as PromptWebhookTestParams
 from .sandbox_mount_config_param import SandboxMountConfigParam as SandboxMountConfigParam
 from .session_retrieve_v2_params import SessionRetrieveV2Params as SessionRetrieveV2Params
+from .workspace_tag_list_response import WorkspaceTagListResponse as WorkspaceTagListResponse
 from .annotation_queue_size_schema import AnnotationQueueSizeSchema as AnnotationQueueSizeSchema
 from .online_evaluator_list_params import OnlineEvaluatorListParams as OnlineEvaluatorListParams
 from .online_evaluator_spend_group import OnlineEvaluatorSpendGroup as OnlineEvaluatorSpendGroup

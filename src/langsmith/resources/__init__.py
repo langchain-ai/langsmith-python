@@ -128,6 +128,14 @@ from .evaluators import (
     EvaluatorsResourceWithStreamingResponse,
     AsyncEvaluatorsResourceWithStreamingResponse,
 )
+from .workspace_tags import (
+    WorkspaceTagsResource,
+    AsyncWorkspaceTagsResource,
+    WorkspaceTagsResourceWithRawResponse,
+    AsyncWorkspaceTagsResourceWithRawResponse,
+    WorkspaceTagsResourceWithStreamingResponse,
+    AsyncWorkspaceTagsResourceWithStreamingResponse,
+)
 from .prompt_webhooks import (
     PromptWebhooksResource,
     AsyncPromptWebhooksResource,
@@ -272,6 +280,12 @@ __all__ = [
     "AsyncWorkspaceSecretsResourceWithRawResponse",
     "WorkspaceSecretsResourceWithStreamingResponse",
     "AsyncWorkspaceSecretsResourceWithStreamingResponse",
+    "WorkspaceTagsResource",
+    "AsyncWorkspaceTagsResource",
+    "WorkspaceTagsResourceWithRawResponse",
+    "AsyncWorkspaceTagsResourceWithRawResponse",
+    "WorkspaceTagsResourceWithStreamingResponse",
+    "AsyncWorkspaceTagsResourceWithStreamingResponse",
     "ReposResource",
     "AsyncReposResource",
     "ReposResourceWithRawResponse",
