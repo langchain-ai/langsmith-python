@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.15.1](https://github.com/langchain-ai/langsmith-python/compare/v0.15.0...v0.15.1) (2026-11-20)
+
+
+### Features
+
+* **annotation-queues:** return agreement on the items list and count ([b7423ba](https://github.com/langchain-ai/langsmith-python/commit/b7423bafcfefb0b62d0cdd01d2fdeb748f059d2b))
+* **annotation-queues:** set and clear a final answer on a completed item ([c14d018](https://github.com/langchain-ai/langsmith-python/commit/c14d0186ffda299e420c55dfa9fae45ddf01f6c1))
+* **host:** chart Postgres out-of-memory restarts for Cloud SQL deployments ([2c8e849](https://github.com/langchain-ai/langsmith-python/commit/2c8e84998d1f56795c56ff185a50ac1ded484ab8))
+* let LangSmith MCP agents report product feedback ([b868c51](https://github.com/langchain-ai/langsmith-python/commit/b868c519b3db2f6b3728313c37b5af1b157e1955))
+* **python:** let evaluate() upload only some runs ([5ac14ce](https://github.com/langchain-ai/langsmith-python/commit/5ac14ce6f483ab36caa780206467f85274375a2c))
+* **runs:** add stride to /v2/threads/stats and return thread feedback stats ([4a0a372](https://github.com/langchain-ai/langsmith-python/commit/4a0a372b863385a27edc3a02891a9d97e0c4ee86))
+* **sdk:** add sandbox volumes, batch delete and usage to the SDKs ([be58592](https://github.com/langchain-ai/langsmith-python/commit/be58592acb97669ef4caea85157a81e57651c677))
+* **sdk:** add tag_value_ids to sandbox create in the Python and JS clients ([98c80a8](https://github.com/langchain-ai/langsmith-python/commit/98c80a8a344cff3205a3ca72de30ebc933da3837))
+* **sdk:** generate workspace resource tag keys and values ([d54dea5](https://github.com/langchain-ai/langsmith-python/commit/d54dea5b8eed54b9aed89c1430b89133137ba154))
+
+
+### Bug Fixes
+
+* **run-rules:** apply all filters together in GET /runs/rules ([4469dc4](https://github.com/langchain-ai/langsmith-python/commit/4469dc4462fb5e59149512a95941a70fd57c183f))
+* **runs:** gate standard runs/query page limits behind FF_RUNS_QUERY_PAGE_LIMITS [closes LSO-5052] ([5db2818](https://github.com/langchain-ai/langsmith-python/commit/5db28184dc1e99e02ab519f0f3e1db1ed5dcef86))
+* **sdk:** Preserve local evaluation experiment names ([294d059](https://github.com/langchain-ai/langsmith-python/commit/294d05953aca4d48ff8a5f6bd7a19eb88dc4da41))
+
+
+### Documentation
+
+* **runs:** mark POST /v2/traces/query as a read [closes LSO-5053] ([40be1b7](https://github.com/langchain-ai/langsmith-python/commit/40be1b7543e13be56215f3ee32e3e1e3970f748a))
+
+
+### Build System
+
+* **deps:** bump the minor-and-patch group across 1 directory with 4 updates ([72a2cf0](https://github.com/langchain-ai/langsmith-python/commit/72a2cf057c6c883504bcf5bc0fa9181e708d4aac))
+
 ## [0.15.0](https://github.com/langchain-ai/langsmith-python/compare/v0.14.17...v0.15.0) (2026-11-17)
 
 
