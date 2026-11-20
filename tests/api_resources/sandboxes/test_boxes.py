@@ -18,6 +18,7 @@ from langsmith.types import (
 )
 from langsmith.pagination import SyncItemsCursorGetPagination, AsyncItemsCursorGetPagination
 from langsmith.types.sandboxes import (
+    BoxBatchDeleteResponse,
     BoxListServiceURLsResponse,
 )
 
@@ -493,6 +494,43 @@ class TestBoxes:
             client.sandboxes.boxes.with_raw_response.delete(
                 "",
             )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_batch_delete(self, client: Langsmith) -> None:
+        box = client.sandboxes.boxes.batch_delete()
+        assert_matches_type(BoxBatchDeleteResponse, box, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_batch_delete_with_all_params(self, client: Langsmith) -> None:
+        box = client.sandboxes.boxes.batch_delete(
+            names=["string"],
+        )
+        assert_matches_type(BoxBatchDeleteResponse, box, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_batch_delete(self, client: Langsmith) -> None:
+
+        response = client.sandboxes.boxes.with_raw_response.batch_delete()
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        box = response.parse()
+        assert_matches_type(BoxBatchDeleteResponse, box, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_batch_delete(self, client: Langsmith) -> None:
+        with client.sandboxes.boxes.with_streaming_response.batch_delete() as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            box = response.parse()
+            assert_matches_type(BoxBatchDeleteResponse, box, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -1392,6 +1430,43 @@ class TestAsyncBoxes:
             await async_client.sandboxes.boxes.with_raw_response.delete(
                 "",
             )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_batch_delete(self, async_client: AsyncLangsmith) -> None:
+        box = await async_client.sandboxes.boxes.batch_delete()
+        assert_matches_type(BoxBatchDeleteResponse, box, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_batch_delete_with_all_params(self, async_client: AsyncLangsmith) -> None:
+        box = await async_client.sandboxes.boxes.batch_delete(
+            names=["string"],
+        )
+        assert_matches_type(BoxBatchDeleteResponse, box, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_batch_delete(self, async_client: AsyncLangsmith) -> None:
+
+        response = await async_client.sandboxes.boxes.with_raw_response.batch_delete()
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        box = await response.parse()
+        assert_matches_type(BoxBatchDeleteResponse, box, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_batch_delete(self, async_client: AsyncLangsmith) -> None:
+        async with async_client.sandboxes.boxes.with_streaming_response.batch_delete() as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            box = await response.parse()
+            assert_matches_type(BoxBatchDeleteResponse, box, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize

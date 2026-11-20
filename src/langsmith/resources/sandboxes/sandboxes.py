@@ -15,6 +15,14 @@ from .boxes import (
     AsyncBoxesResourceWithStreamingResponse,
 )
 from ...types import sandbox_list_usage_costs_params
+from .volumes import (
+    VolumesResource,
+    AsyncVolumesResource,
+    VolumesResourceWithRawResponse,
+    AsyncVolumesResourceWithRawResponse,
+    VolumesResourceWithStreamingResponse,
+    AsyncVolumesResourceWithStreamingResponse,
+)
 from ..._httpx import httpx
 from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from ..._utils import maybe_transform
@@ -44,6 +52,7 @@ from ..._response import (
 )
 from ...pagination import SyncItemsCursorGetPagination, AsyncItemsCursorGetPagination
 from ..._base_client import AsyncPaginator, make_request_options
+from ...types.sandbox_retrieve_usage_response import SandboxRetrieveUsageResponse
 from ...types.sandbox_list_usage_costs_response import SandboxListUsageCostsResponse
 
 __all__ = ["SandboxesResource", "AsyncSandboxesResource"]
@@ -53,6 +62,10 @@ class SandboxesResource(SyncAPIResource):
     @cached_property
     def boxes(self) -> BoxesResource:
         return BoxesResource(self._client)
+
+    @cached_property
+    def volumes(self) -> VolumesResource:
+        return VolumesResource(self._client)
 
     @cached_property
     def registries(self) -> RegistriesResource:
@@ -167,11 +180,34 @@ class SandboxesResource(SyncAPIResource):
             model=SandboxListUsageCostsResponse,
         )
 
+    def retrieve_usage(
+        self,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SandboxRetrieveUsageResponse:
+        """Get current sandbox resource usage and quota limits for the workspace"""
+        return self._get(
+            "/api/v2/sandboxes/usage",
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=SandboxRetrieveUsageResponse,
+        )
+
 
 class AsyncSandboxesResource(AsyncAPIResource):
     @cached_property
     def boxes(self) -> AsyncBoxesResource:
         return AsyncBoxesResource(self._client)
+
+    @cached_property
+    def volumes(self) -> AsyncVolumesResource:
+        return AsyncVolumesResource(self._client)
 
     @cached_property
     def registries(self) -> AsyncRegistriesResource:
@@ -286,6 +322,25 @@ class AsyncSandboxesResource(AsyncAPIResource):
             model=SandboxListUsageCostsResponse,
         )
 
+    async def retrieve_usage(
+        self,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SandboxRetrieveUsageResponse:
+        """Get current sandbox resource usage and quota limits for the workspace"""
+        return await self._get(
+            "/api/v2/sandboxes/usage",
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=SandboxRetrieveUsageResponse,
+        )
+
 
 class SandboxesResourceWithRawResponse:
     def __init__(self, sandboxes: SandboxesResource) -> None:
@@ -294,10 +349,17 @@ class SandboxesResourceWithRawResponse:
         self.list_usage_costs = to_raw_response_wrapper(
             sandboxes.list_usage_costs,
         )
+        self.retrieve_usage = to_raw_response_wrapper(
+            sandboxes.retrieve_usage,
+        )
 
     @cached_property
     def boxes(self) -> BoxesResourceWithRawResponse:
         return BoxesResourceWithRawResponse(self._sandboxes.boxes)
+
+    @cached_property
+    def volumes(self) -> VolumesResourceWithRawResponse:
+        return VolumesResourceWithRawResponse(self._sandboxes.volumes)
 
     @cached_property
     def registries(self) -> RegistriesResourceWithRawResponse:
@@ -315,10 +377,17 @@ class AsyncSandboxesResourceWithRawResponse:
         self.list_usage_costs = async_to_raw_response_wrapper(
             sandboxes.list_usage_costs,
         )
+        self.retrieve_usage = async_to_raw_response_wrapper(
+            sandboxes.retrieve_usage,
+        )
 
     @cached_property
     def boxes(self) -> AsyncBoxesResourceWithRawResponse:
         return AsyncBoxesResourceWithRawResponse(self._sandboxes.boxes)
+
+    @cached_property
+    def volumes(self) -> AsyncVolumesResourceWithRawResponse:
+        return AsyncVolumesResourceWithRawResponse(self._sandboxes.volumes)
 
     @cached_property
     def registries(self) -> AsyncRegistriesResourceWithRawResponse:
@@ -336,10 +405,17 @@ class SandboxesResourceWithStreamingResponse:
         self.list_usage_costs = to_streamed_response_wrapper(
             sandboxes.list_usage_costs,
         )
+        self.retrieve_usage = to_streamed_response_wrapper(
+            sandboxes.retrieve_usage,
+        )
 
     @cached_property
     def boxes(self) -> BoxesResourceWithStreamingResponse:
         return BoxesResourceWithStreamingResponse(self._sandboxes.boxes)
+
+    @cached_property
+    def volumes(self) -> VolumesResourceWithStreamingResponse:
+        return VolumesResourceWithStreamingResponse(self._sandboxes.volumes)
 
     @cached_property
     def registries(self) -> RegistriesResourceWithStreamingResponse:
@@ -357,10 +433,17 @@ class AsyncSandboxesResourceWithStreamingResponse:
         self.list_usage_costs = async_to_streamed_response_wrapper(
             sandboxes.list_usage_costs,
         )
+        self.retrieve_usage = async_to_streamed_response_wrapper(
+            sandboxes.retrieve_usage,
+        )
 
     @cached_property
     def boxes(self) -> AsyncBoxesResourceWithStreamingResponse:
         return AsyncBoxesResourceWithStreamingResponse(self._sandboxes.boxes)
+
+    @cached_property
+    def volumes(self) -> AsyncVolumesResourceWithStreamingResponse:
+        return AsyncVolumesResourceWithStreamingResponse(self._sandboxes.volumes)
 
     @cached_property
     def registries(self) -> AsyncRegistriesResourceWithStreamingResponse:

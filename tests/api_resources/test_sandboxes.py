@@ -9,7 +9,7 @@ import pytest
 
 from langsmith import Langsmith, AsyncLangsmith
 from tests.utils import assert_matches_type
-from langsmith.types import SandboxListUsageCostsResponse
+from langsmith.types import SandboxRetrieveUsageResponse, SandboxListUsageCostsResponse
 from langsmith._utils import parse_datetime
 from langsmith.pagination import SyncItemsCursorGetPagination, AsyncItemsCursorGetPagination
 
@@ -73,6 +73,35 @@ class TestSandboxes:
 
         assert cast(Any, response.is_closed) is True
 
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_retrieve_usage(self, client: Langsmith) -> None:
+        sandbox = client.sandboxes.retrieve_usage()
+        assert_matches_type(SandboxRetrieveUsageResponse, sandbox, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_retrieve_usage(self, client: Langsmith) -> None:
+
+        response = client.sandboxes.with_raw_response.retrieve_usage()
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        sandbox = response.parse()
+        assert_matches_type(SandboxRetrieveUsageResponse, sandbox, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_retrieve_usage(self, client: Langsmith) -> None:
+        with client.sandboxes.with_streaming_response.retrieve_usage() as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            sandbox = response.parse()
+            assert_matches_type(SandboxRetrieveUsageResponse, sandbox, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
 
 class TestAsyncSandboxes:
     parametrize = pytest.mark.parametrize(
@@ -132,5 +161,34 @@ class TestAsyncSandboxes:
             assert_matches_type(
                 AsyncItemsCursorGetPagination[SandboxListUsageCostsResponse], sandbox, path=["response"]
             )
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_retrieve_usage(self, async_client: AsyncLangsmith) -> None:
+        sandbox = await async_client.sandboxes.retrieve_usage()
+        assert_matches_type(SandboxRetrieveUsageResponse, sandbox, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_retrieve_usage(self, async_client: AsyncLangsmith) -> None:
+
+        response = await async_client.sandboxes.with_raw_response.retrieve_usage()
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        sandbox = await response.parse()
+        assert_matches_type(SandboxRetrieveUsageResponse, sandbox, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_retrieve_usage(self, async_client: AsyncLangsmith) -> None:
+        async with async_client.sandboxes.with_streaming_response.retrieve_usage() as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            sandbox = await response.parse()
+            assert_matches_type(SandboxRetrieveUsageResponse, sandbox, path=["response"])
 
         assert cast(Any, response.is_closed) is True

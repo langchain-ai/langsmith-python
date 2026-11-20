@@ -597,19 +597,21 @@ from langsmith.types import (
     SnapshotListResponse,
     SnapshotResponse,
     SandboxListUsageCostsResponse,
+    SandboxRetrieveUsageResponse,
 )
 ```
 
 Methods:
 
 - <code title="get /api/v2/sandboxes/usage/costs">client.sandboxes.<a href="./src/langsmith/resources/sandboxes/sandboxes.py">list_usage_costs</a>(\*\*<a href="src/langsmith/types/sandbox_list_usage_costs_params.py">params</a>) -> <a href="./src/langsmith/types/sandbox_list_usage_costs_response.py">SyncItemsCursorGetPagination[SandboxListUsageCostsResponse]</a></code>
+- <code title="get /api/v2/sandboxes/usage">client.sandboxes.<a href="./src/langsmith/resources/sandboxes/sandboxes.py">retrieve_usage</a>() -> <a href="./src/langsmith/types/sandbox_retrieve_usage_response.py">SandboxRetrieveUsageResponse</a></code>
 
 ## Boxes
 
 Types:
 
 ```python
-from langsmith.types.sandboxes import BoxListServiceURLsResponse
+from langsmith.types.sandboxes import BoxBatchDeleteResponse, BoxListServiceURLsResponse
 ```
 
 Methods:
@@ -619,6 +621,7 @@ Methods:
 - <code title="patch /api/v2/sandboxes/boxes/{name}">client.sandboxes.boxes.<a href="./src/langsmith/resources/sandboxes/boxes.py">update</a>(path_name, \*\*<a href="src/langsmith/types/sandboxes/box_update_params.py">params</a>) -> <a href="./src/langsmith/types/sandbox_response.py">SandboxResponse</a></code>
 - <code title="get /api/v2/sandboxes/boxes">client.sandboxes.boxes.<a href="./src/langsmith/resources/sandboxes/boxes.py">list</a>(\*\*<a href="src/langsmith/types/sandboxes/box_list_params.py">params</a>) -> <a href="./src/langsmith/types/sandbox_response.py">SyncItemsCursorGetPagination[SandboxResponse]</a></code>
 - <code title="delete /api/v2/sandboxes/boxes/{name}">client.sandboxes.boxes.<a href="./src/langsmith/resources/sandboxes/boxes.py">delete</a>(name) -> None</code>
+- <code title="post /api/v2/sandboxes/boxes/batch-delete">client.sandboxes.boxes.<a href="./src/langsmith/resources/sandboxes/boxes.py">batch_delete</a>(\*\*<a href="src/langsmith/types/sandboxes/box_batch_delete_params.py">params</a>) -> <a href="./src/langsmith/types/sandboxes/box_batch_delete_response.py">BoxBatchDeleteResponse</a></code>
 - <code title="post /api/v2/sandboxes/boxes/{name}/snapshot">client.sandboxes.boxes.<a href="./src/langsmith/resources/sandboxes/boxes.py">create_snapshot</a>(path_name, \*\*<a href="src/langsmith/types/sandboxes/box_create_snapshot_params.py">params</a>) -> <a href="./src/langsmith/types/snapshot_response.py">SnapshotResponse</a></code>
 - <code title="delete /api/v2/sandboxes/boxes/{name}/service-urls">client.sandboxes.boxes.<a href="./src/langsmith/resources/sandboxes/boxes.py">delete_service_url</a>(name, \*\*<a href="src/langsmith/types/sandboxes/box_delete_service_url_params.py">params</a>) -> None</code>
 - <code title="post /api/v2/sandboxes/boxes/{name}/download-url">client.sandboxes.boxes.<a href="./src/langsmith/resources/sandboxes/boxes.py">generate_download_url</a>(name, \*\*<a href="src/langsmith/types/sandboxes/box_generate_download_url_params.py">params</a>) -> <a href="./src/langsmith/types/download_url_response.py">DownloadURLResponse</a></code>
@@ -627,6 +630,23 @@ Methods:
 - <code title="get /api/v2/sandboxes/boxes/{name}/service-urls">client.sandboxes.boxes.<a href="./src/langsmith/resources/sandboxes/boxes.py">list_service_urls</a>(name, \*\*<a href="src/langsmith/types/sandboxes/box_list_service_urls_params.py">params</a>) -> <a href="./src/langsmith/types/sandboxes/box_list_service_urls_response.py">SyncItemsCursorGetPagination[BoxListServiceURLsResponse]</a></code>
 - <code title="post /api/v2/sandboxes/boxes/{name}/start">client.sandboxes.boxes.<a href="./src/langsmith/resources/sandboxes/boxes.py">start</a>(name) -> <a href="./src/langsmith/types/sandbox_response.py">SandboxResponse</a></code>
 - <code title="post /api/v2/sandboxes/boxes/{name}/stop">client.sandboxes.boxes.<a href="./src/langsmith/resources/sandboxes/boxes.py">stop</a>(name) -> None</code>
+
+## Volumes
+
+Types:
+
+```python
+from langsmith.types.sandboxes import VolumeResponse
+```
+
+Methods:
+
+- <code title="post /api/v2/sandboxes/volumes">client.sandboxes.volumes.<a href="./src/langsmith/resources/sandboxes/volumes.py">create</a>(\*\*<a href="src/langsmith/types/sandboxes/volume_create_params.py">params</a>) -> <a href="./src/langsmith/types/sandboxes/volume_response.py">VolumeResponse</a></code>
+- <code title="get /api/v2/sandboxes/volumes/{volume}">client.sandboxes.volumes.<a href="./src/langsmith/resources/sandboxes/volumes.py">retrieve</a>(volume) -> <a href="./src/langsmith/types/sandboxes/volume_response.py">VolumeResponse</a></code>
+- <code title="patch /api/v2/sandboxes/volumes/{volume}">client.sandboxes.volumes.<a href="./src/langsmith/resources/sandboxes/volumes.py">update</a>(volume, \*\*<a href="src/langsmith/types/sandboxes/volume_update_params.py">params</a>) -> <a href="./src/langsmith/types/sandboxes/volume_response.py">VolumeResponse</a></code>
+- <code title="get /api/v2/sandboxes/volumes">client.sandboxes.volumes.<a href="./src/langsmith/resources/sandboxes/volumes.py">list</a>(\*\*<a href="src/langsmith/types/sandboxes/volume_list_params.py">params</a>) -> <a href="./src/langsmith/types/sandboxes/volume_response.py">SyncItemsCursorGetPagination[VolumeResponse]</a></code>
+- <code title="delete /api/v2/sandboxes/volumes/{volume}">client.sandboxes.volumes.<a href="./src/langsmith/resources/sandboxes/volumes.py">delete</a>(volume) -> None</code>
+- <code title="post /api/v2/sandboxes/volumes/{volume}/clone">client.sandboxes.volumes.<a href="./src/langsmith/resources/sandboxes/volumes.py">clone</a>(volume, \*\*<a href="src/langsmith/types/sandboxes/volume_clone_params.py">params</a>) -> <a href="./src/langsmith/types/sandboxes/volume_response.py">VolumeResponse</a></code>
 
 ## Registries
 

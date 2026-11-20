@@ -22,6 +22,7 @@ from ...types.sandboxes import (
     box_list_params,
     box_create_params,
     box_update_params,
+    box_batch_delete_params,
     box_create_snapshot_params,
     box_list_service_urls_params,
     box_delete_service_url_params,
@@ -35,6 +36,7 @@ from ...types.service_url_response import ServiceURLResponse
 from ...types.download_url_response import DownloadURLResponse
 from ...types.sandbox_status_response import SandboxStatusResponse
 from ...types.sandbox_mount_config_param import SandboxMountConfigParam
+from ...types.sandboxes.box_batch_delete_response import BoxBatchDeleteResponse
 from ...types.sandboxes.box_list_service_urls_response import BoxListServiceURLsResponse
 
 __all__ = ["BoxesResource", "AsyncBoxesResource"]
@@ -426,6 +428,38 @@ class BoxesResource(SyncAPIResource):
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
             cast_to=NoneType,
+        )
+
+    def batch_delete(
+        self,
+        *,
+        names: SequenceNotStr[str] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> BoxBatchDeleteResponse:
+        """
+        Delete multiple sandboxes by name or UUID in a single request.
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._post(
+            "/api/v2/sandboxes/boxes/batch-delete",
+            body=maybe_transform({"names": names}, box_batch_delete_params.BoxBatchDeleteParams),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=BoxBatchDeleteResponse,
         )
 
     def create_snapshot(
@@ -1290,6 +1324,38 @@ class AsyncBoxesResource(AsyncAPIResource):
             cast_to=NoneType,
         )
 
+    async def batch_delete(
+        self,
+        *,
+        names: SequenceNotStr[str] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> BoxBatchDeleteResponse:
+        """
+        Delete multiple sandboxes by name or UUID in a single request.
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return await self._post(
+            "/api/v2/sandboxes/boxes/batch-delete",
+            body=await async_maybe_transform({"names": names}, box_batch_delete_params.BoxBatchDeleteParams),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=BoxBatchDeleteResponse,
+        )
+
     async def create_snapshot(
         self,
         path_name: str,
@@ -1785,6 +1851,9 @@ class BoxesResourceWithRawResponse:
         self.delete = to_raw_response_wrapper(
             boxes.delete,
         )
+        self.batch_delete = to_raw_response_wrapper(
+            boxes.batch_delete,
+        )
         self.create_snapshot = to_raw_response_wrapper(
             boxes.create_snapshot,
         )
@@ -1829,6 +1898,9 @@ class AsyncBoxesResourceWithRawResponse:
         )
         self.delete = async_to_raw_response_wrapper(
             boxes.delete,
+        )
+        self.batch_delete = async_to_raw_response_wrapper(
+            boxes.batch_delete,
         )
         self.create_snapshot = async_to_raw_response_wrapper(
             boxes.create_snapshot,
@@ -1875,6 +1947,9 @@ class BoxesResourceWithStreamingResponse:
         self.delete = to_streamed_response_wrapper(
             boxes.delete,
         )
+        self.batch_delete = to_streamed_response_wrapper(
+            boxes.batch_delete,
+        )
         self.create_snapshot = to_streamed_response_wrapper(
             boxes.create_snapshot,
         )
@@ -1919,6 +1994,9 @@ class AsyncBoxesResourceWithStreamingResponse:
         )
         self.delete = async_to_streamed_response_wrapper(
             boxes.delete,
+        )
+        self.batch_delete = async_to_streamed_response_wrapper(
+            boxes.batch_delete,
         )
         self.create_snapshot = async_to_streamed_response_wrapper(
             boxes.create_snapshot,
