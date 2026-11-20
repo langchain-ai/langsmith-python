@@ -4,26 +4,18 @@ from typing import Dict, List, Optional
 from typing_extensions import Literal
 
 from ..._models import BaseModel
+from .annotation_queue_item_answer import AnnotationQueueItemAnswer
+from .annotation_queue_item_agreement_state import AnnotationQueueItemAgreementState
 
-__all__ = ["ItemListResponse", "KeyAgreements", "KeyAgreementsAnswer"]
-
-
-class KeyAgreementsAnswer(BaseModel):
-    score: Optional[float] = None
-
-    scores: Optional[List[float]] = None
-
-    value: Optional[str] = None
-
-    values: Optional[List[str]] = None
+__all__ = ["ItemListResponse", "KeyAgreements"]
 
 
 class KeyAgreements(BaseModel):
-    answer: Optional[KeyAgreementsAnswer] = None
+    answer: Optional[AnnotationQueueItemAnswer] = None
 
     has_final: Optional[bool] = None
 
-    state: Optional[Literal["agreed", "disagreed", "none"]] = None
+    state: Optional[AnnotationQueueItemAgreementState] = None
 
 
 class ItemListResponse(BaseModel):
@@ -31,7 +23,7 @@ class ItemListResponse(BaseModel):
 
     added_at: Optional[str] = None
 
-    agreement_state: Optional[Literal["agreed", "disagreed", "none"]] = None
+    agreement_state: Optional[AnnotationQueueItemAgreementState] = None
     """Whether the item's reviewers agreed across its rubric keys."""
 
     assigned_to: Optional[List[str]] = None

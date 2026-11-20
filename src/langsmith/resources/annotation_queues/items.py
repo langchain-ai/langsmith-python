@@ -25,6 +25,7 @@ from ...types.annotation_queues import (
     item_update_params,
     item_set_final_params,
     item_delete_all_params,
+    item_set_review_params,
     item_create_status_params,
     item_retrieve_count_params,
 )
@@ -35,7 +36,9 @@ from ...types.annotation_queues.item_set_final_response import ItemSetFinalRespo
 from ...types.annotation_queues.item_delete_all_response import ItemDeleteAllResponse
 from ...types.annotation_queues.item_create_status_response import ItemCreateStatusResponse
 from ...types.annotation_queues.item_retrieve_count_response import ItemRetrieveCountResponse
+from ...types.annotation_queues.item_retrieve_reviews_response import ItemRetrieveReviewsResponse
 from ...types.annotation_queues.item_retrieve_placement_response import ItemRetrievePlacementResponse
+from ...types.annotation_queues.annotation_queue_item_key_reviews import AnnotationQueueItemKeyReviews
 
 __all__ = ["ItemsResource", "AsyncItemsResource"]
 
@@ -501,6 +504,49 @@ class ItemsResource(SyncAPIResource):
             cast_to=ItemRetrievePlacementResponse,
         )
 
+    def retrieve_reviews(
+        self,
+        item_id: str,
+        *,
+        queue_id: str,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ItemRetrieveReviewsResponse:
+        """
+        For each rubric key: whether the reviewers agreed, the final if one is set, and
+        each reviewer's answer. Reviewers are listed in the order they completed the
+        item. Their name and email are empty when the caller cannot see other workspace
+        members. Returns 404 unless the item is completed.
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not queue_id:
+            raise ValueError(f"Expected a non-empty value for `queue_id` but received {queue_id!r}")
+        if not item_id:
+            raise ValueError(f"Expected a non-empty value for `item_id` but received {item_id!r}")
+        return self._get(
+            path_template(
+                "/api/v1/platform/annotation-queues/{queue_id}/items/{item_id}/reviews",
+                queue_id=queue_id,
+                item_id=item_id,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=ItemRetrieveReviewsResponse,
+        )
+
     def set_final(
         self,
         key: str,
@@ -557,6 +603,65 @@ class ItemsResource(SyncAPIResource):
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
             cast_to=ItemSetFinalResponse,
+        )
+
+    def set_review(
+        self,
+        key: str,
+        *,
+        queue_id: str,
+        item_id: str,
+        score: float | Omit = omit,
+        value: str | Omit = omit,
+        values: SequenceNotStr[str] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AnnotationQueueItemKeyReviews:
+        """Replace your own answer on one rubric key and update the item's agreement.
+
+        Only
+        a reviewer who completed the item can edit their answer. Multi-select keys take
+        a list of category labels in values; free-text keys take text in value. An empty
+        body clears your answer.
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not queue_id:
+            raise ValueError(f"Expected a non-empty value for `queue_id` but received {queue_id!r}")
+        if not item_id:
+            raise ValueError(f"Expected a non-empty value for `item_id` but received {item_id!r}")
+        if not key:
+            raise ValueError(f"Expected a non-empty value for `key` but received {key!r}")
+        return self._put(
+            path_template(
+                "/api/v1/platform/annotation-queues/{queue_id}/items/{item_id}/reviews/{key}",
+                queue_id=queue_id,
+                item_id=item_id,
+                key=key,
+            ),
+            body=maybe_transform(
+                {
+                    "score": score,
+                    "value": value,
+                    "values": values,
+                },
+                item_set_review_params.ItemSetReviewParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=AnnotationQueueItemKeyReviews,
         )
 
 
@@ -1021,6 +1126,49 @@ class AsyncItemsResource(AsyncAPIResource):
             cast_to=ItemRetrievePlacementResponse,
         )
 
+    async def retrieve_reviews(
+        self,
+        item_id: str,
+        *,
+        queue_id: str,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ItemRetrieveReviewsResponse:
+        """
+        For each rubric key: whether the reviewers agreed, the final if one is set, and
+        each reviewer's answer. Reviewers are listed in the order they completed the
+        item. Their name and email are empty when the caller cannot see other workspace
+        members. Returns 404 unless the item is completed.
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not queue_id:
+            raise ValueError(f"Expected a non-empty value for `queue_id` but received {queue_id!r}")
+        if not item_id:
+            raise ValueError(f"Expected a non-empty value for `item_id` but received {item_id!r}")
+        return await self._get(
+            path_template(
+                "/api/v1/platform/annotation-queues/{queue_id}/items/{item_id}/reviews",
+                queue_id=queue_id,
+                item_id=item_id,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=ItemRetrieveReviewsResponse,
+        )
+
     async def set_final(
         self,
         key: str,
@@ -1079,6 +1227,65 @@ class AsyncItemsResource(AsyncAPIResource):
             cast_to=ItemSetFinalResponse,
         )
 
+    async def set_review(
+        self,
+        key: str,
+        *,
+        queue_id: str,
+        item_id: str,
+        score: float | Omit = omit,
+        value: str | Omit = omit,
+        values: SequenceNotStr[str] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AnnotationQueueItemKeyReviews:
+        """Replace your own answer on one rubric key and update the item's agreement.
+
+        Only
+        a reviewer who completed the item can edit their answer. Multi-select keys take
+        a list of category labels in values; free-text keys take text in value. An empty
+        body clears your answer.
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not queue_id:
+            raise ValueError(f"Expected a non-empty value for `queue_id` but received {queue_id!r}")
+        if not item_id:
+            raise ValueError(f"Expected a non-empty value for `item_id` but received {item_id!r}")
+        if not key:
+            raise ValueError(f"Expected a non-empty value for `key` but received {key!r}")
+        return await self._put(
+            path_template(
+                "/api/v1/platform/annotation-queues/{queue_id}/items/{item_id}/reviews/{key}",
+                queue_id=queue_id,
+                item_id=item_id,
+                key=key,
+            ),
+            body=await async_maybe_transform(
+                {
+                    "score": score,
+                    "value": value,
+                    "values": values,
+                },
+                item_set_review_params.ItemSetReviewParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=AnnotationQueueItemKeyReviews,
+        )
+
 
 class ItemsResourceWithRawResponse:
     def __init__(self, items: ItemsResource) -> None:
@@ -1108,8 +1315,14 @@ class ItemsResourceWithRawResponse:
         self.retrieve_placement = to_raw_response_wrapper(
             items.retrieve_placement,
         )
+        self.retrieve_reviews = to_raw_response_wrapper(
+            items.retrieve_reviews,
+        )
         self.set_final = to_raw_response_wrapper(
             items.set_final,
+        )
+        self.set_review = to_raw_response_wrapper(
+            items.set_review,
         )
 
 
@@ -1141,8 +1354,14 @@ class AsyncItemsResourceWithRawResponse:
         self.retrieve_placement = async_to_raw_response_wrapper(
             items.retrieve_placement,
         )
+        self.retrieve_reviews = async_to_raw_response_wrapper(
+            items.retrieve_reviews,
+        )
         self.set_final = async_to_raw_response_wrapper(
             items.set_final,
+        )
+        self.set_review = async_to_raw_response_wrapper(
+            items.set_review,
         )
 
 
@@ -1174,8 +1393,14 @@ class ItemsResourceWithStreamingResponse:
         self.retrieve_placement = to_streamed_response_wrapper(
             items.retrieve_placement,
         )
+        self.retrieve_reviews = to_streamed_response_wrapper(
+            items.retrieve_reviews,
+        )
         self.set_final = to_streamed_response_wrapper(
             items.set_final,
+        )
+        self.set_review = to_streamed_response_wrapper(
+            items.set_review,
         )
 
 
@@ -1207,6 +1432,12 @@ class AsyncItemsResourceWithStreamingResponse:
         self.retrieve_placement = async_to_streamed_response_wrapper(
             items.retrieve_placement,
         )
+        self.retrieve_reviews = async_to_streamed_response_wrapper(
+            items.retrieve_reviews,
+        )
         self.set_final = async_to_streamed_response_wrapper(
             items.set_final,
+        )
+        self.set_review = async_to_streamed_response_wrapper(
+            items.set_review,
         )

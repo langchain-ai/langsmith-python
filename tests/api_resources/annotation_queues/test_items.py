@@ -19,6 +19,8 @@ from langsmith.types.annotation_queues import (
     ItemDeleteAllResponse,
     ItemCreateStatusResponse,
     ItemRetrieveCountResponse,
+    ItemRetrieveReviewsResponse,
+    AnnotationQueueItemKeyReviews,
     ItemRetrievePlacementResponse,
 )
 
@@ -506,6 +508,59 @@ class TestItems:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
+    def test_method_retrieve_reviews(self, client: Langsmith) -> None:
+        item = client.annotation_queues.items.retrieve_reviews(
+            item_id="item_id",
+            queue_id="queue_id",
+        )
+        assert_matches_type(ItemRetrieveReviewsResponse, item, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_retrieve_reviews(self, client: Langsmith) -> None:
+
+        response = client.annotation_queues.items.with_raw_response.retrieve_reviews(
+            item_id="item_id",
+            queue_id="queue_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        item = response.parse()
+        assert_matches_type(ItemRetrieveReviewsResponse, item, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_retrieve_reviews(self, client: Langsmith) -> None:
+        with client.annotation_queues.items.with_streaming_response.retrieve_reviews(
+            item_id="item_id",
+            queue_id="queue_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            item = response.parse()
+            assert_matches_type(ItemRetrieveReviewsResponse, item, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_retrieve_reviews(self, client: Langsmith) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `queue_id` but received ''"):
+            client.annotation_queues.items.with_raw_response.retrieve_reviews(
+                item_id="item_id",
+                queue_id="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `item_id` but received ''"):
+            client.annotation_queues.items.with_raw_response.retrieve_reviews(
+                item_id="",
+                queue_id="queue_id",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
     def test_method_set_final(self, client: Langsmith) -> None:
         item = client.annotation_queues.items.set_final(
             key="key",
@@ -577,6 +632,84 @@ class TestItems:
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `key` but received ''"):
             client.annotation_queues.items.with_raw_response.set_final(
+                key="",
+                queue_id="queue_id",
+                item_id="item_id",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_set_review(self, client: Langsmith) -> None:
+        item = client.annotation_queues.items.set_review(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+        )
+        assert_matches_type(AnnotationQueueItemKeyReviews, item, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_set_review_with_all_params(self, client: Langsmith) -> None:
+        item = client.annotation_queues.items.set_review(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+            score=0,
+            value="value",
+            values=["string"],
+        )
+        assert_matches_type(AnnotationQueueItemKeyReviews, item, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_set_review(self, client: Langsmith) -> None:
+
+        response = client.annotation_queues.items.with_raw_response.set_review(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        item = response.parse()
+        assert_matches_type(AnnotationQueueItemKeyReviews, item, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_set_review(self, client: Langsmith) -> None:
+        with client.annotation_queues.items.with_streaming_response.set_review(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            item = response.parse()
+            assert_matches_type(AnnotationQueueItemKeyReviews, item, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_set_review(self, client: Langsmith) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `queue_id` but received ''"):
+            client.annotation_queues.items.with_raw_response.set_review(
+                key="key",
+                queue_id="",
+                item_id="item_id",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `item_id` but received ''"):
+            client.annotation_queues.items.with_raw_response.set_review(
+                key="key",
+                queue_id="queue_id",
+                item_id="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `key` but received ''"):
+            client.annotation_queues.items.with_raw_response.set_review(
                 key="",
                 queue_id="queue_id",
                 item_id="item_id",
@@ -1066,6 +1199,59 @@ class TestAsyncItems:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
+    async def test_method_retrieve_reviews(self, async_client: AsyncLangsmith) -> None:
+        item = await async_client.annotation_queues.items.retrieve_reviews(
+            item_id="item_id",
+            queue_id="queue_id",
+        )
+        assert_matches_type(ItemRetrieveReviewsResponse, item, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_retrieve_reviews(self, async_client: AsyncLangsmith) -> None:
+
+        response = await async_client.annotation_queues.items.with_raw_response.retrieve_reviews(
+            item_id="item_id",
+            queue_id="queue_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        item = await response.parse()
+        assert_matches_type(ItemRetrieveReviewsResponse, item, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_retrieve_reviews(self, async_client: AsyncLangsmith) -> None:
+        async with async_client.annotation_queues.items.with_streaming_response.retrieve_reviews(
+            item_id="item_id",
+            queue_id="queue_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            item = await response.parse()
+            assert_matches_type(ItemRetrieveReviewsResponse, item, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_retrieve_reviews(self, async_client: AsyncLangsmith) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `queue_id` but received ''"):
+            await async_client.annotation_queues.items.with_raw_response.retrieve_reviews(
+                item_id="item_id",
+                queue_id="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `item_id` but received ''"):
+            await async_client.annotation_queues.items.with_raw_response.retrieve_reviews(
+                item_id="",
+                queue_id="queue_id",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
     async def test_method_set_final(self, async_client: AsyncLangsmith) -> None:
         item = await async_client.annotation_queues.items.set_final(
             key="key",
@@ -1137,6 +1323,84 @@ class TestAsyncItems:
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `key` but received ''"):
             await async_client.annotation_queues.items.with_raw_response.set_final(
+                key="",
+                queue_id="queue_id",
+                item_id="item_id",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_set_review(self, async_client: AsyncLangsmith) -> None:
+        item = await async_client.annotation_queues.items.set_review(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+        )
+        assert_matches_type(AnnotationQueueItemKeyReviews, item, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_set_review_with_all_params(self, async_client: AsyncLangsmith) -> None:
+        item = await async_client.annotation_queues.items.set_review(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+            score=0,
+            value="value",
+            values=["string"],
+        )
+        assert_matches_type(AnnotationQueueItemKeyReviews, item, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_set_review(self, async_client: AsyncLangsmith) -> None:
+
+        response = await async_client.annotation_queues.items.with_raw_response.set_review(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        item = await response.parse()
+        assert_matches_type(AnnotationQueueItemKeyReviews, item, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_set_review(self, async_client: AsyncLangsmith) -> None:
+        async with async_client.annotation_queues.items.with_streaming_response.set_review(
+            key="key",
+            queue_id="queue_id",
+            item_id="item_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            item = await response.parse()
+            assert_matches_type(AnnotationQueueItemKeyReviews, item, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_set_review(self, async_client: AsyncLangsmith) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `queue_id` but received ''"):
+            await async_client.annotation_queues.items.with_raw_response.set_review(
+                key="key",
+                queue_id="",
+                item_id="item_id",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `item_id` but received ''"):
+            await async_client.annotation_queues.items.with_raw_response.set_review(
+                key="key",
+                queue_id="queue_id",
+                item_id="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `key` but received ''"):
+            await async_client.annotation_queues.items.with_raw_response.set_review(
                 key="",
                 queue_id="queue_id",
                 item_id="item_id",

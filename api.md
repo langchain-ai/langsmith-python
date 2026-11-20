@@ -397,6 +397,9 @@ Types:
 
 ```python
 from langsmith.types.annotation_queues import (
+    AnnotationQueueItemAgreementState,
+    AnnotationQueueItemAnswer,
+    AnnotationQueueItemKeyReviews,
     ItemCreateResponse,
     ItemUpdateResponse,
     ItemListResponse,
@@ -404,6 +407,7 @@ from langsmith.types.annotation_queues import (
     ItemDeleteAllResponse,
     ItemRetrieveCountResponse,
     ItemRetrievePlacementResponse,
+    ItemRetrieveReviewsResponse,
     ItemSetFinalResponse,
 )
 ```
@@ -418,7 +422,9 @@ Methods:
 - <code title="post /api/v1/platform/annotation-queues/{queue_id}/items/delete">client.annotation_queues.items.<a href="./src/langsmith/resources/annotation_queues/items.py">delete_all</a>(queue_id, \*\*<a href="src/langsmith/types/annotation_queues/item_delete_all_params.py">params</a>) -> <a href="./src/langsmith/types/annotation_queues/item_delete_all_response.py">ItemDeleteAllResponse</a></code>
 - <code title="get /api/v1/platform/annotation-queues/{queue_id}/items/count">client.annotation_queues.items.<a href="./src/langsmith/resources/annotation_queues/items.py">retrieve_count</a>(queue_id, \*\*<a href="src/langsmith/types/annotation_queues/item_retrieve_count_params.py">params</a>) -> <a href="./src/langsmith/types/annotation_queues/item_retrieve_count_response.py">ItemRetrieveCountResponse</a></code>
 - <code title="get /api/v1/platform/annotation-queues/{queue_id}/items/{item_id}/placement">client.annotation_queues.items.<a href="./src/langsmith/resources/annotation_queues/items.py">retrieve_placement</a>(item_id, \*, queue_id) -> <a href="./src/langsmith/types/annotation_queues/item_retrieve_placement_response.py">ItemRetrievePlacementResponse</a></code>
+- <code title="get /api/v1/platform/annotation-queues/{queue_id}/items/{item_id}/reviews">client.annotation_queues.items.<a href="./src/langsmith/resources/annotation_queues/items.py">retrieve_reviews</a>(item_id, \*, queue_id) -> <a href="./src/langsmith/types/annotation_queues/item_retrieve_reviews_response.py">ItemRetrieveReviewsResponse</a></code>
 - <code title="put /api/v1/platform/annotation-queues/{queue_id}/items/{item_id}/finals/{key}">client.annotation_queues.items.<a href="./src/langsmith/resources/annotation_queues/items.py">set_final</a>(key, \*, queue_id, item_id, \*\*<a href="src/langsmith/types/annotation_queues/item_set_final_params.py">params</a>) -> <a href="./src/langsmith/types/annotation_queues/item_set_final_response.py">ItemSetFinalResponse</a></code>
+- <code title="put /api/v1/platform/annotation-queues/{queue_id}/items/{item_id}/reviews/{key}">client.annotation_queues.items.<a href="./src/langsmith/resources/annotation_queues/items.py">set_review</a>(key, \*, queue_id, item_id, \*\*<a href="src/langsmith/types/annotation_queues/item_set_review_params.py">params</a>) -> <a href="./src/langsmith/types/annotation_queues/annotation_queue_item_key_reviews.py">AnnotationQueueItemKeyReviews</a></code>
 
 # PromptWebhooks
 
