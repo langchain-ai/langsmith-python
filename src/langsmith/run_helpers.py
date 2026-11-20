@@ -2341,6 +2341,7 @@ def _maybe_create_otel_context(run_tree: Optional[run_trees.RunTree]):
         SpanContext,
         TraceFlags,
         TraceState,
+        get_current_span,
         use_span,
     )
 
@@ -2351,13 +2352,14 @@ def _maybe_create_otel_context(run_tree: Optional[run_trees.RunTree]):
 
     trace_id = get_otel_trace_id_from_uuid(run_tree.trace_id)
     span_id = get_otel_span_id_from_uuid(run_tree.id)
+    parent_context = get_current_span().get_span_context()
 
     span_context = SpanContext(
-        trace_id=trace_id,
+        trace_id=parent_context.trace_id if parent_context.is_valid else trace_id,
         span_id=span_id,
         is_remote=False,
-        trace_flags=TraceFlags(TraceFlags.SAMPLED),
-        trace_state=TraceState(),
+        trace_flags=parent_context.trace_flags if parent_context.is_valid else TraceFlags(TraceFlags.SAMPLED),
+        trace_state=parent_context.trace_state if parent_context.is_valid else TraceState(),
     )
 
     non_recording_span = NonRecordingSpan(span_context)

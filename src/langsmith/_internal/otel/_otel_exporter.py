@@ -8,6 +8,7 @@ import threading
 import time
 import uuid
 import warnings
+from copy import copy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -191,6 +192,7 @@ class _ThreadSafeSpanInfoStore:
 class OTELExporter:
     __slots__ = [
         "_tracer",
+        "_tracer_provider",
         "_span_info",
         "_otel_available",
         "_trace",
@@ -209,6 +211,7 @@ class OTELExporter:
                 uses LANGSMITH_OTEL_SPAN_TTL_SECONDS env var (default: 3600s)
         """
         # Set defaults from environment variables if not provided
+        self._tracer_provider = tracer_provider
         if span_ttl_seconds is None:
             span_ttl_seconds = int(ls_utils.get_env_var("OTEL_SPAN_TTL_SECONDS", default="3600"))
         # Shared across concurrent background tracing workers; always access via
@@ -325,39 +328,54 @@ class OTELExporter:
                 set_span_in_context,
             ) = otel_imports
 
-            # Create SpanContext with deterministic IDs
-            span_context = SpanContext(
-                trace_id=trace_id_int,
-                span_id=span_id_int,
-                is_remote=False,
-                trace_flags=TraceFlags(TraceFlags.SAMPLED),
-                trace_state=TraceState(),
-            )
+            # Context specifies the parent, not the ID of the new span. Give
+            # this SDK tracer its own ID generator without mutating the cached
+            # tracer or provider shared with other instrumentation and workers.
+            tracer = self._tracer
+            if isinstance(tracer, trace.ProxyTracer):
+                tracer = trace.get_tracer("langsmith", tracer_provider=self._tracer_provider)
+            try:
+                from opentelemetry.sdk.trace import Tracer  # type: ignore[import]
+            except ImportError:
+                pass
+            else:
+                if isinstance(tracer, Tracer):
+                    from langsmith._internal.otel._id_generator import RunIdGenerator
 
-            # Create NonRecordingSpan for context setting
-            non_recording_span = NonRecordingSpan(span_context)
-            deterministic_context = set_span_in_context(non_recording_span)
+                    tracer = copy(tracer)
+                    tracer.id_generator = RunIdGenerator(trace_id_int, span_id_int)
 
-            # Start the span with appropriate context
             parent_run_id = run_info.get("parent_run_id")
             parent_info = self._span_info.get(uuid.UUID(parent_run_id)) if parent_run_id is not None else None
             if parent_info is not None:
-                # Use the parent span context
-                parent_span = parent_info.span
-                span = self._tracer.start_span(
-                    run_info.get("name"),
-                    context=set_span_in_context(parent_span),
-                    start_time=start_time_utc_nano,
+                parent_context = set_span_in_context(parent_info.span, Context())
+            elif parent_run_id is not None:
+                # A parent's post may arrive in a later batch or have expired.
+                captured_parent = trace.get_current_span(
+                    otel_context if otel_context is not None else Context()
+                ).get_span_context()
+                parent_context = set_span_in_context(
+                    NonRecordingSpan(
+                        SpanContext(
+                            trace_id=captured_parent.trace_id if captured_parent.is_valid else trace_id_int,
+                            span_id=get_otel_span_id_from_uuid(uuid.UUID(parent_run_id)),
+                            is_remote=False,
+                            trace_flags=captured_parent.trace_flags
+                            if captured_parent.is_valid
+                            else TraceFlags(TraceFlags.SAMPLED),
+                            trace_state=captured_parent.trace_state if captured_parent.is_valid else TraceState(),
+                        )
+                    ),
+                    Context(),
                 )
             else:
-                # For root spans, check if there's an existing OpenTelemetry context
-                # If so, inherit from it; otherwise use our deterministic context
-                current_context = otel_context if otel_context else deterministic_context
-                span = self._tracer.start_span(
-                    run_info.get("name"),
-                    context=current_context,
-                    start_time=start_time_utc_nano,
-                )
+                parent_context = otel_context if otel_context is not None else Context()
+
+            span = tracer.start_span(
+                run_info.get("name"),
+                context=parent_context,
+                start_time=start_time_utc_nano,
+            )
 
             # Set all attributes
             self._set_span_attributes(span, run_info, op)
