@@ -21,6 +21,11 @@ class Structured(BaseModel):
     prompt: Optional[List[List[object]]] = None
 
     schema_: Optional[Dict[str, object]] = FieldInfo(alias="schema", default=None)
+    """Output schema for the evaluator's feedback.
+
+    Not accepted for decision-model (TypeSafe or OpenAI Decisions) evaluators, whose
+    schema comes from their questions.
+    """
 
     template_format: Optional[str] = None
 
