@@ -59,6 +59,12 @@ def normalize_gemini_usage_metadata(usage: Any) -> dict[str, Any] | None:
         output_details["audio"] = audio
     if isinstance(reasoning := getattr(usage, "thoughts_token_count", None), int):
         output_details["reasoning"] = reasoning
+        # ``candidates_token_count`` excludes thinking tokens, so fold them back
+        # into the output total (reasoning is a subset of output_tokens).
+        if not isinstance(getattr(usage, "response_token_count", None), int) and isinstance(
+            result.get("output_tokens"), int
+        ):
+            result["output_tokens"] += reasoning
     if output_details:
         result["output_token_details"] = output_details
 

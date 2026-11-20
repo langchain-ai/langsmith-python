@@ -204,7 +204,9 @@ def _create_usage_metadata(gemini_usage_metadata: dict) -> UsageMetadata:
     candidates_token_count = gemini_usage_metadata.get("candidates_token_count") or 0
     cached_content_token_count = gemini_usage_metadata.get("cached_content_token_count") or 0
     thoughts_token_count = gemini_usage_metadata.get("thoughts_token_count") or 0
-    total_token_count = gemini_usage_metadata.get("total_token_count") or prompt_token_count + candidates_token_count
+    # Gemini's candidates_token_count excludes thinking tokens, which are billed as output.
+    output_token_count = candidates_token_count + thoughts_token_count
+    total_token_count = gemini_usage_metadata.get("total_token_count") or prompt_token_count + output_token_count
 
     input_token_details: dict = {}
     if cached_content_token_count:
@@ -216,12 +218,12 @@ def _create_usage_metadata(gemini_usage_metadata: dict) -> UsageMetadata:
     if thoughts_token_count:
         output_token_details["reasoning"] = thoughts_token_count
 
-    if candidates_token_count:
-        output_token_details["over_200k"] = max(0, candidates_token_count - 200000)
+    if output_token_count:
+        output_token_details["over_200k"] = max(0, output_token_count - 200000)
 
     return UsageMetadata(
         input_tokens=prompt_token_count,
-        output_tokens=candidates_token_count,
+        output_tokens=output_token_count,
         total_tokens=total_token_count,
         input_token_details=InputTokenDetails(**{k: v for k, v in input_token_details.items() if v is not None}),
         output_token_details=OutputTokenDetails(**{k: v for k, v in output_token_details.items() if v is not None}),

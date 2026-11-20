@@ -627,14 +627,31 @@ class TestCreateUsageMetadata:
             "prompt_token_count": 10,
             "candidates_token_count": 20,
             "thoughts_token_count": 15,
-            "total_token_count": 30,
+            "total_token_count": 45,
         }
         result = _create_usage_metadata(gemini_usage)
 
+        # Gemini's candidates_token_count excludes thinking tokens, so output_tokens
+        # adds them back and reasoning is a subset of output_tokens.
         assert result["input_tokens"] == 10
-        assert result["output_tokens"] == 20
-        assert result["total_tokens"] == 30
+        assert result["output_tokens"] == 35
+        assert result["total_tokens"] == 45
         assert result["output_token_details"]["reasoning"] == 15
+        assert (
+            result["input_tokens"] + result["output_tokens"] == result["total_tokens"]
+        )
+
+    def test_missing_total_with_reasoning_tokens(self):
+        result = _create_usage_metadata(
+            {
+                "prompt_token_count": 10,
+                "candidates_token_count": 20,
+                "thoughts_token_count": 15,
+            }
+        )
+
+        assert result["output_tokens"] == 35
+        assert result["total_tokens"] == 45
 
     def test_missing_totals(self):
         gemini_usage = {
