@@ -233,7 +233,7 @@ def _reduce_chat(all_chunks: list[ChatCompletionChunk]) -> dict:
     # streamed outputs don't go through `process_outputs`
     # so we need to flatten metadata here
     oai_token_usage = d.pop("usage", None)
-    d["usage_metadata"] = _create_usage_metadata(oai_token_usage) if oai_token_usage else None
+    d["usage_metadata"] = _create_usage_metadata(oai_token_usage, d.get("service_tier")) if oai_token_usage else None
     return d
 
 
