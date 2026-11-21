@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.16.0](https://github.com/langchain-ai/langsmith-python/compare/v0.15.1...v0.16.0) (2026-11-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* add cursor-paginated workspace secrets listing
+
+### Features
+
+* add cursor-paginated workspace secrets listing ([9707eec](https://github.com/langchain-ai/langsmith-python/commit/9707eec8967680287b4b491202fb7a135f4acffc))
+* **feedback:** delete feedback from Go ([5015724](https://github.com/langchain-ai/langsmith-python/commit/501572413bb2669a5a10eaeb2c42781749220d97))
+* **sdk:** Let tracing_context Skip Copying the Parent's Tags and Metadata ([1cd8712](https://github.com/langchain-ai/langsmith-python/commit/1cd8712955f446888856a4c38c08fc5808687678))
+
+
+### Bug Fixes
+
+* **robin:** keep Terminal-Bench verifiers running through a dropped connection ([b1e64c2](https://github.com/langchain-ai/langsmith-python/commit/b1e64c2cf4b93176f39985ddfba771be96e68520))
+* **run-rules:** return backfill_id on create and list every outcomes page in backfill logs ([5f4b65a](https://github.com/langchain-ai/langsmith-python/commit/5f4b65ad8e433de8e6cdff0ef570980b63ad8b00))
+
 ## [0.15.1](https://github.com/langchain-ai/langsmith-python/compare/v0.15.0...v0.15.1) (2026-11-20)
 
 
