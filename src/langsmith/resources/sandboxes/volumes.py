@@ -64,9 +64,14 @@ class VolumesResource(SyncAPIResource):
         to a whole GiB.
 
         Args:
-          name: Name is unique within the workspace.
+          name: Name of the volume, unique within the workspace.
 
-          size_bytes: SizeBytes is the volume's capacity, rounded up to a whole GiB.
+          size_bytes: Capacity in bytes, rounded up to a whole GiB.
+
+          description: Free-text description, at most 1024 characters.
+
+          labels: Labels to filter and identify the volume by. Keys are lowercase letters, digits,
+              dots and hyphens.
 
           extra_headers: Send extra headers
 
@@ -293,6 +298,10 @@ class VolumesResource(SyncAPIResource):
         Args:
           name: Name of the new volume, unique within the workspace.
 
+          description: Free-text description of the new volume, at most 1024 characters.
+
+          labels: Labels for the new volume. Keys are lowercase letters, digits, dots and hyphens.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -361,9 +370,14 @@ class AsyncVolumesResource(AsyncAPIResource):
         to a whole GiB.
 
         Args:
-          name: Name is unique within the workspace.
+          name: Name of the volume, unique within the workspace.
 
-          size_bytes: SizeBytes is the volume's capacity, rounded up to a whole GiB.
+          size_bytes: Capacity in bytes, rounded up to a whole GiB.
+
+          description: Free-text description, at most 1024 characters.
+
+          labels: Labels to filter and identify the volume by. Keys are lowercase letters, digits,
+              dots and hyphens.
 
           extra_headers: Send extra headers
 
@@ -589,6 +603,10 @@ class AsyncVolumesResource(AsyncAPIResource):
 
         Args:
           name: Name of the new volume, unique within the workspace.
+
+          description: Free-text description of the new volume, at most 1024 characters.
+
+          labels: Labels for the new volume. Keys are lowercase letters, digits, dots and hyphens.
 
           extra_headers: Send extra headers
 

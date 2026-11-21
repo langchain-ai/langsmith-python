@@ -10,11 +10,16 @@ __all__ = ["VolumeCreateParams"]
 
 class VolumeCreateParams(TypedDict, total=False):
     name: Required[str]
-    """Name is unique within the workspace."""
+    """Name of the volume, unique within the workspace."""
 
     size_bytes: Required[int]
-    """SizeBytes is the volume's capacity, rounded up to a whole GiB."""
+    """Capacity in bytes, rounded up to a whole GiB."""
 
     description: str
+    """Free-text description, at most 1024 characters."""
 
     labels: Dict[str, str]
+    """Labels to filter and identify the volume by.
+
+    Keys are lowercase letters, digits, dots and hyphens.
+    """

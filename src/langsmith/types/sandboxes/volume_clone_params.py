@@ -13,5 +13,10 @@ class VolumeCloneParams(TypedDict, total=False):
     """Name of the new volume, unique within the workspace."""
 
     description: str
+    """Free-text description of the new volume, at most 1024 characters."""
 
     labels: Dict[str, str]
+    """Labels for the new volume.
+
+    Keys are lowercase letters, digits, dots and hyphens.
+    """
