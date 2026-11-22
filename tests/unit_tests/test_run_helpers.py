@@ -1303,6 +1303,26 @@ def test_client_not_passed_when_traceable_parent():
     assert len(mock_calls) == 0
 
 
+@pytest.mark.parametrize("parent_kind", ["run_tree", "headers"])
+def test_children_not_sent_when_traceable_parent(parent_kind: str):
+    mock_client = _get_mock_client()
+    rt = RunTree(name="foo", client=mock_client)
+    parent = rt if parent_kind == "run_tree" else rt.to_headers()
+
+    @traceable(client=mock_client)
+    def child():
+        return "baz"
+
+    @traceable(client=mock_client)
+    def my_run():
+        return child()
+
+    my_run(langsmith_extra={"parent": parent})
+    mock_client.flush()
+    # Neither run is sent: `child` would point at a `my_run` that never was.
+    assert len(_get_calls(mock_client)) == 0
+
+
 def test_client_passed_when_trace_parent():
     mock_client = _get_mock_client()
     rt = RunTree(name="foo", client=mock_client)
