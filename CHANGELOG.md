@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.16.1](https://github.com/langchain-ai/langsmith-python/compare/v0.16.0...v0.16.1) (2026-11-23)
+
+
+### Features
+
+* **cli:** expose sandbox memory, lifecycle, snapshot, volume and file options ([1b8dd10](https://github.com/langchain-ai/langsmith-python/commit/1b8dd10c48a953ccde464a48c072f1835f6081ea))
+* **sdks:** post thread feedback from the Python and JS clients ([a76e04c](https://github.com/langchain-ai/langsmith-python/commit/a76e04c94b763d7361b60d4843090ae385d2a931))
+
 ## [0.16.0](https://github.com/langchain-ai/langsmith-python/compare/v0.15.1...v0.16.0) (2026-11-21)
 
 
