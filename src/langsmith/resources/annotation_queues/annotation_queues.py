@@ -38,6 +38,14 @@ from ..._httpx import httpx
 from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
+from .reviewers import (
+    ReviewersResource,
+    AsyncReviewersResource,
+    ReviewersResourceWithRawResponse,
+    AsyncReviewersResourceWithRawResponse,
+    ReviewersResourceWithStreamingResponse,
+    AsyncReviewersResourceWithStreamingResponse,
+)
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
     to_raw_response_wrapper,
@@ -68,6 +76,10 @@ class AnnotationQueuesResource(SyncAPIResource):
     @cached_property
     def items(self) -> ItemsResource:
         return ItemsResource(self._client)
+
+    @cached_property
+    def reviewers(self) -> ReviewersResource:
+        return ReviewersResource(self._client)
 
     @cached_property
     def with_raw_response(self) -> AnnotationQueuesResourceWithRawResponse:
@@ -723,6 +735,10 @@ class AsyncAnnotationQueuesResource(AsyncAPIResource):
     @cached_property
     def items(self) -> AsyncItemsResource:
         return AsyncItemsResource(self._client)
+
+    @cached_property
+    def reviewers(self) -> AsyncReviewersResource:
+        return AsyncReviewersResource(self._client)
 
     @cached_property
     def with_raw_response(self) -> AsyncAnnotationQueuesResourceWithRawResponse:
@@ -1435,6 +1451,10 @@ class AnnotationQueuesResourceWithRawResponse:
     def items(self) -> ItemsResourceWithRawResponse:
         return ItemsResourceWithRawResponse(self._annotation_queues.items)
 
+    @cached_property
+    def reviewers(self) -> ReviewersResourceWithRawResponse:
+        return ReviewersResourceWithRawResponse(self._annotation_queues.reviewers)
+
 
 class AsyncAnnotationQueuesResourceWithRawResponse:
     def __init__(self, annotation_queues: AsyncAnnotationQueuesResource) -> None:
@@ -1497,6 +1517,10 @@ class AsyncAnnotationQueuesResourceWithRawResponse:
     @cached_property
     def items(self) -> AsyncItemsResourceWithRawResponse:
         return AsyncItemsResourceWithRawResponse(self._annotation_queues.items)
+
+    @cached_property
+    def reviewers(self) -> AsyncReviewersResourceWithRawResponse:
+        return AsyncReviewersResourceWithRawResponse(self._annotation_queues.reviewers)
 
 
 class AnnotationQueuesResourceWithStreamingResponse:
@@ -1561,6 +1585,10 @@ class AnnotationQueuesResourceWithStreamingResponse:
     def items(self) -> ItemsResourceWithStreamingResponse:
         return ItemsResourceWithStreamingResponse(self._annotation_queues.items)
 
+    @cached_property
+    def reviewers(self) -> ReviewersResourceWithStreamingResponse:
+        return ReviewersResourceWithStreamingResponse(self._annotation_queues.reviewers)
+
 
 class AsyncAnnotationQueuesResourceWithStreamingResponse:
     def __init__(self, annotation_queues: AsyncAnnotationQueuesResource) -> None:
@@ -1623,3 +1651,7 @@ class AsyncAnnotationQueuesResourceWithStreamingResponse:
     @cached_property
     def items(self) -> AsyncItemsResourceWithStreamingResponse:
         return AsyncItemsResourceWithStreamingResponse(self._annotation_queues.items)
+
+    @cached_property
+    def reviewers(self) -> AsyncReviewersResourceWithStreamingResponse:
+        return AsyncReviewersResourceWithStreamingResponse(self._annotation_queues.reviewers)

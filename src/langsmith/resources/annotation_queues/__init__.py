@@ -16,6 +16,14 @@ from .items import (
     ItemsResourceWithStreamingResponse,
     AsyncItemsResourceWithStreamingResponse,
 )
+from .reviewers import (
+    ReviewersResource,
+    AsyncReviewersResource,
+    ReviewersResourceWithRawResponse,
+    AsyncReviewersResourceWithRawResponse,
+    ReviewersResourceWithStreamingResponse,
+    AsyncReviewersResourceWithStreamingResponse,
+)
 from .annotation_queues import (
     AnnotationQueuesResource,
     AsyncAnnotationQueuesResource,
@@ -38,6 +46,12 @@ __all__ = [
     "AsyncItemsResourceWithRawResponse",
     "ItemsResourceWithStreamingResponse",
     "AsyncItemsResourceWithStreamingResponse",
+    "ReviewersResource",
+    "AsyncReviewersResource",
+    "ReviewersResourceWithRawResponse",
+    "AsyncReviewersResourceWithRawResponse",
+    "ReviewersResourceWithStreamingResponse",
+    "AsyncReviewersResourceWithStreamingResponse",
     "AnnotationQueuesResource",
     "AsyncAnnotationQueuesResource",
     "AnnotationQueuesResourceWithRawResponse",

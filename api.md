@@ -426,6 +426,18 @@ Methods:
 - <code title="put /api/v1/platform/annotation-queues/{queue_id}/items/{item_id}/finals/{key}">client.annotation_queues.items.<a href="./src/langsmith/resources/annotation_queues/items.py">set_final</a>(key, \*, queue_id, item_id, \*\*<a href="src/langsmith/types/annotation_queues/item_set_final_params.py">params</a>) -> <a href="./src/langsmith/types/annotation_queues/item_set_final_response.py">ItemSetFinalResponse</a></code>
 - <code title="put /api/v1/platform/annotation-queues/{queue_id}/items/{item_id}/reviews/{key}">client.annotation_queues.items.<a href="./src/langsmith/resources/annotation_queues/items.py">set_review</a>(key, \*, queue_id, item_id, \*\*<a href="src/langsmith/types/annotation_queues/item_set_review_params.py">params</a>) -> <a href="./src/langsmith/types/annotation_queues/annotation_queue_item_key_reviews.py">AnnotationQueueItemKeyReviews</a></code>
 
+## Reviewers
+
+Types:
+
+```python
+from langsmith.types.annotation_queues import ReviewerListResponse
+```
+
+Methods:
+
+- <code title="get /api/v1/platform/annotation-queues/{queue_id}/reviewers">client.annotation_queues.reviewers.<a href="./src/langsmith/resources/annotation_queues/reviewers.py">list</a>(queue_id, \*\*<a href="src/langsmith/types/annotation_queues/reviewer_list_params.py">params</a>) -> <a href="./src/langsmith/types/annotation_queues/reviewer_list_response.py">SyncItemsCursorGetPagination[ReviewerListResponse]</a></code>
+
 # PromptWebhooks
 
 Types:
