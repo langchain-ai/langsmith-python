@@ -766,6 +766,29 @@ def _check_feedback_session_id(info: ls_schemas.LangSmithInfo) -> None:
     )
 
 
+def _check_feedback_target(
+    run_id: Optional[ID_TYPE],
+    project_id: Optional[ID_TYPE],
+    session_id: Optional[ID_TYPE],
+    address: Optional[AgentAddress],
+    thread_id: Optional[str],
+) -> None:
+    """Check that feedback names one run, project, or thread in a project.
+
+    ``run_id`` is the run id or, without one, the trace id.
+    """
+    if thread_id is not None:
+        if run_id is not None:
+            raise ValueError("thread_id cannot be combined with run_id or trace_id")
+        if project_id is None and session_id is None and address is None:
+            raise ValueError("thread_id requires the thread's project: pass session_id, project_id or address")
+        return
+    if run_id is None and project_id is None:
+        raise ValueError("One of run_id, trace_id, or project_id  must be provided")
+    if run_id is not None and project_id is not None:
+        raise ValueError("project_id cannot be provided if run_id or trace_id is provided")
+
+
 def _get_tracing_sampling_rate(
     tracing_sampling_rate: Optional[float] = None,
 ) -> float | None:
@@ -7940,9 +7963,10 @@ class Client:
         start_time: Optional[datetime.datetime] = None,
         extend_trace_retention: bool = True,
         address: Optional[AgentAddress] = None,
+        thread_id: Optional[str] = None,
         **kwargs: Any,
     ) -> ls_schemas.Feedback:
-        """Create feedback for a run.
+        """Create feedback for a run, a project, or a thread.
 
         !!! note
 
@@ -8017,6 +8041,12 @@ class Client:
                 combined with `session_id` / `project_id`, and is never read
                 from the env vars: feedback follows its run, not the ambient
                 environment.
+            thread_id (Optional[str]):
+                The thread (conversation) to provide feedback for, as its traces
+                record it. Thread feedback scores the whole conversation, the
+                way a thread evaluator does. Pass the thread's project as
+                `session_id` or `project_id` (or its `address`), and no `run_id`
+                or `trace_id`.
             **kwargs (Any):
                 Additional keyword arguments.
 
@@ -8073,15 +8103,20 @@ class Client:
                 trace_id=trace_id,
                 session_id=session_id,
             )
+
+            # Provide feedback for a whole conversation (thread)
+            client.create_feedback(
+                key="resolved",
+                score=1,
+                thread_id="my-thread-id",
+                session_id=session_id,
+            )
             ```
         """
         address = _addressing.check_address(address)
         _addressing.reject_conflicting(project=project_id, session_id=session_id, address=address)
         run_id = run_id or trace_id
-        if run_id is None and project_id is None:
-            raise ValueError("One of run_id, trace_id, or project_id  must be provided")
-        if run_id is not None and project_id is not None:
-            raise ValueError("project_id cannot be provided if run_id or trace_id is provided")
+        _check_feedback_target(run_id, project_id, session_id, address, thread_id)
         if run_id is not None and session_id is None and address is None:
             # An address locates the project directly, so it satisfies the same
             # requirement this gate exists for.
@@ -8136,6 +8171,7 @@ class Client:
                 feedback_config=feedback_config,
                 session_id=_session_id,
                 address=address,
+                feedback_thread_id=thread_id,
                 start_time=start_time,
                 comparative_experiment_id=_ensure_uuid(comparative_experiment_id, accept_null=True),
                 feedback_group_id=_ensure_uuid(feedback_group_id, accept_null=True),

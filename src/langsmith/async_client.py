@@ -1166,9 +1166,10 @@ class AsyncClient:
         comment: Optional[str] = None,
         extend_trace_retention: bool = True,
         address: Optional[AgentAddress] = None,
+        thread_id: Optional[str] = None,
         **kwargs: Any,
     ) -> ls_schemas.Feedback:
-        """Create feedback for a run.
+        """Create feedback for a run, a project, or a thread.
 
         !!! note "Addressed feedback"
             The `address` must already exist -- unlike run ingestion, a feedback
@@ -1209,6 +1210,11 @@ class AsyncClient:
                 Cannot be combined with `session_id` / `project_id`, and is
                 never read from the env vars: feedback follows its run, not
                 the ambient environment.
+            thread_id: The thread (conversation) to provide feedback for, as
+                its traces record it. Thread feedback scores the whole
+                conversation, the way a thread evaluator does. Pass the
+                thread's project as `session_id` or `project_id` (or its
+                `address`), and no `run_id` or `trace_id`.
             **kwargs: Additional deprecated keyword arguments.
 
         Returns:
@@ -1220,10 +1226,7 @@ class AsyncClient:
         address = _addressing.check_address(address)
         _addressing.reject_conflicting(project=project_id, session_id=session_id, address=address)
         run_id = run_id or trace_id
-        if run_id is None and project_id is None:
-            raise ValueError("One of run_id, trace_id, or project_id  must be provided")
-        if run_id is not None and project_id is not None:
-            raise ValueError("project_id cannot be provided if run_id or trace_id is provided")
+        ls_client._check_feedback_target(run_id, project_id, session_id, address, thread_id)
         if run_id is not None and session_id is None and address is None:
             # An address locates the project directly, so it satisfies the same
             # requirement this gate exists for.
@@ -1273,6 +1276,7 @@ class AsyncClient:
             feedback_config=feedback_config,
             session_id=session_id_,
             address=address,
+            feedback_thread_id=thread_id,
             start_time=start_time,
             comparative_experiment_id=ls_client._ensure_uuid(comparative_experiment_id, accept_null=True),
             feedback_group_id=ls_client._ensure_uuid(feedback_group_id, accept_null=True),

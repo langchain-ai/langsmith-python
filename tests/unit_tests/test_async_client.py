@@ -580,6 +580,22 @@ async def test_async_create_feedback_project_feedback_validation(
     with pytest.raises(ValueError, match="One of run_id, trace_id, or project_id"):
         await client.create_feedback(key="test_key")
 
+    feedback = await client.create_feedback(key="test_key", thread_id="thread-1", project_id=project_id)
+
+    assert feedback.feedback_thread_id == "thread-1"
+    body = json.loads(mock_httpx_client.request.call_args.kwargs["content"])
+    assert body["feedback_thread_id"] == "thread-1"
+    assert body["session_id"] == str(project_id)
+    assert "run_id" not in body
+
+    with pytest.raises(ValueError, match="cannot be combined with run_id"):
+        await client.create_feedback(
+            trace_id=uuid.uuid4(),
+            key="test_key",
+            thread_id="thread-1",
+            session_id=project_id,
+        )
+
 
 @mock.patch("langsmith.async_client.httpx.AsyncClient")
 @pytest.mark.asyncio

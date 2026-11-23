@@ -727,6 +727,8 @@ class FeedbackBase(BaseModel):
     """The source of the feedback."""
     session_id: Optional[UUID] = None
     """The associated project ID (Session = Project) this feedback is logged for."""
+    feedback_thread_id: Optional[str] = None
+    """The thread (conversation) this feedback is about, for thread feedback."""
     start_time: Optional[datetime] = None
     """The start time of the run this feedback is associated with."""
     comparative_experiment_id: Optional[UUID] = None

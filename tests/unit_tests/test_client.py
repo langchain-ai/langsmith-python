@@ -2754,6 +2754,27 @@ def test_create_feedback_warns_without_session_id() -> None:
     session.request.assert_called_once()
 
 
+def test_create_feedback_on_a_thread() -> None:
+    """Thread feedback names the thread and its project, and no run."""
+    session = mock.Mock()
+    client = _feedback_client(session, ch_query_enabled=False, sdb_query_enabled=True)
+    session_id = uuid.uuid4()
+
+    feedback = client.create_feedback(key="resolved", score=1, thread_id="thread-1", session_id=session_id)
+
+    payload = json.loads(session.request.call_args.kwargs["data"])
+    assert payload["feedback_thread_id"] == "thread-1"
+    assert payload["session_id"] == str(session_id)
+    assert "run_id" not in payload
+    assert feedback.feedback_thread_id == "thread-1"
+
+    with pytest.raises(ValueError, match="thread_id requires the thread's project"):
+        client.create_feedback(key="resolved", thread_id="thread-1")
+    with pytest.raises(ValueError, match="cannot be combined with run_id"):
+        client.create_feedback(uuid.uuid4(), key="resolved", thread_id="thread-1", session_id=session_id)
+    session.request.assert_called_once()
+
+
 def test_pydantic_serialize() -> None:
     """Test that pydantic objects can be serialized."""
     test_uuid = uuid.uuid4()
