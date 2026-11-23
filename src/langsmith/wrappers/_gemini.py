@@ -92,6 +92,8 @@ def _process_gemini_inputs(inputs: dict) -> dict:
             if not isinstance(content, dict):
                 continue
             role = content.get("role", "user")
+            if role == "model":
+                role = "assistant"
             raw_parts = content.get("parts", [])
 
             text_parts: list[str] = []
