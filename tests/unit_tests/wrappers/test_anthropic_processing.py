@@ -328,6 +328,35 @@ class TestRedactMCPServers:
         assert "mcp_servers" not in _strip_not_given({"mcp_servers": None})
 
 
+class TestInferLsParamsStop:
+    """The Messages API takes `stop_sequences`, which feeds `ls_stop`."""
+
+    def test_stop_sequences_list(self) -> None:
+        params = _infer_ls_params({}, {"model": "claude-x", "stop_sequences": ["END"]})
+
+        assert params["ls_stop"] == ["END"]
+
+    def test_stop_sequences_bare_string(self) -> None:
+        params = _infer_ls_params({}, {"model": "claude-x", "stop_sequences": "END"})
+
+        assert params["ls_stop"] == ["END"]
+
+    def test_stop_sequences_absent(self) -> None:
+        params = _infer_ls_params({}, {"model": "claude-x"})
+
+        assert params["ls_stop"] is None
+
+    def test_stop_sequences_none(self) -> None:
+        params = _infer_ls_params({}, {"model": "claude-x", "stop_sequences": None})
+
+        assert params["ls_stop"] is None
+
+    def test_unrelated_stop_key_is_ignored(self) -> None:
+        params = _infer_ls_params({}, {"model": "claude-x", "stop": ["END"]})
+
+        assert params["ls_stop"] is None
+
+
 class TestWrapAnthropicCompletions:
     """wrap_anthropic must tolerate clients without the legacy completions resource."""
 
