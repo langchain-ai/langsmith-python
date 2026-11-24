@@ -10,7 +10,7 @@
 
 ### Bug Fixes
 
-* **sdk-py:** keep only span context for ended OTel spans ([5857a07](https://github.com/langchain-ai/langsmith-python/commit/5857a07a9467a07cc429cafae1da2312c4f52218))
+* **sdk:** keep only span context for ended OTel spans ([5857a07](https://github.com/langchain-ai/langsmith-python/commit/5857a07a9467a07cc429cafae1da2312c4f52218))
 * **sdk:** log Gemini model turns with the assistant role in wrapper inputs ([35bb388](https://github.com/langchain-ai/langsmith-python/commit/35bb388ac3133c84dff259d1dd2272707f817555))
 
 ## [0.16.1](https://github.com/langchain-ai/langsmith-python/compare/v0.16.0...v0.16.1) (2026-11-23)
