@@ -1,6 +1,6 @@
 [project]
 name = "langsmith"
-version = "0.16.1"
+version = "0.16.2"
 description = "Client library to connect to the LangSmith Observability and Evaluation Platform."
 dynamic = ["readme"]
 license = "MIT"
