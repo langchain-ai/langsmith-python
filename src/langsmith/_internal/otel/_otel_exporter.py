@@ -8,6 +8,7 @@ import threading
 import time
 import uuid
 import warnings
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -127,14 +128,17 @@ def _get_operation_name(run_type: str) -> str:
 
 @dataclass
 class _SpanInfo:
-    """Metadata tracked for each in-flight OTEL span."""
+    """Metadata tracked for each in-flight or recently ended OTEL span.
+
+    ``created_at`` is a ``time.monotonic()`` reading from when the run's start or end was stored.
+    """
 
     span: Any
     created_at: float
 
 
 class _ThreadSafeSpanInfoStore:
-    """Thread-safe registry of in-flight span metadata.
+    """Thread-safe registry of in-flight and recently ended span metadata.
 
     The OTEL exporter is shared across concurrent background tracing workers
     (autoscaled sub-threads, the hybrid-mode executor). All reads and writes of
@@ -151,33 +155,41 @@ class _ThreadSafeSpanInfoStore:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._spans: dict[uuid.UUID, _SpanInfo] = {}
+        self._spans: OrderedDict[uuid.UUID, _SpanInfo] = OrderedDict()
 
     def get(self, span_id: uuid.UUID) -> Optional[_SpanInfo]:
         with self._lock:
             return self._spans.get(span_id)
 
     def set(self, span_id: uuid.UUID, span: Any, created_at: Optional[float] = None) -> None:
-        info = _SpanInfo(
-            span=span,
-            created_at=created_at if created_at is not None else time.time(),
-        )
         with self._lock:
-            self._spans[span_id] = info
+            # Read the clock under the lock so insertion order matches timestamp order.
+            self._spans[span_id] = _SpanInfo(
+                span=span,
+                created_at=created_at if created_at is not None else time.monotonic(),
+            )
+            self._spans.move_to_end(span_id)
 
     def pop(self, span_id: uuid.UUID) -> Optional[_SpanInfo]:
         with self._lock:
             return self._spans.pop(span_id, None)
 
-    def stale_ids(self, cutoff_time: float) -> list[uuid.UUID]:
-        """Return ids of spans older than ``cutoff_time``.
+    def pop_stale(self, cutoff_time: float) -> list[tuple[uuid.UUID, _SpanInfo]]:
+        """Remove and return spans older than ``cutoff_time``, oldest first.
 
-        Iterates a snapshot of the items under the lock so concurrent
-        insert/delete (e.g. from another batch worker) cannot raise
-        ``RuntimeError: dictionary changed size during iteration``.
+        ``set`` moves each entry to the end, so entries are ordered by ``created_at``
+        and the scan stops at the first fresh one. Selection and removal share one
+        lock hold, so an entry refreshed by another worker is never removed.
         """
+        stale: list[tuple[uuid.UUID, _SpanInfo]] = []
         with self._lock:
-            return [span_id for span_id, info in list(self._spans.items()) if info.created_at < cutoff_time]
+            while self._spans:
+                span_id, info = next(iter(self._spans.items()))
+                if info.created_at >= cutoff_time:
+                    break
+                self._spans.popitem(last=False)
+                stale.append((span_id, info))
+        return stale
 
     def __len__(self) -> int:
         with self._lock:
@@ -205,8 +217,9 @@ class OTELExporter:
         Args:
             tracer_provider: Optional tracer provider to use. If not provided,
                 the global tracer provider will be used.
-            span_ttl_seconds: TTL for incomplete traces in seconds. If None,
-                uses LANGSMITH_OTEL_SPAN_TTL_SECONDS env var (default: 3600s)
+            span_ttl_seconds: How long a run's span info is kept after its start, or
+                after its end once it has ended, so later child runs can link to it.
+                If None, uses LANGSMITH_OTEL_SPAN_TTL_SECONDS env var (default: 3600s)
         """
         # Set defaults from environment variables if not provided
         if span_ttl_seconds is None:
@@ -261,6 +274,9 @@ class OTELExporter:
                 if op.operation == "post":
                     span = self._create_span_for_run(op, run_info, otel_context_map.get(op.id))
                     if span:
+                        if run_info.get("end_time"):
+                            # Run already ended, so store only its span context for child spans to link to.
+                            span = self._trace.NonRecordingSpan(span.get_span_context())
                         self._span_info.set(op.id, span)
                 else:
                     self._update_span_for_run(op, run_info)
@@ -416,9 +432,9 @@ class OTELExporter:
                     span.end(end_time=end_time_utc_nano)
                 else:
                     span.end()
-                # Remove the span info from the store
-                self._span_info.pop(op.id)
-                logger.debug(f"Completed span, remaining spans: {len(self._span_info)}")
+                # Keep only the span context so child runs exported later can still link to it.
+                self._span_info.set(op.id, self._trace.NonRecordingSpan(span.get_span_context()))
+                logger.debug(f"Completed span, tracked spans: {len(self._span_info)}")
             else:
                 # Span exists but no end_time - this is normal for ongoing operations
                 logger.debug("Updated span (no end_time yet)")
@@ -431,7 +447,7 @@ class OTELExporter:
         if not self._span_info:
             return
 
-        current_time = time.time()
+        current_time = time.monotonic()
 
         # Only run cleanup every 10 seconds to reduce overhead
         if current_time - self._last_cleanup < 10.0:
@@ -440,30 +456,22 @@ class OTELExporter:
         self._last_cleanup = current_time
         cutoff_time = current_time - self._span_ttl_seconds
 
-        # Remove spans older than TTL in one pass.
-        stale_span_ids = self._span_info.stale_ids(cutoff_time)
+        stale_spans = self._span_info.pop_stale(cutoff_time)
 
-        if stale_span_ids:
-            logger.info(f" LangSmith OTEL Cleanup: Removing {len(stale_span_ids)} stale spans")
+        if stale_spans:
+            logger.info(f" LangSmith OTEL Cleanup: Removing {len(stale_spans)} stale spans")
 
-            for span_id in stale_span_ids:
-                self._remove_span(span_id)
+            for span_id, span_info in stale_spans:
+                self._end_removed_span(span_id, span_info)
 
-    def _remove_span(self, span_id: uuid.UUID) -> None:
-        """Remove a single span and clean up resources.
+    def _end_removed_span(self, span_id: uuid.UUID, span_info: _SpanInfo) -> None:
+        """End a span removed from the store by cleanup if it is still recording.
 
         Note:
-            We call `span.end()` here because spans in `_span_info` are orphaned -
-            they never received their patch operation and will never naturally complete.
-
-            Ending them gracefully is better than leaving them open indefinitely.
+            Spans that are still recording here are orphaned - they never received
+            their ending patch and will never naturally complete, so we end them.
+            Ended runs are stored as non-recording spans and are simply dropped.
         """
-        # Atomically claim the entry so a concurrent worker can't end the same
-        # span or see/use it after we've decided to remove it.
-        span_info = self._span_info.pop(span_id)
-        if span_info is None:
-            return
-
         try:
             span = span_info.span
 
