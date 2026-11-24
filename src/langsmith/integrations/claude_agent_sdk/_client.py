@@ -31,6 +31,7 @@ from ._hooks import (
     pre_tool_use_hook,
     subagent_start_hook,
     subagent_stop_hook,
+    user_prompt_submit_hook,
 )
 from ._messages import (
     build_llm_input,
@@ -292,6 +293,7 @@ def _inject_tracing_hooks(options: Any, session: Optional[SessionState] = None) 
         options.hooks = {}
 
     for event in (
+        "UserPromptSubmit",
         "PreToolUse",
         "PostToolUse",
         "PostToolUseFailure",
@@ -304,6 +306,9 @@ def _inject_tracing_hooks(options: Any, session: Optional[SessionState] = None) 
     try:
         from claude_agent_sdk import HookMatcher  # type: ignore[import-not-found]
 
+        langsmith_prompt_matcher = HookMatcher(
+            matcher=None, hooks=[_bind_hook_to_session(user_prompt_submit_hook, session)]
+        )
         langsmith_pre_matcher = HookMatcher(matcher=None, hooks=[_bind_hook_to_session(pre_tool_use_hook, session)])
         langsmith_post_matcher = HookMatcher(matcher=None, hooks=[_bind_hook_to_session(post_tool_use_hook, session)])
         langsmith_failure_matcher = HookMatcher(
@@ -317,6 +322,7 @@ def _inject_tracing_hooks(options: Any, session: Optional[SessionState] = None) 
             matcher=None, hooks=[_bind_hook_to_session(subagent_stop_hook, session)]
         )
 
+        options.hooks["UserPromptSubmit"].insert(0, langsmith_prompt_matcher)
         options.hooks["PreToolUse"].insert(0, langsmith_pre_matcher)
         options.hooks["PostToolUse"].insert(0, langsmith_post_matcher)
         options.hooks["PostToolUseFailure"].insert(0, langsmith_failure_matcher)
