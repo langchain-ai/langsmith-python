@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.16.2](https://github.com/langchain-ai/langsmith-python/compare/v0.16.1...v0.16.2) (2026-11-24)
+
+
+### Features
+
+* **annotation-queues:** list a queue's reviewers with their progress ([73c5164](https://github.com/langchain-ai/langsmith-python/commit/73c516406db2b26ef436194ff4051d66488161f8))
+
+
+### Bug Fixes
+
+* **sdk-py:** keep only span context for ended OTel spans ([5857a07](https://github.com/langchain-ai/langsmith-python/commit/5857a07a9467a07cc429cafae1da2312c4f52218))
+* **sdk:** log Gemini model turns with the assistant role in wrapper inputs ([35bb388](https://github.com/langchain-ai/langsmith-python/commit/35bb388ac3133c84dff259d1dd2272707f817555))
+
 ## [0.16.1](https://github.com/langchain-ai/langsmith-python/compare/v0.16.0...v0.16.1) (2026-11-23)
 
 
