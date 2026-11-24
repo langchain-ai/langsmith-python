@@ -89,7 +89,7 @@ def _strip_not_given(d: dict) -> dict:
 def _infer_ls_params(prepopulated_invocation_params: dict, kwargs: dict):
     stripped = _strip_not_given(kwargs)
 
-    stop = stripped.get("stop")
+    stop = stripped.get("stop_sequences")
     if stop and isinstance(stop, str):
         stop = [stop]
 
