@@ -83,6 +83,7 @@ class TestProcessGeminiInputs:
         inputs = {
             "contents": [
                 {"role": "user", "parts": [{"text": "What is AI?"}]},
+                {"role": "model", "parts": [{"text": "Artificial intelligence."}]},
                 {"role": "user", "parts": [{"text": "What is computer?"}]},
             ],
             "model": "gemini-pro",
@@ -91,6 +92,7 @@ class TestProcessGeminiInputs:
         expected = {
             "messages": [
                 {"role": "user", "content": "What is AI?"},
+                {"role": "assistant", "content": "Artificial intelligence."},
                 {"role": "user", "content": "What is computer?"},
             ],
             "model": "gemini-pro",
@@ -168,7 +170,7 @@ class TestProcessGeminiInputs:
         expected = {
             "messages": [
                 {
-                    "role": "model",
+                    "role": "assistant",
                     "content": [
                         {
                             "type": "function_call",
@@ -711,7 +713,7 @@ class TestProcessGeminiInputsWithObjects:
         result = _process_gemini_inputs(inputs)
 
         msg = result["messages"][0]
-        assert msg["role"] == "model"
+        assert msg["role"] == "assistant"
         assert isinstance(msg["content"], list)
         fc = msg["content"][0]
         assert fc["type"] == "function_call"

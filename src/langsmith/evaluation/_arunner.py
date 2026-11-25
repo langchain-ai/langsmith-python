@@ -32,6 +32,7 @@ from langsmith.evaluation._runner import (
     AEVALUATOR_T,
     DATA_T,
     EVALUATOR_T,
+    UPLOAD_RUNS_T,
     ExperimentResultRow,
     _addressed_to_project,
     _collect_evaluator_keys,
@@ -45,10 +46,12 @@ from langsmith.evaluation._runner import (
     _load_experiment,
     _load_tqdm,
     _load_traces_for_experiment,
+    _pop_upload_runs,
     _resolve_data,
     _resolve_evaluators,
     _resolve_experiment,
     _resolve_num_examples,
+    _resolve_upload,
     _target_include_attachments,
     _to_pandas,
     _without_source_run_ids,
@@ -88,7 +91,7 @@ async def aevaluate(
     client: Optional[langsmith.Client] = None,
     blocking: bool = True,
     experiment: Optional[Union[schemas.TracerSession, str, uuid.UUID]] = None,
-    upload_results: bool = True,
+    upload_runs: Optional[UPLOAD_RUNS_T] = None,
     disable_evaluator_tracing: bool = False,
     error_handling: Literal["log", "ignore"] = "log",
     **kwargs: Any,
@@ -128,6 +131,11 @@ async def aevaluate(
             `'log'` will trace the runs with the error message as part of the
             experiment, `'ignore'` will not count the run as part of the experiment at
             all.
+        upload_runs (bool | Callable[[Example], bool] | None, default=None): Which
+            runs to upload to LangSmith. Works the same as in `evaluate()`: `None` or
+            `True` uploads every run, `False` uploads nothing, and a callable decides
+            per run while summary scores still cover every run. `upload_results` is
+            still accepted as an alias.
         disable_evaluator_tracing (bool, default=False): Whether to skip tracing
             evaluator invocations to the `evaluators` project in LangSmith.
 
@@ -273,11 +281,12 @@ async def aevaluate(
         'max_concurrency' default updated from None (no limit on concurrency)
         to 0 (no concurrency at all).
     """  # noqa: E501
+    upload_runs = _pop_upload_runs(upload_runs, kwargs)
     if isinstance(target, (str, uuid.UUID, schemas.TracerSession)):
         invalid_args = {
             "num_repetitions": num_repetitions > 1,
             "experiment": bool(experiment),
-            "upload_results": not upload_results,
+            "upload_runs": not upload_runs or callable(upload_runs),
             "experiment_prefix": bool(experiment_prefix),
             "data": bool(data),
         }
@@ -325,8 +334,8 @@ async def aevaluate(
         )
         raise ValueError(msg)
     else:
-        if not upload_results:
-            _warn_once("'upload_results' parameter is in beta.")
+        if not upload_runs:
+            _warn_once("'upload_runs' parameter is in beta.")
         logger.debug(f"Running evaluation over target system {target}...")
         return await _aevaluate(
             target,
@@ -341,7 +350,7 @@ async def aevaluate(
             client=client,
             blocking=blocking,
             experiment=experiment,
-            upload_results=upload_results,
+            upload_runs=upload_runs,
             error_handling=error_handling,
             disable_evaluator_tracing=disable_evaluator_tracing,
         )
@@ -412,7 +421,7 @@ async def aevaluate_existing(
         >>> dataset = client.create_dataset(dataset_name)
         >>> example = client.create_example(
         ...     inputs={"question": "What is 2+2?"},
-        ...     outputs={"answer": "4"},
+        ...     reference_outputs={"answer": "4"},
         ...     dataset_id=dataset.id,
         ... )
         >>> async def apredict(inputs: dict) -> dict:
@@ -486,7 +495,7 @@ async def _aevaluate(
     client: Optional[langsmith.Client] = None,
     blocking: bool = True,
     experiment: Optional[Union[schemas.TracerSession, str, uuid.UUID]] = None,
-    upload_results: bool = True,
+    upload_runs: UPLOAD_RUNS_T = True,
     disable_evaluator_tracing: bool = False,
     error_handling: Literal["log", "ignore"] = "log",
 ) -> AsyncExperimentResults:
@@ -516,7 +525,7 @@ async def _aevaluate(
         runs=runs,
         include_attachments=num_include_attachments > 0,
         reuse_attachments=num_repetitions * num_include_attachments > 1,
-        upload_results=upload_results,
+        upload_runs=upload_runs,
         error_handling=error_handling,
         disable_evaluator_tracing=disable_evaluator_tracing,
     ).astart()
@@ -577,8 +586,8 @@ class _AsyncExperimentManager(_ExperimentManagerMixin):
         reuse_attachments (Optional[bool], default=False): Whether to reuse attachments
             from examples. This is True if we need to reuse attachments across multiple
             target/evaluator functions.
-        upload_results (Optional[bool], default=True): Whether to upload results
-            to Langsmith.
+        upload_runs (bool | Callable[[Example], bool], default=True): Which runs
+            to upload to LangSmith.
         attachment_raw_data_dict (Optional[dict]): A dictionary to store raw data
             for attachments. Only used if we reuse attachments across multiple
             target/evaluator functions.
@@ -607,10 +616,11 @@ class _AsyncExperimentManager(_ExperimentManagerMixin):
         evaluator_keys: Optional[list[str]] = None,
         include_attachments: bool = False,
         reuse_attachments: bool = False,
-        upload_results: bool = True,
+        upload_runs: UPLOAD_RUNS_T = True,
         attachment_raw_data_dict: Optional[dict] = None,
         disable_evaluator_tracing: bool = False,
         error_handling: Literal["log", "ignore"] = "log",
+        upload_decisions: Optional[dict[uuid.UUID, bool]] = None,
     ):
         super().__init__(
             experiment=experiment,
@@ -630,7 +640,11 @@ class _AsyncExperimentManager(_ExperimentManagerMixin):
         )
         self._include_attachments = include_attachments
         self._reuse_attachments = reuse_attachments
-        self._upload_results = upload_results
+        self._upload_runs = upload_runs
+        # Upload decision per run id, recorded at prediction time and shared
+        # across `_copy()` so scoring reuses it instead of calling a possibly
+        # random `upload_runs` callable again.
+        self._upload_decisions: dict[uuid.UUID, bool] = {} if upload_decisions is None else upload_decisions
         self._attachment_raw_data_dict = attachment_raw_data_dict
         self._error_handling = error_handling
         self._disable_evaluator_tracing = disable_evaluator_tracing
@@ -741,7 +755,7 @@ class _AsyncExperimentManager(_ExperimentManagerMixin):
             raise ValueError(
                 "No examples found in the dataset.Please ensure the data provided to aevaluate is not empty."
             )
-        project = self._get_project(first_example) if self._upload_results else None
+        project = self._get_project(first_example) if self._upload_runs else None
         self._print_experiment_start(project, first_example)
         self._metadata["num_repetitions"] = self._num_repetitions
         return self._copy(
@@ -797,16 +811,20 @@ class _AsyncExperimentManager(_ExperimentManagerMixin):
 
         async def process_example(example: schemas.Example):
             # Yield the coroutine to be awaited later
+            example = self._get_example_with_readers(example)
+            upload = _resolve_upload(self._upload_runs, example)
             pred = await _aforward(
                 traceable_target,
-                self._get_example_with_readers(example),
+                example,
                 self.experiment_name,
                 self._metadata,
                 self.client,
+                upload,
                 _target_include_attachments(target),
                 self._error_handling,
             )
             example, run = pred["example"], pred["run"]
+            self._upload_decisions[run.id] = upload
             result = await self._arun_evaluators(
                 evaluators,
                 {
@@ -922,18 +940,25 @@ class _AsyncExperimentManager(_ExperimentManagerMixin):
     ) -> AsyncIterator[_ForwardResults]:
         fn = _ensure_async_traceable(target)
 
+        async def predict_one(example: schemas.Example) -> _ForwardResults:
+            upload = _resolve_upload(self._upload_runs, example)
+            result = await _aforward(
+                fn,
+                example,
+                self.experiment_name,
+                self._metadata,
+                self.client,
+                upload,
+                include_attachments,
+                self._error_handling,
+            )
+            self._upload_decisions[result["run"].id] = upload
+            return result
+
         async def predict_all():
             async for example in await self.aget_examples():
                 # Yield the coroutine to be awaited later
-                yield _aforward(
-                    fn,
-                    self._get_example_with_readers(example),
-                    self.experiment_name,
-                    self._metadata,
-                    self.client,
-                    include_attachments,
-                    self._error_handling,
-                )
+                yield predict_one(self._get_example_with_readers(example))
 
         async for result in aitertools.aiter_with_concurrency(
             max_concurrency, predict_all(), _eager_consumption_timeout=0.001
@@ -966,6 +991,11 @@ class _AsyncExperimentManager(_ExperimentManagerMixin):
         feedback_executor: cf.ThreadPoolExecutor,
     ) -> ExperimentResultRow:
         current_context = rh.get_tracing_context()
+        # Feedback only goes up for runs that were uploaded; a skipped run has no
+        # trace on the server to attach it to.
+        run_uploaded = self._upload_decisions.get(current_results["run"].id)
+        if run_uploaded is None:
+            run_uploaded = _resolve_upload(self._upload_runs, current_results["example"])
         metadata = {
             **(current_context["metadata"] or {}),
             **{"experiment": self.experiment_name},
@@ -974,7 +1004,7 @@ class _AsyncExperimentManager(_ExperimentManagerMixin):
             **{
                 **_addressed_to_project(current_context, "evaluators"),
                 "metadata": metadata,
-                "enabled": _evaluator_tracing_mode(self._upload_results, self._disable_evaluator_tracing),
+                "enabled": _evaluator_tracing_mode(run_uploaded, self._disable_evaluator_tracing),
                 "client": self.client,
             }
         ):
@@ -994,7 +1024,7 @@ class _AsyncExperimentManager(_ExperimentManagerMixin):
                     if self._disable_evaluator_tracing:
                         evaluator_response = _without_source_run_ids(selected_results)
 
-                    if self._upload_results:
+                    if run_uploaded:
                         self.client._log_evaluation_feedback(
                             evaluator_response,
                             run=run,
@@ -1018,7 +1048,7 @@ class _AsyncExperimentManager(_ExperimentManagerMixin):
                             ]
                         )
                         selected_results = self.client._select_eval_results(error_response)
-                        if self._upload_results:
+                        if run_uploaded:
                             self.client._log_evaluation_feedback(
                                 error_response,
                                 run=run,
@@ -1056,7 +1086,7 @@ class _AsyncExperimentManager(_ExperimentManagerMixin):
             runs.append(run)
             examples.append(example)
         aggregate_feedback = []
-        project_id = self._get_experiment().id if self._upload_results else None
+        project_id = self._get_experiment().id if self._upload_runs else None
         current_context = rh.get_tracing_context()
         metadata = {
             **(current_context["metadata"] or {}),
@@ -1069,7 +1099,7 @@ class _AsyncExperimentManager(_ExperimentManagerMixin):
             **{
                 **_addressed_to_project(current_context, "evaluators"),
                 "metadata": metadata,
-                "enabled": _evaluator_tracing_mode(self._upload_results, self._disable_evaluator_tracing),
+                "enabled": _evaluator_tracing_mode(bool(self._upload_runs), self._disable_evaluator_tracing),
                 "client": self.client,
             }
         ):
@@ -1081,7 +1111,7 @@ class _AsyncExperimentManager(_ExperimentManagerMixin):
                         fn_name=evaluator.__name__,
                     )
                     aggregate_feedback.extend(flattened_results)
-                    if self._upload_results:
+                    if self._upload_runs:
                         for result in flattened_results:
                             feedback = result.model_dump(exclude={"target_run_id"})
                             evaluator_info = feedback.pop("evaluator_info", None)
@@ -1128,7 +1158,7 @@ class _AsyncExperimentManager(_ExperimentManagerMixin):
         return list(splits)
 
     async def _aend(self) -> None:
-        if not self._upload_results:
+        if not self._upload_runs:
             return
         experiment = self._experiment
         if experiment is None:
@@ -1158,14 +1188,18 @@ class _AsyncExperimentManager(_ExperimentManagerMixin):
             "evaluator_keys": self._evaluator_keys,
             "include_attachments": self._include_attachments,
             "reuse_attachments": self._reuse_attachments,
-            "upload_results": self._upload_results,
+            "upload_runs": self._upload_runs,
+            "upload_decisions": self._upload_decisions,
             "attachment_raw_data_dict": self._attachment_raw_data_dict,
             "error_handling": self._error_handling,
             "disable_evaluator_tracing": self._disable_evaluator_tracing,
         }
         full_args = list(args) + list(default_args[len(args) :])
         full_kwargs = {**default_kwargs, **kwargs}
-        return self.__class__(*full_args, **full_kwargs)
+        manager = self.__class__(*full_args, **full_kwargs)
+        if full_kwargs["experiment"] is None:
+            manager._experiment_name = self._experiment_name
+        return manager
 
 
 class AsyncExperimentResults:
@@ -1226,15 +1260,22 @@ class AsyncExperimentResults:
                 await self._condition.wait()
 
     async def _process_data(self, manager: _AsyncExperimentManager) -> None:
-        tqdm = _load_tqdm()
-        async for item in tqdm(manager.aget_results()):
+        try:
+            tqdm = _load_tqdm()
+            async for item in tqdm(manager.aget_results()):
+                async with self._condition:
+                    self._results.append(item)
+                    self._condition.notify()
+            summary_scores = await manager.aget_summary_scores()
             async with self._condition:
-                self._results.append(item)
-                self._condition.notify()
-        summary_scores = await manager.aget_summary_scores()
-        async with self._condition:
-            self._summary_results = summary_scores
-            self._condition.notify_all()
+                self._summary_results = summary_scores
+        finally:
+            # Wake consumers parked in __anext__ on success *and* failure. If
+            # this task raises without notifying, they wait forever and never
+            # see the exception. The task is marked done before they resume,
+            # so __anext__ can raise it or stop.
+            async with self._condition:
+                self._condition.notify_all()
 
     def to_pandas(self, start: Optional[int] = 0, end: Optional[int] = None) -> DataFrame:
         return _to_pandas(self._results, start=start, end=end)
@@ -1264,6 +1305,7 @@ async def _aforward(
     experiment_name: str,
     metadata: dict,
     client: langsmith.Client,
+    upload_runs: bool = True,
     include_attachments: bool = False,
     error_handling: Literal["log", "ignore"] = "log",
 ) -> _ForwardResults:
@@ -1292,7 +1334,7 @@ async def _aforward(
     else:
         raise ValueError(f"Unrecognized error_handling value: {error_handling=}")
 
-    with rh.tracing_context(enabled=True):
+    with rh.tracing_context(enabled="local" if not upload_runs else True):
         try:
             arg_names = _get_target_args(fn)
             args = [getattr(example, argn) for argn in arg_names]

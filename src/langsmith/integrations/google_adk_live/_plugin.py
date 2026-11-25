@@ -46,6 +46,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from google.adk.plugins.base_plugin import BasePlugin
 
+from langsmith.address import AgentAddress
 from langsmith import RunTree
 from langsmith._internal._beta_decorator import warn_beta
 from langsmith._internal._package_version import get_package_version
@@ -404,6 +405,7 @@ class LangSmithGoogleADKLivePlugin(BasePlugin):
         sample_rate: int = DEFAULT_SAMPLE_RATE,
         thread_id_provider: Optional[Callable[[], Optional[str]]] = None,
         project_name: Optional[str] = None,
+        address: Optional[AgentAddress] = None,
         tags: Optional[list[str]] = None,
         metadata: Optional[dict[str, Any]] = None,
         max_audio_seconds: Optional[float] = DEFAULT_MAX_AUDIO_SECONDS,
@@ -418,6 +420,8 @@ class LangSmithGoogleADKLivePlugin(BasePlugin):
             thread_id_provider: zero-arg callable returning the LangSmith thread
                 id for the run; a random UUID per run if omitted.
             project_name: LangSmith project; defaults to standard config.
+            address: An ``AgentAddress`` to trace to instead of a project;
+                cannot be combined with ``project_name``.
             tags / metadata: attached to the conversation root span.
             max_audio_seconds: per-channel cap on audio retained for the WAV, to
                 bound memory. Since one shared plugin can trace many (and
@@ -432,6 +436,7 @@ class LangSmithGoogleADKLivePlugin(BasePlugin):
         self._sample_rate = sample_rate
         self._thread_id_provider = thread_id_provider
         self._project_name = project_name
+        self._address = address
         self._tags = tags
         self._metadata = metadata
         self._max_audio_seconds = max_audio_seconds
@@ -511,6 +516,7 @@ class LangSmithGoogleADKLivePlugin(BasePlugin):
                 thread_id=thread_id,
                 sample_rate=self._sample_rate,
                 project_name=self._project_name,
+                address=self._address,
                 tags=self._tags,
                 metadata=self._metadata,
                 max_audio_seconds=self._max_audio_seconds,

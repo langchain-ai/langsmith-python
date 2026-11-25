@@ -11,7 +11,9 @@ import logging
 import math
 import os
 import pathlib
+import re
 import ssl
+import subprocess
 import sys
 import threading
 import time
@@ -297,7 +299,10 @@ def test_client_logs_where_api_url_came_from(monkeypatch: pytest.MonkeyPatch, tm
     ) in caplog.messages
 
 
-def test_profile_config_loads_api_key_and_workspace(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+@pytest.mark.parametrize("explicit_selection", [False, True])
+def test_profile_config_loads_api_key_and_workspace(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path, explicit_selection: bool
+) -> None:
     _clear_profile_env(monkeypatch)
     config_path = tmp_path / "config.json"
     config_path.write_text(
@@ -317,13 +322,112 @@ def test_profile_config_loads_api_key_and_workspace(monkeypatch: pytest.MonkeyPa
     )
     monkeypatch.setenv("LANGSMITH_CONFIG_FILE", str(config_path))
 
-    client = Client(auto_batch_tracing=False)
+    if explicit_selection:
+        monkeypatch.setenv("LANGSMITH_CONFIG_FILE", str(tmp_path / "missing.json"))
+        monkeypatch.setenv("LANGSMITH_PROFILE", "missing")
+    client = Client(
+        auto_batch_tracing=False,
+        **({"profile": "prod", "profile_config_path": str(config_path)} if explicit_selection else {}),
+    )
 
     assert client.api_url == "https://profile.example.com"
     assert client.api_key == "profile-key"
     assert client.workspace_id == "workspace-id"
     assert client._headers["x-api-key"] == "profile-key"
     assert client._headers["X-Tenant-Id"] == "workspace-id"
+
+
+@pytest.mark.parametrize("client_cls", [Client, AsyncClient])
+@pytest.mark.parametrize(
+    "options,expected_auth,expected_url,expected_workspace",
+    [
+        ({}, {"x-api-key": "env-key"}, "env", "env"),
+        ({"prefer_profile_auth": True}, {"Authorization": "Bearer env-profile-token"}, "profile", "profile"),
+        (
+            {"profile": "selected", "prefer_profile_auth": True},
+            {"Authorization": "Bearer selected-token"},
+            "profile",
+            "profile",
+        ),
+        ({"profile": "key", "prefer_profile_auth": True}, {"x-api-key": "profile-key"}, "profile", "profile"),
+        ({"profile": "keyless", "prefer_profile_auth": True}, {"x-api-key": "env-key"}, "env", "env"),
+        ({"profile": "missing", "prefer_profile_auth": True}, {"x-api-key": "env-key"}, "env", "env"),
+        # Profile without URL/workspace must not inherit env endpoint (credential leak).
+        (
+            {"profile": "minimal", "prefer_profile_auth": True},
+            {"Authorization": "Bearer minimal-token"},
+            "default",
+            None,
+        ),
+        ({"prefer_profile_auth": True, "api_key": "explicit-key"}, {"x-api-key": "explicit-key"}, "env", "env"),
+        (
+            {
+                "prefer_profile_auth": True,
+                "api_url": "https://explicit.example.com",
+                "workspace_id": "explicit-workspace",
+            },
+            {"Authorization": "Bearer env-profile-token"},
+            "explicit",
+            "explicit",
+        ),
+    ],
+)
+def test_client_profile_options(
+    client_cls: type,
+    options: dict,
+    expected_auth: dict,
+    expected_url: str,
+    expected_workspace: Optional[str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+) -> None:
+    _clear_profile_env(monkeypatch)
+    config_path = tmp_path / "chosen.json"
+    profiles = {
+        name: {
+            "api_url": "https://profile.example.com",
+            "workspace_id": "profile-workspace",
+            **auth,
+        }
+        for name, auth in {
+            "current": {"oauth": {"access_token": "current-token"}},
+            "env-profile": {"oauth": {"access_token": "env-profile-token"}},
+            "selected": {"oauth": {"access_token": "selected-token"}},
+            "key": {"api_key": "profile-key"},
+            "keyless": {},
+        }.items()
+    }
+    profiles["minimal"] = {"oauth": {"access_token": "minimal-token"}}
+    config_path.write_text(json.dumps({"current_profile": "current", "profiles": profiles}))
+    monkeypatch.setenv("LANGSMITH_CONFIG_FILE", str(tmp_path / "missing.json"))
+    monkeypatch.setenv("LANGSMITH_PROFILE", "env-profile")
+    monkeypatch.setenv("LANGSMITH_API_KEY", "env-key")
+    monkeypatch.setenv("LANGSMITH_ENDPOINT", "https://env.example.com")
+    monkeypatch.setenv("LANGSMITH_WORKSPACE_ID", "env-workspace")
+    _clear_env_cache()
+
+    client = client_cls(
+        profile_config_path=str(config_path),
+        **({"auto_batch_tracing": False} if client_cls is Client else {}),
+        **options,
+    )
+    try:
+        headers = client._headers if client_cls is Client else client._client.headers
+        url = client.api_url if client_cls is Client else str(client._client.base_url).rstrip("/")
+        expected_base = (
+            "https://api.smith.langchain.com" if expected_url == "default" else f"https://{expected_url}.example.com"
+        )
+        assert url == expected_base
+        assert headers.get("X-Tenant-Id") == (f"{expected_workspace}-workspace" if expected_workspace else None)
+        for name in ("x-api-key", "Authorization"):
+            assert headers.get(name) == expected_auth.get(name)
+        assert os.environ["LANGSMITH_API_KEY"] == "env-key"
+        assert os.environ["LANGSMITH_PROFILE"] == "env-profile"
+    finally:
+        if client_cls is Client:
+            client.close()
+        else:
+            asyncio.run(client.aclose())
 
 
 def test_profile_config_uses_api_key_before_oauth_access_token(
@@ -351,6 +455,71 @@ def test_profile_config_uses_api_key_before_oauth_access_token(
     assert client.api_key is None
     assert client._headers["x-api-key"] == "profile-key"
     assert "Authorization" not in client._headers
+
+
+def _write_profile(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path, profile: dict) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(json.dumps({"current_profile": "prod", "profiles": {"prod": profile}}), encoding="utf-8")
+    monkeypatch.setenv("LANGSMITH_CONFIG_FILE", str(config_path))
+
+
+def test_profile_config_reads_api_key_env(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    _clear_profile_env(monkeypatch)
+    monkeypatch.setenv("MY_LANGSMITH_KEY", "  env-ref-key\n")
+    _write_profile(monkeypatch, tmp_path, {"api_key_env": "MY_LANGSMITH_KEY", "api_key_cmd": "never-run"})
+
+    client = Client(auto_batch_tracing=False)
+
+    assert client.api_key == "env-ref-key"
+    assert client._headers["x-api-key"] == "env-ref-key"
+
+    _write_profile(monkeypatch, tmp_path, {"api_key": "profile-key", "api_key_env": "MY_LANGSMITH_KEY"})
+    assert Client(auto_batch_tracing=False).api_key == "profile-key"
+
+
+@pytest.mark.parametrize(
+    ("profile", "message"),
+    [
+        (
+            {"api_key_env": "MY_UNSET_LANGSMITH_KEY"},
+            'LangSmith profile "prod" reads its API key from $MY_UNSET_LANGSMITH_KEY, which is not set',
+        ),
+        (
+            {"api_key_cmd": "op read op://vault/langsmith/key"},
+            'LangSmith profile "prod" gets its API key from a command (api_key_cmd), '
+            "which the Python SDK does not support yet",
+        ),
+        (
+            {"secret_store": "keychain"},
+            'LangSmith profile "prod" keeps its credentials in the OS keychain (secret_store), '
+            "which the Python SDK does not support yet",
+        ),
+    ],
+)
+def test_profile_config_unresolvable_api_key_ref_warns(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path, profile: dict, message: str
+) -> None:
+    _clear_profile_env(monkeypatch)
+    monkeypatch.delenv("MY_UNSET_LANGSMITH_KEY", raising=False)
+    _write_profile(monkeypatch, tmp_path, profile)
+
+    with pytest.warns(ls_utils.LangSmithMissingAPIKeyWarning, match=re.escape(message)) as record:
+        client = Client(auto_batch_tracing=False)
+    assert client.api_key is None
+    # The warning points at the code that created the client, not at the SDK.
+    assert [w.filename for w in record if issubclass(w.category, ls_utils.LangSmithMissingAPIKeyWarning)] == [__file__]
+
+    # Explicit, per-endpoint, environment and OAuth auth all take precedence over the reference.
+    assert Client(api_key="constructor-key", auto_batch_tracing=False).api_key == "constructor-key"
+    assert (
+        Client(api_urls={"https://api.smith.langchain.com": "endpoint-key"}, auto_batch_tracing=False).api_key
+        == "endpoint-key"
+    )
+    _write_profile(monkeypatch, tmp_path, {**profile, "oauth": {"access_token": "profile-access-token"}})
+    assert Client(auto_batch_tracing=False)._headers["Authorization"] == "Bearer profile-access-token"
+    monkeypatch.setenv("LANGSMITH_API_KEY", "env-key")
+    _clear_env_cache()
+    assert Client(auto_batch_tracing=False).api_key == "env-key"
 
 
 def test_profile_config_env_auth_suppresses_profile_auth(
@@ -824,6 +993,160 @@ def test_list_project_issues_uses_platform_issues_endpoint(api_url: str, expecte
     }
 
 
+def _http_response(status_code: int, body: str = "") -> requests.Response:
+    response = requests.Response()
+    response.status_code = status_code
+    response._content = body.encode()
+    response.url = "http://localhost:1984"
+    return response
+
+
+@pytest.mark.parametrize(
+    ("api_url", "expected_url"),
+    [
+        (
+            "http://localhost:1984",
+            "http://localhost:1984/v1/platform/datasets/{dataset_id}/examples/metadata",
+        ),
+        (
+            "http://localhost:1984/api/v1",
+            "http://localhost:1984/api/v1/platform/datasets/{dataset_id}/examples/metadata",
+        ),
+    ],
+)
+@pytest.mark.parametrize(("remove", "operation"), [(False, "array_add"), (True, "array_remove")])
+def test_update_dataset_splits_uses_bulk_metadata_endpoint(
+    api_url: str, expected_url: str, remove: bool, operation: str
+) -> None:
+    dataset_id = uuid.uuid4()
+    example_ids = [uuid.uuid4(), uuid.uuid4()]
+    mock_session = MagicMock()
+    mock_session.request.return_value = _http_response(207, '{"statuses": []}')
+
+    client = Client(api_url=api_url, api_key="test", session=mock_session, info=ls_schemas.LangSmithInfo())
+    client.update_dataset_splits(dataset_id=dataset_id, split_name="test", example_ids=example_ids, remove=remove)
+
+    (call,) = mock_session.request.call_args_list
+    assert call.args[0] == "PATCH"
+    assert call.args[1] == expected_url.format(dataset_id=dataset_id)
+    assert call.kwargs["json"] == {
+        "example_ids": [str(id_) for id_ in example_ids],
+        "operations": [{"key": "dataset_split", "operation": operation, "values": ["test"]}],
+    }
+
+
+def test_update_dataset_splits_batches_example_ids() -> None:
+    example_ids = [str(uuid.uuid4()) for _ in range(10_001)]
+    mock_session = MagicMock()
+    mock_session.request.return_value = _http_response(207, '{"statuses": []}')
+
+    client = Client(
+        api_url="http://localhost:1984", api_key="test", session=mock_session, info=ls_schemas.LangSmithInfo()
+    )
+    client.update_dataset_splits(dataset_id=uuid.uuid4(), split_name="test", example_ids=example_ids)
+
+    batches = [c.kwargs["json"]["example_ids"] for c in mock_session.request.call_args_list]
+    assert [len(b) for b in batches] == [10_000, 1]
+    assert batches[0] + batches[1] == example_ids
+
+
+@pytest.mark.parametrize(
+    "missing_route",
+    [
+        _http_response(404, "404 page not found"),
+        _http_response(
+            404,
+            '{"title": "Not Found", "status": 404, "detail": "The requested path does not exist."}',
+        ),
+        _http_response(405, '{"title": "Method Not Allowed", "status": 405}'),
+    ],
+)
+def test_update_dataset_splits_falls_back_when_endpoint_missing(
+    missing_route: requests.Response,
+) -> None:
+    dataset_id = uuid.uuid4()
+    example_ids = [str(uuid.uuid4()) for _ in range(10_001)]
+    mock_session = MagicMock()
+    mock_session.request.side_effect = [
+        _http_response(207, '{"statuses": []}'),
+        missing_route,
+        _http_response(200, "{}"),
+    ]
+
+    client = Client(
+        api_url="http://localhost:1984", api_key="test", session=mock_session, info=ls_schemas.LangSmithInfo()
+    )
+    client.update_dataset_splits(dataset_id=dataset_id, split_name="test", example_ids=example_ids, remove=True)
+
+    first, second, legacy = mock_session.request.call_args_list
+    assert first.args[0] == second.args[0] == "PATCH"
+    assert legacy.args[:2] == ("PUT", f"http://localhost:1984/datasets/{dataset_id}/splits")
+    # The legacy endpoint has no size limit, so it takes the rest in one request.
+    assert legacy.kwargs["json"] == {
+        "split_name": "test",
+        "examples": example_ids[10_000:],
+        "remove": True,
+    }
+
+
+@pytest.mark.parametrize(
+    "error_response",
+    [
+        _http_response(
+            404,
+            '{"title": "Not Found", "status": 404, "detail": "dataset not found"}',
+        ),
+        _http_response(403, '{"title": "Forbidden", "status": 403}'),
+    ],
+)
+def test_update_dataset_splits_does_not_fall_back_on_other_errors(
+    error_response: requests.Response,
+) -> None:
+    mock_session = MagicMock()
+    mock_session.request.return_value = error_response
+
+    client = Client(
+        api_url="http://localhost:1984", api_key="test", session=mock_session, info=ls_schemas.LangSmithInfo()
+    )
+    with pytest.raises(ls_utils.LangSmithError):
+        client.update_dataset_splits(dataset_id=uuid.uuid4(), split_name="test", example_ids=[uuid.uuid4()])
+
+    assert {c.args[0] for c in mock_session.request.call_args_list} == {"PATCH"}
+
+
+# These check the query params the client sends, not what the server returns.
+@pytest.mark.parametrize(
+    ("kwargs", "expected_select", "expected_flag"),
+    [
+        ({"select": ["id"], "exclude_default_fields": True}, ["id"], True),
+        ({"select": "outputs"}, ["outputs"], None),
+        ({}, None, None),
+        ({"exclude_default_fields": False}, None, None),
+        (
+            {"select": ["id", "outputs"], "include_attachments": True},
+            ["id", "outputs", "attachment_urls", "metadata"],
+            None,
+        ),
+    ],
+)
+def test_list_examples_select_params(kwargs: dict, expected_select, expected_flag) -> None:
+    example_id = str(uuid.uuid4())
+    mock_session = MagicMock()
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = [{"id": example_id}]
+    mock_session.request.return_value = mock_response
+
+    client = Client(api_url="http://localhost:1984", api_key="test", session=mock_session)
+    examples = list(client.list_examples(dataset_id=str(uuid.uuid4()), **kwargs))
+
+    assert [str(e.id) for e in examples] == [example_id]
+    (examples_call,) = [c for c in mock_session.request.call_args_list if c.args[1].endswith("/examples")]
+    params = examples_call.kwargs["params"]
+    assert params.get("select") == expected_select
+    assert params.get("exclude_default_fields") == expected_flag
+
+
 @mock.patch("langsmith.client.requests.Session")
 def test_upload_csv(mock_session_cls: mock.Mock) -> None:
     _clear_env_cache()
@@ -979,7 +1302,7 @@ def test_annotation_queues_uses_generated_openapi_resource() -> None:
 def test_async_evaluators_uses_generated_openapi_resource() -> None:
     resource = object()
 
-    with mock.patch("langsmith.AsyncLangsmith") as openapi_client:
+    with mock.patch("langsmith.async_client._openapi_auth.AsyncClient") as openapi_client:
         openapi_client.return_value.online_evaluators = resource
 
         client = AsyncClient(
@@ -1004,7 +1327,7 @@ def test_async_evaluators_uses_generated_openapi_resource() -> None:
 def test_async_annotation_queues_uses_generated_openapi_resource() -> None:
     resource = object()
 
-    with mock.patch("langsmith.AsyncLangsmith") as openapi_client:
+    with mock.patch("langsmith.async_client._openapi_auth.AsyncClient") as openapi_client:
         openapi_client.return_value.annotation_queues = resource
 
         client = AsyncClient(
@@ -1145,8 +1468,20 @@ def test_create_run_mutate(use_multipart_endpoint: bool, monkeypatch: pytest.Mon
         assert outputs == {"messages": ["hi", "there"]}
 
 
+@pytest.mark.parametrize(
+    ("copy_method", "copy_argument"),
+    [
+        (None, None),
+        ("model_copy", "reference_outputs"),
+        ("model_copy", "outputs"),
+        ("copy", "reference_outputs"),
+        ("copy", "outputs"),
+    ],
+)
 @mock.patch("langsmith.client.requests.Session")
-def test_upsert_examples_multipart(mock_session_cls: mock.Mock) -> None:
+def test_upsert_examples_multipart(
+    mock_session_cls: mock.Mock, copy_method: Optional[str], copy_argument: Optional[str]
+) -> None:
     """Test that upsert_examples_multipart sends correct multipart data."""
     mock_session = MagicMock()
     mock_response = MagicMock()
@@ -1175,7 +1510,7 @@ def test_upsert_examples_multipart(mock_session_cls: mock.Mock) -> None:
         dataset_id=dataset_id,
         created_at=created_at,
         inputs={"input": "test input"},
-        outputs={"output": "test output"},
+        reference_outputs={"output": "test output"},
         metadata={"meta": "data"},
         split="train",
         attachments={
@@ -1183,6 +1518,14 @@ def test_upsert_examples_multipart(mock_session_cls: mock.Mock) -> None:
             "file2": ls_schemas.Attachment(mime_type="application/json", data=b'{"key": "value"}'),
         },
     )
+    if copy_argument:
+        assert copy_method is not None
+        example.reference_outputs = {"output": "stale"}
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter("always")
+            example = getattr(example, copy_method)(update={copy_argument: {"output": "test output"}})
+        alias_deprecations = [warning for warning in recorded if "'outputs' is deprecated" in str(warning.message)]
+        assert len(alias_deprecations) == (1 if copy_argument == "outputs" else 0)
     response = client.upsert_examples_multipart(upserts=[example])
 
     # Verify the response structure
@@ -1241,6 +1584,237 @@ def test_upsert_examples_multipart(mock_session_cls: mock.Mock) -> None:
             assert part.headers["Content-Type"] == "application/json"
 
 
+@pytest.mark.parametrize("reference_outputs", [{"answer": 42}, None])
+@pytest.mark.parametrize("deep", [False, True])
+@pytest.mark.parametrize("copy_method", ["model_copy", "copy"])
+def test_example_create_reference_outputs_alias(
+    reference_outputs: Optional[dict[str, Any]], deep: bool, copy_method: str
+) -> None:
+    canonical = ls_schemas.ExampleCreate(reference_outputs=reference_outputs)
+    assert canonical.reference_outputs == reference_outputs
+    assert canonical.outputs == reference_outputs
+    assert canonical.model_dump(exclude_none=True).get("reference_outputs") == reference_outputs
+    assert "outputs" not in canonical.model_dump()
+    assert canonical.model_dump(by_alias=True).get("outputs") == reference_outputs
+    assert "reference_outputs" not in canonical.model_dump(by_alias=True)
+
+    with pytest.warns(DeprecationWarning, match="Use 'reference_outputs' instead"):
+        legacy = ls_schemas.ExampleCreate(outputs=reference_outputs)
+    assert legacy.reference_outputs == reference_outputs
+    assert legacy.outputs == reference_outputs
+    assert legacy.model_dump(exclude_none=True).get("reference_outputs") == reference_outputs
+    assert "outputs" not in legacy.model_dump()
+
+    source = ls_schemas.ExampleCreate(inputs={"values": []}, reference_outputs={"answer": "old"})
+    for argument_name in ("reference_outputs", "outputs"):
+        update = {argument_name: reference_outputs}
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter("always")
+            copied = getattr(source, copy_method)(update=update, deep=deep)
+        alias_deprecations = [warning for warning in recorded if "'outputs' is deprecated" in str(warning.message)]
+        assert len(alias_deprecations) == (1 if argument_name == "outputs" else 0)
+        assert update == {argument_name: reference_outputs}
+        assert source.reference_outputs == {"answer": "old"}
+        assert copied.reference_outputs == reference_outputs
+        assert copied.outputs == reference_outputs
+        assert copied.model_dump(exclude_unset=True)["reference_outputs"] == reference_outputs
+        assert "outputs" not in copied.model_dump()
+        assert (copied.inputs is source.inputs) is not deep
+
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter("always")
+            setattr(source, argument_name, reference_outputs)
+        deprecations = [warning for warning in recorded if warning.category is DeprecationWarning]
+        assert len(deprecations) == (1 if argument_name == "outputs" else 0)
+        assert source.reference_outputs == reference_outputs
+        assert source.outputs == reference_outputs
+        source.reference_outputs = {"answer": "old"}
+
+    for outputs in ({"answer": 43}, None):
+        data = {"reference_outputs": reference_outputs, "outputs": outputs}
+        with pytest.raises(ValueError, match="both 'reference_outputs' and 'outputs'"):
+            ls_schemas.ExampleCreate(**data)
+        with pytest.raises(ValueError, match="both 'reference_outputs' and 'outputs'"):
+            getattr(source, copy_method)(update=data, deep=deep)
+
+
+@pytest.mark.parametrize(
+    ("selector", "included", "excluded"),
+    [
+        ({"outputs"}, {"answer": {"value": 42}, "other": 43}, None),
+        ({"outputs": {"answer"}}, {"answer": {"value": 42}}, {"other": 43}),
+    ],
+)
+def test_example_create_legacy_outputs_selectors(
+    selector: Union[set[str], dict[str, set[str]]],
+    included: dict[str, Any],
+    excluded: Optional[dict[str, Any]],
+) -> None:
+    source = ls_schemas.ExampleCreate(
+        inputs={"question": "meaning"},
+        reference_outputs={"answer": {"value": 42}, "other": 43},
+    )
+
+    included_copy = source.copy(include=selector)
+    assert included_copy.model_dump() == {"reference_outputs": included}
+    excluded_copy = source.copy(exclude=selector)
+    assert excluded_copy.model_dump().get("reference_outputs") == excluded
+
+    for method in ("model_dump", "dict"):
+        assert getattr(source, method)(include=selector) == {"reference_outputs": included}
+        assert getattr(source, method)(exclude=selector).get("reference_outputs") == excluded
+    for method in ("model_dump_json", "json"):
+        assert json.loads(getattr(source, method)(include=selector)) == {"reference_outputs": included}
+        assert json.loads(getattr(source, method)(exclude=selector)).get("reference_outputs") == excluded
+
+    assert selector in ({"outputs"}, {"outputs": {"answer"}})
+
+
+@pytest.mark.parametrize(
+    "argument_name, reference_outputs",
+    [
+        ("reference_outputs", {"answer": 42}),
+        ("outputs", {"answer": 42}),
+        ("reference_outputs", None),
+        ("outputs", None),
+        (None, None),
+    ],
+)
+@mock.patch("langsmith.client.requests.Session")
+def test_create_example_json_uses_legacy_outputs_wire_key(
+    mock_session_cls: mock.Mock,
+    argument_name: Optional[str],
+    reference_outputs: Optional[dict[str, Any]],
+) -> None:
+    example_id = uuid.uuid4()
+    dataset_id = uuid.uuid4()
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "id": str(example_id),
+        "dataset_id": str(dataset_id),
+        "inputs": {"question": "meaning"},
+        "outputs": reference_outputs,
+    }
+    mock_session = MagicMock()
+    mock_session.request.return_value = mock_response
+    mock_session_cls.return_value = mock_session
+    client = Client(
+        api_url="http://localhost:1984",
+        api_key="123",
+        info={},
+        auto_batch_tracing=False,
+    )
+
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        client.create_example(
+            inputs={"question": "meaning"},
+            dataset_id=dataset_id,
+            **({argument_name: reference_outputs} if argument_name else {}),
+        )
+
+    request = next(call for call in mock_session.request.call_args_list if call.args[0] == "POST")
+    payload = json.loads(request.kwargs["data"])
+    assert payload.get("outputs") == reference_outputs
+    assert "reference_outputs" not in payload
+    deprecations = [warning for warning in recorded if warning.category is DeprecationWarning]
+    assert len(deprecations) == (1 if argument_name == "outputs" else 0)
+
+
+@pytest.mark.parametrize("reference_outputs", [{"answer": 42}, None])
+@pytest.mark.parametrize("outputs", [{"answer": 43}, None])
+def test_create_example_rejects_reference_outputs_conflict(
+    reference_outputs: Optional[dict[str, Any]], outputs: Optional[dict[str, Any]]
+) -> None:
+    client = Client(api_url="http://localhost:1984", api_key="123", info={})
+
+    with (
+        mock.patch.object(Client, "read_dataset") as read_dataset,
+        mock.patch.object(Client, "request_with_retries") as request,
+    ):
+        with pytest.raises(ValueError, match="both 'reference_outputs' and 'outputs'"):
+            client.create_example(
+                inputs={"question": "meaning"},
+                dataset_name="example-dataset",
+                reference_outputs=reference_outputs,
+                outputs=outputs,
+            )
+
+    read_dataset.assert_not_called()
+    request.assert_not_called()
+
+
+@pytest.mark.parametrize("argument_name", ["reference_outputs", "outputs"])
+@pytest.mark.parametrize("copy_method", [None, "model_copy", "copy"])
+@mock.patch("langsmith.client.requests.Session")
+def test_create_examples_reference_outputs_alias(
+    mock_session_cls: mock.Mock, argument_name: str, copy_method: Optional[str]
+) -> None:
+    example_id = uuid.uuid4()
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = [{"id": str(example_id)}]
+    mock_session = MagicMock()
+    mock_session.request.return_value = mock_response
+    mock_session_cls.return_value = mock_session
+    client = Client(api_url="http://localhost:1984", api_key="123", info={}, auto_batch_tracing=False)
+    reference_outputs = [{"answer": 42}]
+
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        if copy_method:
+            example = ls_schemas.ExampleCreate(inputs={"question": "meaning"}, reference_outputs={"answer": "old"})
+            kwargs = {"examples": [getattr(example, copy_method)(update={argument_name: reference_outputs[0]})]}
+        else:
+            kwargs = {"inputs": [{"question": "meaning"}], argument_name: reference_outputs}
+        client.create_examples(dataset_id=uuid.uuid4(), **kwargs)
+
+    request = next(call for call in mock_session.request.call_args_list if call.args[0] == "POST")
+    payload = json.loads(request.kwargs["data"])
+    assert payload[0]["outputs"] == reference_outputs[0]
+    assert "reference_outputs" not in payload[0]
+    alias_deprecations = [warning for warning in recorded if "'outputs' is deprecated" in str(warning.message)]
+    assert len(alias_deprecations) == (1 if argument_name == "outputs" else 0)
+
+
+@pytest.mark.parametrize("use_examples", [False, True])
+@pytest.mark.parametrize("reference_outputs", [{"answer": 42}, None])
+@pytest.mark.parametrize("outputs", [{"answer": 43}, None])
+def test_create_examples_rejects_reference_outputs_conflict(
+    use_examples: bool, reference_outputs: Optional[dict[str, Any]], outputs: Optional[dict[str, Any]]
+) -> None:
+    client = Client(api_url="http://localhost:1984", api_key="123", info={})
+    kwargs = (
+        {
+            "examples": [
+                {"inputs": {"question": "valid"}, "reference_outputs": {"answer": 42}},
+                {
+                    "inputs": {"question": "meaning"},
+                    "reference_outputs": reference_outputs,
+                    "outputs": outputs,
+                },
+            ]
+        }
+        if use_examples
+        else {
+            "inputs": [{"question": "meaning"}],
+            "reference_outputs": [reference_outputs],
+            "outputs": [outputs],
+        }
+    )
+
+    with (
+        mock.patch.object(Client, "read_dataset") as read_dataset,
+        mock.patch.object(Client, "_upload_examples_batches_parallel") as upload,
+    ):
+        with pytest.raises(ValueError, match="both 'reference_outputs' and 'outputs'"):
+            client.create_examples(dataset_name="example-dataset", **kwargs)
+
+    read_dataset.assert_not_called()
+    upload.assert_not_called()
+
+
 @mock.patch("langsmith.client.requests.Session")
 def test_upsert_examples_multipart_missing_file(mock_session_cls: mock.Mock, tmp_path, caplog) -> None:
     """Attachment file paths that do not exist are skipped."""
@@ -1267,7 +1841,7 @@ def test_upsert_examples_multipart_missing_file(mock_session_cls: mock.Mock, tmp
         dataset_id=dataset_id,
         created_at=_CREATED_AT,
         inputs={"input": "test"},
-        outputs={"output": "out"},
+        reference_outputs={"output": "out"},
         attachments={
             "missing": ("text/plain", missing_path),
             "good": ("text/plain", b"data"),
@@ -2091,6 +2665,17 @@ def test_create_feedback_can_opt_out_of_extending_trace_retention() -> None:
     assert payload["extend_trace_retention"] is False
 
 
+def test_update_feedback_clears_explicit_none_and_keeps_omitted() -> None:
+    session = mock.Mock()
+    client = Client(api_url="http://localhost:1984", api_key="123", session=session)
+
+    client.update_feedback(uuid.uuid4(), score=0.123456, comment=None)
+
+    payload = json.loads(session.request.call_args.kwargs["data"])
+    # comment is cleared; value and correction are left as they are.
+    assert payload == {"score": 0.1235, "comment": None}
+
+
 def test_create_feedback_opt_out_uses_direct_post_when_batching_available() -> None:
     """Opt-out must POST /feedback so extend_trace_retention reaches the API.
 
@@ -2166,6 +2751,27 @@ def test_create_feedback_warns_without_session_id() -> None:
 
     with pytest.warns(ls_utils.LangSmithWarning, match="smithdb-sdk-migration"):
         client.create_feedback(uuid.uuid4(), key="Foo")
+    session.request.assert_called_once()
+
+
+def test_create_feedback_on_a_thread() -> None:
+    """Thread feedback names the thread and its project, and no run."""
+    session = mock.Mock()
+    client = _feedback_client(session, ch_query_enabled=False, sdb_query_enabled=True)
+    session_id = uuid.uuid4()
+
+    feedback = client.create_feedback(key="resolved", score=1, thread_id="thread-1", session_id=session_id)
+
+    payload = json.loads(session.request.call_args.kwargs["data"])
+    assert payload["feedback_thread_id"] == "thread-1"
+    assert payload["session_id"] == str(session_id)
+    assert "run_id" not in payload
+    assert feedback.feedback_thread_id == "thread-1"
+
+    with pytest.raises(ValueError, match="thread_id requires the thread's project"):
+        client.create_feedback(key="resolved", thread_id="thread-1")
+    with pytest.raises(ValueError, match="cannot be combined with run_id"):
+        client.create_feedback(uuid.uuid4(), key="resolved", thread_id="thread-1", session_id=session_id)
     session.request.assert_called_once()
 
 
@@ -7531,6 +8137,47 @@ def test_suppress_deprecation_warning_is_scoped() -> None:
         client.list_runs(project_id=uuid.uuid4())
 
 
+@pytest.mark.parametrize(
+    ("flags", "setup", "outcome"),
+    [
+        ([], "", "shown_once"),
+        (["-W", "ignore::ResourceWarning"], "", "shown_once"),
+        (["-W", "error::DeprecationWarning"], "", "raised"),
+        (["-W", "ignore::DeprecationWarning"], "", "hidden"),
+        ([], "import warnings; warnings.simplefilter('error'); ", "raised"),
+        ([], "import warnings; warnings.simplefilter('ignore'); ", "hidden"),
+    ],
+)
+def test_deprecation_warning_shown_outside_main(
+    tmp_path: pathlib.Path, flags: list[str], setup: str, outcome: str
+) -> None:
+    """Fresh interpreter, so pytest's filters don't apply."""
+    (tmp_path / "user_app.py").write_text(
+        "from langsmith._internal._beta_decorator import deprecated\n"
+        "@deprecated('old_method() is deprecated')\n"
+        "def old_method():\n"
+        "    pass\n"
+        "def run():\n"
+        "    for _ in range(3):\n"
+        "        old_method()\n"
+    )
+    env = {k: v for k, v in os.environ.items() if k not in ("PYTHONWARNINGS", "PYTHONDEVMODE")}
+    result = subprocess.run(
+        [sys.executable, *flags, "-c", setup + "import user_app; user_app.run()"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if outcome == "raised":
+        assert result.returncode != 0, result.stderr
+        assert "LangSmithDeprecationWarning: old_method() is deprecated" in result.stderr
+    else:
+        assert result.returncode == 0, result.stderr
+        expected = 1 if outcome == "shown_once" else 0
+        assert result.stderr.count("old_method() is deprecated") == expected, result.stderr
+
+
 _SHARE_TOKEN = uuid.UUID("22222222-2222-2222-2222-222222222222")
 
 
@@ -7646,6 +8293,77 @@ async def test_async_run_is_shared_does_not_warn_about_read_run_shared_link() ->
             assert await client.run_is_shared(run_id) is True
 
 
+_QUEUE_METHODS = [
+    ("add_runs_to_annotation_queue", "client.annotation_queues.items.create()"),
+    ("get_run_from_annotation_queue", "client.annotation_queues.items.list()"),
+    ("list_runs_from_annotation_queue", "client.annotation_queues.items.list()"),
+    ("delete_run_from_annotation_queue", "client.annotation_queues.items.delete_all()"),
+]
+
+
+def _queue_call_kwargs(method: str, run_id: uuid.UUID) -> dict:
+    return {
+        "add_runs_to_annotation_queue": {"run_ids": [run_id]},
+        "get_run_from_annotation_queue": {"index": 0},
+        "list_runs_from_annotation_queue": {},
+        "delete_run_from_annotation_queue": {"run_id": run_id},
+    }[method]
+
+
+@pytest.mark.parametrize("method,replacement", _QUEUE_METHODS)
+def test_annotation_queue_run_methods_are_deprecated(method: str, replacement: str) -> None:
+    """Each legacy queue method warns once, naming its items API replacement."""
+    client = Client(api_url="http://localhost:1984", api_key="123", session=mock.Mock())
+    run_id = uuid.uuid4()
+
+    with (
+        mock.patch.object(Client, "request_with_retries", return_value=_share_response(run_id)),
+        mock.patch.object(Client, "_get_paginated_list", return_value=iter([])),
+    ):
+        with pytest.warns(DeprecationWarning) as recorded:
+            result = getattr(client, method)(uuid.uuid4(), **_queue_call_kwargs(method, run_id))
+            if method == "list_runs_from_annotation_queue":
+                list(result)
+
+    messages = _deprecation_messages(recorded)
+    assert len(messages) == 1, messages
+    assert f"{method}() is deprecated" in messages[0]
+    assert f"Use {replacement} instead." in messages[0]
+
+
+@pytest.mark.parametrize("method,replacement", _QUEUE_METHODS)
+async def test_async_annotation_queue_run_methods_are_deprecated(method: str, replacement: str) -> None:
+    """The async client's queue methods carry the same deprecations."""
+    from langsmith.async_client import AsyncClient
+
+    async def no_pages(*args, **kwargs):
+        return
+        yield
+
+    client = AsyncClient(api_url="http://localhost:1984", api_key="123")
+    run_id = uuid.uuid4()
+
+    with (
+        mock.patch.object(
+            AsyncClient,
+            "_arequest_with_retries",
+            new=mock.AsyncMock(return_value=_share_response(run_id)),
+        ),
+        mock.patch.object(AsyncClient, "_aget_paginated_list", new=no_pages),
+    ):
+        with pytest.warns(DeprecationWarning) as recorded:
+            result = getattr(client, method)(uuid.uuid4(), **_queue_call_kwargs(method, run_id))
+            if method == "list_runs_from_annotation_queue":
+                _ = [r async for r in result]
+            else:
+                await result
+
+    messages = _deprecation_messages(recorded)
+    assert len(messages) == 1, messages
+    assert f"{method}() is deprecated" in messages[0]
+    assert f"Use {replacement} instead." in messages[0]
+
+
 def _gtr_example_id() -> uuid.UUID:
     return uuid.UUID("11111111-1111-1111-1111-111111111111")
 
@@ -7712,7 +8430,7 @@ def _gtr_v2_run() -> SimpleNamespace:
     ("instance_flags", "expect_v2"),
     [
         ({"ch_query_enabled": True}, False),
-        ({"ch_query_enabled": True, "sdb_query_enabled": True}, False),
+        ({"ch_query_enabled": True, "sdb_query_enabled": True}, True),
         ({"ch_query_enabled": False, "sdb_query_enabled": True}, True),
     ],
 )
@@ -8124,3 +8842,67 @@ class TestFeedbackAgentAddressing:
         assert body["address"] == "lrn:agents/my-agent/environments/staging"
         assert "agent_id" not in body
         assert "agent_environment" not in body
+
+
+@pytest.mark.parametrize("compressed", [False, True])
+def test_flush_waits_for_buffered_run_ops(compressed: bool) -> None:
+    """flush() must not return before the buffered run ops job has sent the runs."""
+    sent: list[str] = []
+
+    def request(method, url, **kwargs):
+        sent.append(url)
+        response = requests.Response()
+        response.status_code = 200
+        response._content = b"{}"
+        response.url = url
+        return response
+
+    def slow_processor(runs):
+        time.sleep(0.3)
+        return runs
+
+    session = mock.MagicMock(spec=requests.Session)
+    session.request.side_effect = request
+    info = ls_schemas.LangSmithInfo(
+        batch_ingest_config=ls_schemas.BatchIngestConfig(
+            use_multipart_endpoint=True,
+            size_limit=100,
+            size_limit_bytes=20971520,
+            scale_up_nthreads_limit=1,
+            scale_up_qsize_trigger=1000,
+            scale_down_nempty_trigger=4,
+        ),
+        instance_flags={"zstd_compression_enabled": compressed},
+    )
+    client = Client(
+        api_url="http://localhost:1984",
+        api_key="test",
+        session=session,
+        info=info,
+        auto_batch_tracing=True,
+        process_buffered_run_ops=slow_processor,
+        run_ops_buffer_size=1,
+    )
+    if compressed:
+        for _ in range(100):
+            if client.compressed_traces is not None:
+                break
+            time.sleep(0.02)
+        assert client.compressed_traces is not None
+
+    try:
+        run_id = uuid.uuid4()
+        now = datetime.now(timezone.utc)
+        client.create_run(
+            name="n",
+            inputs={"a": 1},
+            run_type="chain",
+            id=run_id,
+            trace_id=run_id,
+            dotted_order=now.strftime("%Y%m%dT%H%M%S%fZ") + str(run_id),
+            start_time=now,
+        )
+        client.flush()
+        assert len(sent) == 1
+    finally:
+        client.cleanup()

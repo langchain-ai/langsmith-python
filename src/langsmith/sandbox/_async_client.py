@@ -6,7 +6,7 @@ import asyncio
 import os
 import posixpath
 import uuid
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Optional, Union, overload
 
 from langsmith import utils as ls_utils
@@ -288,6 +288,7 @@ class AsyncSandboxClient:
         timeout: int = 30,
         idle_ttl_seconds: Optional[int] = None,
         delete_after_stop_seconds: Optional[int] = None,
+        persistent: Optional[bool] = None,
         vcpus: Optional[int] = None,
         mem_bytes: Optional[int] = None,
         fs_capacity_bytes: Optional[int] = None,
@@ -331,6 +332,8 @@ class AsyncSandboxClient:
                 permanently deleted. Must be a multiple of 60. ``0`` disables
                 stop-anchored deletion (manual cleanup required). When
                 omitted (``None``), the server applies its configured default.
+            persistent: Whether filesystem writes survive stops; false discards them on stop.
+                Omit to use the server default.
             vcpus: Number of vCPUs.
             mem_bytes: Memory in bytes.
             fs_capacity_bytes: Root filesystem capacity in bytes.
@@ -367,6 +370,7 @@ class AsyncSandboxClient:
             timeout=timeout,
             idle_ttl_seconds=idle_ttl_seconds,
             delete_after_stop_seconds=delete_after_stop_seconds,
+            persistent=persistent,
             vcpus=vcpus,
             mem_bytes=mem_bytes,
             fs_capacity_bytes=fs_capacity_bytes,
@@ -389,9 +393,14 @@ class AsyncSandboxClient:
         wait_for_ready: bool = True,
         idle_ttl_seconds: Optional[int] = None,
         delete_after_stop_seconds: Optional[int] = None,
+        persistent: Optional[bool] = None,
+        preserve_memory_on_stop: Optional[bool] = None,
+        restore_memory: Optional[bool] = None,
         vcpus: Optional[int] = None,
         mem_bytes: Optional[int] = None,
         fs_capacity_bytes: Optional[int] = None,
+        labels: Optional[dict[str, str]] = None,
+        tag_value_ids: Optional[Sequence[str]] = None,
         mount_config: Optional[SandboxMountConfig] = None,
         proxy_config: Optional[SandboxProxyConfig] = None,
         run_config: Optional[Union[RunConfig, dict[str, Any]]] = None,
@@ -427,9 +436,28 @@ class AsyncSandboxClient:
                 permanently deleted. Must be a multiple of 60. ``0`` disables
                 stop-anchored deletion (manual cleanup required). When
                 omitted (``None``), the server applies its configured default.
+            persistent: Whether filesystem writes survive stops; false discards them on stop.
+                Omit to use the server default.
+            preserve_memory_on_stop: If True, a voluntary stop (idle timeout
+                or ``stop_sandbox()``) suspends the sandbox's memory, so the
+                next start resumes running processes instead of cold-booting.
+                Requires a persistent sandbox. Omit to use the server default
+                (off).
+            restore_memory: How to handle memory captured in the snapshot,
+                for this create only. True always resumes from it (rejected if
+                the snapshot has none), False always cold-boots. Omit to
+                resume when the snapshot has memory and cold-boot otherwise.
             vcpus: Number of vCPUs.
             mem_bytes: Memory in bytes.
             fs_capacity_bytes: Root filesystem capacity in bytes.
+            labels: Free-form key/value metadata stored with the sandbox and
+                returned on reads. Labels from the source snapshot are
+                inherited unless overridden here.
+            tag_value_ids: IDs of governed LangSmith tag values to attach to the
+                sandbox. A cloud identity scoped to a tag (``subject_scope``
+                ``"tag:<id>"`` in a ``proxy_config`` or ``mount_config`` rule)
+                needs that tag here: the identity is fixed when the sandbox is
+                created.
             mount_config: Mount configuration forwarded to the server as
                 ``mount_config``. The backend expands mount auth into runtime
                 proxy rules. Explicit AWS/GCP proxy rules in ``proxy_config``
@@ -447,8 +475,7 @@ class AsyncSandboxClient:
 
             access_delegation: Optional grant letting code inside the sandbox
                 call the LangSmith API as you, with no API key of its own.
-                ``{"mode": "INHERIT"}`` grants everything you can do;
-                ``{"mode": "EXPLICIT", "permissions": [...]}`` grants only the
+                ``{"mode": "EXPLICIT", "permissions": [...]}`` grants the
                 permissions listed, each of which you must already hold. The
                 grant belongs to the sandbox, so anyone who can exec into it
                 can make calls under it. Omit for no access.
@@ -491,12 +518,24 @@ class AsyncSandboxClient:
             payload["idle_ttl_seconds"] = idle_ttl_seconds
         if delete_after_stop_seconds is not None:
             payload["delete_after_stop_seconds"] = delete_after_stop_seconds
+        if persistent is not None:
+            payload["persistent"] = persistent
+        if preserve_memory_on_stop is not None:
+            payload["preserve_memory_on_stop"] = preserve_memory_on_stop
+        if restore_memory is not None:
+            payload["restore_memory"] = restore_memory
         if vcpus is not None:
             payload["vcpus"] = vcpus
         if mem_bytes is not None:
             payload["mem_bytes"] = mem_bytes
         if fs_capacity_bytes is not None:
             payload["fs_capacity_bytes"] = fs_capacity_bytes
+        if labels is not None:
+            payload["labels"] = labels
+        if tag_value_ids is not None:
+            if isinstance(tag_value_ids, str):
+                raise TypeError("tag_value_ids must be a sequence of tag value IDs, not a string")
+            payload["tag_value_ids"] = list(tag_value_ids)
         if mount_config is not None:
             validate_mount_config_proxy_config(mount_config, proxy_config)
             payload["mount_config"] = mount_config
@@ -718,6 +757,7 @@ class AsyncSandboxClient:
         *,
         expires_in_seconds: int = 600,
         access: None = None,
+        embed_origins: Optional[Sequence[str]] = None,
         headers: RequestHeaders = None,
     ) -> AsyncServiceURL: ...
 
@@ -729,6 +769,7 @@ class AsyncSandboxClient:
         *,
         expires_in_seconds: int = 600,
         access: ServiceAccess,
+        embed_origins: Optional[Sequence[str]] = None,
         headers: RequestHeaders = None,
     ) -> ServiceLoginURL: ...
 
@@ -739,6 +780,7 @@ class AsyncSandboxClient:
         *,
         expires_in_seconds: int = 600,
         access: Optional[ServiceAccess] = None,
+        embed_origins: Optional[Sequence[str]] = None,
         headers: RequestHeaders = None,
     ) -> Union[AsyncServiceURL, ServiceLoginURL]:
         """Get an authenticated URL for a service running inside a sandbox.
@@ -760,6 +802,12 @@ class AsyncSandboxClient:
                 expires, so ``expires_in_seconds`` does not apply. Omit for
                 token mode; a login grant is durable, so token mode is refused
                 with 409 while one is in place.
+            embed_origins: Origins whose pages may show the URL in an iframe,
+                besides LangSmith itself: at most 5, each ``https://host[:port]``
+                (``http`` only on localhost). In token mode they are signed
+                into each token, so every refresh keeps them; open
+                ``embed_url`` in the frame. With ``access`` they are stored on
+                the grant, and each call replaces the grant's list.
             headers: Optional per-request header overrides.
 
         Returns:
@@ -774,6 +822,9 @@ class AsyncSandboxClient:
         if access is not None and access not in ("restricted", "workspace"):
             raise ValueError(f'access must be "restricted" or "workspace", got {access!r}')
         login_mode = access is not None
+        # Every refresh re-sends these, so keep a copy: a caller changing its
+        # list later can't change later tokens.
+        origins = list(embed_origins) if embed_origins else None
         self._trace_sandbox(name)
         url = _box_url(self._base_url, name, "service-url")
         payload: dict[str, Any] = {"port": port}
@@ -781,12 +832,15 @@ class AsyncSandboxClient:
             payload["expires_in_seconds"] = expires_in_seconds
         if access is not None:
             payload["access"] = access
+        if origins:
+            payload["embed_origins"] = origins
 
         async def _refresher() -> AsyncServiceURL:
             return await self.service(
                 name,
                 port,
                 expires_in_seconds=expires_in_seconds,
+                embed_origins=origins,
                 headers=headers,
             )
 

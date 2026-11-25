@@ -16,6 +16,7 @@ from typing import (
 from typing_extensions import TypedDict
 
 from langsmith import client as ls_client
+from langsmith.address import AgentAddress
 from langsmith import run_helpers
 from langsmith._internal._ls_agent_type import apply_default_ls_agent_type
 
@@ -355,7 +356,9 @@ def _get_parse_wrapper(
 
 def _reduce_response_events(events: list[ResponseStreamEvent]) -> dict:
     for event in events:
-        if event.type == "response.completed":
+        # A stream can end on any of the three terminal events; the incomplete and
+        # failed ones still carry the partial output, usage and error.
+        if event.type in ("response.completed", "response.incomplete", "response.failed"):
             return _process_responses_api_output(event.response)
     return {}
 
@@ -364,6 +367,7 @@ class TracingExtra(TypedDict, total=False):
     metadata: Optional[Mapping[str, Any]]
     tags: Optional[list[str]]
     client: Optional[ls_client.Client]
+    address: Optional[AgentAddress]
 
 
 def wrap_openai(
@@ -381,10 +385,16 @@ def wrap_openai(
         - `create` and `parse` methods
         - With and without streaming
         - `with_raw_response` API for accessing HTTP headers
+        - **BETA**: Agents API sessions (`client.beta.agents.sessions`): each
+          finished turn's trace, as published by OpenAI, with one run per model
+          call, tool call and subagent. Traces arrive a few seconds after the
+          turn ends, sent from a background thread.
 
     Args:
         client: The client to patch.
-        tracing_extra: Extra tracing information.
+        tracing_extra: Extra tracing information. Set `address` to an
+            `AgentAddress`, such as `ls.agent_address(id, environment)`, to log the
+            client's runs to that agent environment instead of a project.
         chat_name: The run name for the chat completions endpoint.
         completions_name: The run name for the completions endpoint.
 
@@ -553,6 +563,15 @@ def wrap_openai(
                     True,
                 ),
             )
+
+    # Agents API: traced from OpenAI's OTLP export, since the loop runs on OpenAI's side.
+    try:
+        from langsmith.wrappers._openai_agents_api import wrap_agents_sessions
+
+        wrap_agents_sessions(client, dict(tracing_extra))
+    except Exception:
+        # Beta: must never break wrapping the rest of the client.
+        logger.debug("Failed to set up OpenAI Agents API tracing", exc_info=True)
 
     return client
 

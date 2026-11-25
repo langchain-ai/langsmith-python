@@ -10,6 +10,7 @@ from contextlib import aclosing
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from langsmith.address import AgentAddress
 from langsmith._internal._package_version import get_package_version
 from langsmith.run_helpers import get_current_run_tree, set_tracing_parent, trace
 
@@ -145,6 +146,7 @@ def wrap_runner_run(wrapped: Any, instance: Any, args: Any, kwargs: Any) -> Any:
             run_type="chain",
             inputs=trace_inputs,
             project_name=config.get("project_name"),
+            address=config.get("address"),
             tags=config.get("tags"),
             metadata=trace_metadata,
         ) as root_run:
@@ -212,6 +214,7 @@ async def wrap_runner_run_async(wrapped: Any, instance: Any, args: Any, kwargs: 
             run_type="chain",
             inputs=trace_inputs,
             project_name=config.get("project_name"),
+            address=config.get("address"),
             tags=config.get("tags"),
             metadata=trace_metadata,
         ) as run:
@@ -475,14 +478,20 @@ def create_traced_session_context(
     metadata: Optional[dict[str, Any]] = None,
     tags: Optional[list[str]] = None,
     inputs: Optional[dict[str, Any]] = None,
+    address: Optional[AgentAddress] = None,
 ):
     """Create a trace context for manual session tracing."""
     config = get_tracing_config()
+    # A destination given here replaces the configured one, so the two never
+    # name both a project and an address.
+    if project_name is None and address is None:
+        project_name, address = config.get("project_name"), config.get("address")
     return trace(
         name=name or config.get("name") or TRACE_CHAIN_NAME,
         run_type="chain",
         inputs=inputs or {},
-        project_name=project_name or config.get("project_name"),
+        project_name=project_name,
+        address=address,
         tags=tags or config.get("tags"),
         metadata={**(config.get("metadata") or {}), **(metadata or {})},
     )

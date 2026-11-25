@@ -343,7 +343,7 @@ class Run(BaseModel):
     start_time: Optional[datetime] = None
     """`start_time` is when the run started (RFC3339 date-time)."""
 
-    status: Optional[Literal["SUCCESS", "ERROR", "PENDING"]] = None
+    status: Optional[Literal["SUCCESS", "ERROR", "PENDING", "INTERRUPTED", "CANCELLED"]] = None
     """`status` is the completion status of the run."""
 
     tags: Optional[List[str]] = None

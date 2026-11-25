@@ -7,6 +7,7 @@ import pathlib
 import uuid
 import warnings
 from datetime import datetime
+from typing import Any, Optional
 from unittest import mock
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -579,6 +580,22 @@ async def test_async_create_feedback_project_feedback_validation(
     with pytest.raises(ValueError, match="One of run_id, trace_id, or project_id"):
         await client.create_feedback(key="test_key")
 
+    feedback = await client.create_feedback(key="test_key", thread_id="thread-1", project_id=project_id)
+
+    assert feedback.feedback_thread_id == "thread-1"
+    body = json.loads(mock_httpx_client.request.call_args.kwargs["content"])
+    assert body["feedback_thread_id"] == "thread-1"
+    assert body["session_id"] == str(project_id)
+    assert "run_id" not in body
+
+    with pytest.raises(ValueError, match="cannot be combined with run_id"):
+        await client.create_feedback(
+            trace_id=uuid.uuid4(),
+            key="test_key",
+            thread_id="thread-1",
+            session_id=project_id,
+        )
+
 
 @mock.patch("langsmith.async_client.httpx.AsyncClient")
 @pytest.mark.asyncio
@@ -958,3 +975,75 @@ async def test_async_client_resource_version_check(
 
     version_warnings = [r for r in caplog.records if r.name == _VERSION_LOGGER]
     assert bool(version_warnings) is expect_warning
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "argument_name, reference_outputs",
+    [
+        ("reference_outputs", {"answer": 42}),
+        ("outputs", {"answer": 42}),
+        ("reference_outputs", None),
+        ("outputs", None),
+        (None, None),
+    ],
+)
+async def test_create_example_uses_legacy_outputs_wire_key(
+    argument_name: Optional[str], reference_outputs: Optional[dict[str, Any]]
+) -> None:
+    client = AsyncClient(api_url="http://localhost:1984", api_key="test")
+    dataset_id = uuid.uuid4()
+    response = MagicMock()
+    response.json.return_value = {
+        "id": str(uuid.uuid4()),
+        "dataset_id": str(dataset_id),
+        "inputs": {"question": "meaning"},
+        "outputs": reference_outputs,
+    }
+
+    with mock.patch.object(
+        AsyncClient,
+        "_arequest_with_retries",
+        new_callable=AsyncMock,
+        return_value=response,
+    ) as request:
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter("always")
+            await client.create_example(
+                inputs={"question": "meaning"},
+                dataset_id=dataset_id,
+                **({argument_name: reference_outputs} if argument_name else {}),
+            )
+
+    payload = json.loads(request.call_args.kwargs["content"])
+    assert payload["outputs"] == reference_outputs
+    assert "reference_outputs" not in payload
+    deprecations = [warning for warning in recorded if warning.category is DeprecationWarning]
+    assert len(deprecations) == (1 if argument_name == "outputs" else 0)
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reference_outputs", [{"answer": 42}, None])
+@pytest.mark.parametrize("outputs", [{"answer": 43}, None])
+async def test_create_example_rejects_reference_outputs_conflict(
+    reference_outputs: Optional[dict[str, Any]], outputs: Optional[dict[str, Any]]
+) -> None:
+    client = AsyncClient(api_url="http://localhost:1984", api_key="test")
+
+    with (
+        mock.patch.object(AsyncClient, "read_dataset", new_callable=AsyncMock) as read_dataset,
+        mock.patch.object(AsyncClient, "_arequest_with_retries", new_callable=AsyncMock) as request,
+    ):
+        with pytest.raises(ValueError, match="both 'reference_outputs' and 'outputs'"):
+            await client.create_example(
+                inputs={"question": "meaning"},
+                dataset_name="example-dataset",
+                reference_outputs=reference_outputs,
+                outputs=outputs,
+            )
+
+    read_dataset.assert_not_called()
+    request.assert_not_called()
+
+    await client.aclose()

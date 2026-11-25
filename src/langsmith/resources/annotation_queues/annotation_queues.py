@@ -38,6 +38,14 @@ from ..._httpx import httpx
 from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
+from .reviewers import (
+    ReviewersResource,
+    AsyncReviewersResource,
+    ReviewersResourceWithRawResponse,
+    AsyncReviewersResourceWithRawResponse,
+    ReviewersResourceWithStreamingResponse,
+    AsyncReviewersResourceWithStreamingResponse,
+)
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
     to_raw_response_wrapper,
@@ -68,6 +76,10 @@ class AnnotationQueuesResource(SyncAPIResource):
     @cached_property
     def items(self) -> ItemsResource:
         return ItemsResource(self._client)
+
+    @cached_property
+    def reviewers(self) -> ReviewersResource:
+        return ReviewersResource(self._client)
 
     @cached_property
     def with_raw_response(self) -> AnnotationQueuesResourceWithRawResponse:
@@ -103,6 +115,8 @@ class AnnotationQueuesResource(SyncAPIResource):
         Get Annotation Queue
 
         Args:
+          queue_id: ID of the annotation queue.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -127,11 +141,11 @@ class AnnotationQueuesResource(SyncAPIResource):
         *,
         default_dataset: Optional[str] | Omit = omit,
         description: Optional[str] | Omit = omit,
-        enable_reservations: annotation_queue_update_params.EnableReservations | Omit = omit,
-        metadata: Optional[annotation_queue_update_params.Metadata] | Omit = omit,
+        enable_reservations: bool | Omit = omit,
+        metadata: Optional[Dict[str, object]] | Omit = omit,
         name: Optional[str] | Omit = omit,
-        num_reviewers_per_item: Optional[annotation_queue_update_params.NumReviewersPerItem] | Omit = omit,
-        reservation_minutes: Optional[annotation_queue_update_params.ReservationMinutes] | Omit = omit,
+        num_reviewers_per_item: Optional[int] | Omit = omit,
+        reservation_minutes: Optional[int] | Omit = omit,
         reviewer_access_mode: Optional[Literal["any", "assigned"]] | Omit = omit,
         rubric_instructions: Optional[str] | Omit = omit,
         rubric_items: Optional[Iterable[AnnotationQueueRubricItemSchemaParam]] | Omit = omit,
@@ -146,6 +160,29 @@ class AnnotationQueuesResource(SyncAPIResource):
         Update Annotation Queue
 
         Args:
+          queue_id: ID of the annotation queue.
+
+          default_dataset: Dataset that reviewed runs are added to by default.
+
+          description: New description.
+
+          enable_reservations: Whether a reviewer reserves a run while reviewing it, so others skip it.
+
+          metadata: Metadata to store on the queue. Replaces the existing metadata.
+
+          name: New name for the queue.
+
+          num_reviewers_per_item: How many reviewers must review each run.
+
+          reservation_minutes: How long a reservation lasts, in minutes.
+
+          reviewer_access_mode: Who completes a run: any (one reviewer is enough) or assigned (every assigned
+              reviewer must submit).
+
+          rubric_instructions: Instructions shown to reviewers.
+
+          rubric_items: Feedback keys reviewers fill in for each run.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -194,6 +231,8 @@ class AnnotationQueuesResource(SyncAPIResource):
         Delete Annotation Queue
 
         Args:
+          queue_id: ID of the annotation queue.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -386,6 +425,13 @@ class AnnotationQueuesResource(SyncAPIResource):
         Populate annotation queue with runs from an experiment.
 
         Args:
+          queue_id: ID of the annotation queue to add runs to.
+
+          session_ids: Experiments whose runs are added to the queue. Each must be an experiment on a
+              dataset.
+
+          extend_trace_retention: Upgrade the added traces from short-lived to extended retention.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -416,6 +462,7 @@ class AnnotationQueuesResource(SyncAPIResource):
         assigned_to_me: bool | Omit = omit,
         dataset_id: Optional[str] | Omit = omit,
         ids: Optional[SequenceNotStr[str]] | Omit = omit,
+        include_rubric_keys: bool | Omit = omit,
         limit: int | Omit = omit,
         name: Optional[str] | Omit = omit,
         name_contains: Optional[str] | Omit = omit,
@@ -456,6 +503,7 @@ class AnnotationQueuesResource(SyncAPIResource):
                         "assigned_to_me": assigned_to_me,
                         "dataset_id": dataset_id,
                         "ids": ids,
+                        "include_rubric_keys": include_rubric_keys,
                         "limit": limit,
                         "name": name,
                         "name_contains": name_contains,
@@ -486,6 +534,8 @@ class AnnotationQueuesResource(SyncAPIResource):
         Get Annotation Queues For Run
 
         Args:
+          run_id: ID of the run.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -687,6 +737,10 @@ class AsyncAnnotationQueuesResource(AsyncAPIResource):
         return AsyncItemsResource(self._client)
 
     @cached_property
+    def reviewers(self) -> AsyncReviewersResource:
+        return AsyncReviewersResource(self._client)
+
+    @cached_property
     def with_raw_response(self) -> AsyncAnnotationQueuesResourceWithRawResponse:
         """
         This property can be used as a prefix for any HTTP method call to return
@@ -720,6 +774,8 @@ class AsyncAnnotationQueuesResource(AsyncAPIResource):
         Get Annotation Queue
 
         Args:
+          queue_id: ID of the annotation queue.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -744,11 +800,11 @@ class AsyncAnnotationQueuesResource(AsyncAPIResource):
         *,
         default_dataset: Optional[str] | Omit = omit,
         description: Optional[str] | Omit = omit,
-        enable_reservations: annotation_queue_update_params.EnableReservations | Omit = omit,
-        metadata: Optional[annotation_queue_update_params.Metadata] | Omit = omit,
+        enable_reservations: bool | Omit = omit,
+        metadata: Optional[Dict[str, object]] | Omit = omit,
         name: Optional[str] | Omit = omit,
-        num_reviewers_per_item: Optional[annotation_queue_update_params.NumReviewersPerItem] | Omit = omit,
-        reservation_minutes: Optional[annotation_queue_update_params.ReservationMinutes] | Omit = omit,
+        num_reviewers_per_item: Optional[int] | Omit = omit,
+        reservation_minutes: Optional[int] | Omit = omit,
         reviewer_access_mode: Optional[Literal["any", "assigned"]] | Omit = omit,
         rubric_instructions: Optional[str] | Omit = omit,
         rubric_items: Optional[Iterable[AnnotationQueueRubricItemSchemaParam]] | Omit = omit,
@@ -763,6 +819,29 @@ class AsyncAnnotationQueuesResource(AsyncAPIResource):
         Update Annotation Queue
 
         Args:
+          queue_id: ID of the annotation queue.
+
+          default_dataset: Dataset that reviewed runs are added to by default.
+
+          description: New description.
+
+          enable_reservations: Whether a reviewer reserves a run while reviewing it, so others skip it.
+
+          metadata: Metadata to store on the queue. Replaces the existing metadata.
+
+          name: New name for the queue.
+
+          num_reviewers_per_item: How many reviewers must review each run.
+
+          reservation_minutes: How long a reservation lasts, in minutes.
+
+          reviewer_access_mode: Who completes a run: any (one reviewer is enough) or assigned (every assigned
+              reviewer must submit).
+
+          rubric_instructions: Instructions shown to reviewers.
+
+          rubric_items: Feedback keys reviewers fill in for each run.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -811,6 +890,8 @@ class AsyncAnnotationQueuesResource(AsyncAPIResource):
         Delete Annotation Queue
 
         Args:
+          queue_id: ID of the annotation queue.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -1003,6 +1084,13 @@ class AsyncAnnotationQueuesResource(AsyncAPIResource):
         Populate annotation queue with runs from an experiment.
 
         Args:
+          queue_id: ID of the annotation queue to add runs to.
+
+          session_ids: Experiments whose runs are added to the queue. Each must be an experiment on a
+              dataset.
+
+          extend_trace_retention: Upgrade the added traces from short-lived to extended retention.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -1033,6 +1121,7 @@ class AsyncAnnotationQueuesResource(AsyncAPIResource):
         assigned_to_me: bool | Omit = omit,
         dataset_id: Optional[str] | Omit = omit,
         ids: Optional[SequenceNotStr[str]] | Omit = omit,
+        include_rubric_keys: bool | Omit = omit,
         limit: int | Omit = omit,
         name: Optional[str] | Omit = omit,
         name_contains: Optional[str] | Omit = omit,
@@ -1076,6 +1165,7 @@ class AsyncAnnotationQueuesResource(AsyncAPIResource):
                         "assigned_to_me": assigned_to_me,
                         "dataset_id": dataset_id,
                         "ids": ids,
+                        "include_rubric_keys": include_rubric_keys,
                         "limit": limit,
                         "name": name,
                         "name_contains": name_contains,
@@ -1106,6 +1196,8 @@ class AsyncAnnotationQueuesResource(AsyncAPIResource):
         Get Annotation Queues For Run
 
         Args:
+          run_id: ID of the run.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -1359,6 +1451,10 @@ class AnnotationQueuesResourceWithRawResponse:
     def items(self) -> ItemsResourceWithRawResponse:
         return ItemsResourceWithRawResponse(self._annotation_queues.items)
 
+    @cached_property
+    def reviewers(self) -> ReviewersResourceWithRawResponse:
+        return ReviewersResourceWithRawResponse(self._annotation_queues.reviewers)
+
 
 class AsyncAnnotationQueuesResourceWithRawResponse:
     def __init__(self, annotation_queues: AsyncAnnotationQueuesResource) -> None:
@@ -1421,6 +1517,10 @@ class AsyncAnnotationQueuesResourceWithRawResponse:
     @cached_property
     def items(self) -> AsyncItemsResourceWithRawResponse:
         return AsyncItemsResourceWithRawResponse(self._annotation_queues.items)
+
+    @cached_property
+    def reviewers(self) -> AsyncReviewersResourceWithRawResponse:
+        return AsyncReviewersResourceWithRawResponse(self._annotation_queues.reviewers)
 
 
 class AnnotationQueuesResourceWithStreamingResponse:
@@ -1485,6 +1585,10 @@ class AnnotationQueuesResourceWithStreamingResponse:
     def items(self) -> ItemsResourceWithStreamingResponse:
         return ItemsResourceWithStreamingResponse(self._annotation_queues.items)
 
+    @cached_property
+    def reviewers(self) -> ReviewersResourceWithStreamingResponse:
+        return ReviewersResourceWithStreamingResponse(self._annotation_queues.reviewers)
+
 
 class AsyncAnnotationQueuesResourceWithStreamingResponse:
     def __init__(self, annotation_queues: AsyncAnnotationQueuesResource) -> None:
@@ -1547,3 +1651,7 @@ class AsyncAnnotationQueuesResourceWithStreamingResponse:
     @cached_property
     def items(self) -> AsyncItemsResourceWithStreamingResponse:
         return AsyncItemsResourceWithStreamingResponse(self._annotation_queues.items)
+
+    @cached_property
+    def reviewers(self) -> AsyncReviewersResourceWithStreamingResponse:
+        return AsyncReviewersResourceWithStreamingResponse(self._annotation_queues.reviewers)

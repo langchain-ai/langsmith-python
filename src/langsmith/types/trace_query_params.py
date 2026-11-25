@@ -16,19 +16,38 @@ __all__ = ["TraceQueryParams"]
 class TraceQueryParams(TypedDict, total=False):
     ai_search: str
     """
-    `ai_search` is a plain-language criterion evaluated against the messages from
-    the agent trajectory scoped to the trace. AND-ed with the ordinary filters.
-    Requires semantic filtering enabled for the deployment. Must contain nonempty
-    text of at most 2000 UTF-8 bytes.
+    `ai_search` translates natural language into structured filters, semantic
+    criteria and time bounds. Cannot be combined with sem_filter. With full AI
+    search enabled, also cannot be combined with explicit filter expressions;
+    otherwise retains legacy semantic-only behavior. Must contain nonempty text of
+    at most 2000 UTF-8 bytes.
     """
 
     cursor: str
     """`cursor` is the opaque string returned in a previous response's `next_cursor`."""
 
+    max_feedback_modified_at: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
+    """
+    `max_feedback_modified_at` is the exclusive upper bound (RFC3339) on feedback
+    `modified_at`, applied to the feedback conditions in `trace_filter` or
+    `tree_filter` (for example eq(feedback_key, "correctness")). Requires at least
+    one feedback condition. Root runs must still fall within the `start_time`
+    window.
+    """
+
     max_start_time: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
     """
     `max_start_time` is the exclusive upper bound for the root-run start time scan
     (RFC3339). Defaults to the request time when omitted.
+    """
+
+    min_feedback_modified_at: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
+    """
+    `min_feedback_modified_at` is the inclusive lower bound (RFC3339) on feedback
+    `modified_at`, applied to the feedback conditions in `trace_filter` or
+    `tree_filter` (for example eq(feedback_key, "correctness")). Requires at least
+    one feedback condition. Root runs must still fall within the `start_time`
+    window.
     """
 
     min_start_time: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
@@ -53,6 +72,12 @@ class TraceQueryParams(TypedDict, total=False):
     `total_tokens`, `total_cost`, and `first_token_time` appear under
     `trace_aggregates`; everything else appears under `root_run`. If omitted, only
     `id` is returned on `root_run`.
+    """
+
+    sem_filter: str
+    """
+    SemFilter evaluates a plain-language criterion against trajectory messages,
+    AND-ed with structured filters.
     """
 
     trace_filter: str

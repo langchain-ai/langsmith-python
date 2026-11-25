@@ -50,6 +50,8 @@ class AnnotationQueueRetrieveAnnotationQueuesResponse(BaseModel):
 
     reviewer_access_mode: Optional[str] = None
 
+    rubric_keys: Optional[List[str]] = None
+
     run_rule_id: Optional[str] = None
 
     source_rule_id: Optional[str] = None

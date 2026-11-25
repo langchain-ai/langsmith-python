@@ -18,6 +18,7 @@ from langsmith.types import (
 )
 from langsmith.pagination import SyncItemsCursorGetPagination, AsyncItemsCursorGetPagination
 from langsmith.types.sandboxes import (
+    BoxBatchDeleteResponse,
     BoxListServiceURLsResponse,
 )
 
@@ -38,7 +39,7 @@ class TestBoxes:
     def test_method_create_with_all_params(self, client: Langsmith) -> None:
         box = client.sandboxes.boxes.create(
             access_delegation={
-                "mode": "INHERIT",
+                "mode": "EXPLICIT",
                 "permissions": ["string"],
             },
             cpu_millicores=0,
@@ -108,6 +109,7 @@ class TestBoxes:
                 ],
             },
             name="name",
+            persistent=True,
             preserve_memory_on_stop=True,
             proxy_config={
                 "access_control": {
@@ -116,10 +118,11 @@ class TestBoxes:
                 },
                 "callbacks": [
                     {
-                        "match_hosts": ["string"],
                         "ttl_seconds": 60,
                         "url": "url",
+                        "attribution_headers": ["string"],
                         "full_request": True,
+                        "match_hosts": ["string"],
                         "request_headers": [
                             {
                                 "name": "name",
@@ -137,6 +140,7 @@ class TestBoxes:
                         "name": "name",
                         "aws": {
                             "role_arn": "x",
+                            "session_tags": {"foo": "string"},
                             "subject_scope": "tag:2fdcD1Dc-bbDb-2BBD-0Afa-1A3C33cFaADc",
                         },
                         "azure": {
@@ -165,6 +169,15 @@ class TestBoxes:
                         "match_headers": ["string"],
                         "match_hosts": ["string"],
                         "match_paths": ["string"],
+                        "match_port": 1,
+                        "match_scheme": "https",
+                        "relay_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                        "rewrite": {
+                            "port": 1,
+                            "credentials": "strip",
+                            "host": "host",
+                            "sandbox": "sandbox",
+                        },
                         "type": "type",
                     }
                 ],
@@ -180,6 +193,13 @@ class TestBoxes:
             snapshot_name="snapshot_name",
             tag_value_ids=["string"],
             vcpus=0,
+            volumes=[
+                {
+                    "mount_path": "mount_path",
+                    "volume": "volume",
+                    "read_only": True,
+                }
+            ],
         )
         assert_matches_type(SandboxResponse, box, path=["response"])
 
@@ -275,10 +295,11 @@ class TestBoxes:
                 },
                 "callbacks": [
                     {
-                        "match_hosts": ["string"],
                         "ttl_seconds": 60,
                         "url": "url",
+                        "attribution_headers": ["string"],
                         "full_request": True,
+                        "match_hosts": ["string"],
                         "request_headers": [
                             {
                                 "name": "name",
@@ -296,6 +317,7 @@ class TestBoxes:
                         "name": "name",
                         "aws": {
                             "role_arn": "x",
+                            "session_tags": {"foo": "string"},
                             "subject_scope": "tag:2fdcD1Dc-bbDb-2BBD-0Afa-1A3C33cFaADc",
                         },
                         "azure": {
@@ -324,6 +346,15 @@ class TestBoxes:
                         "match_headers": ["string"],
                         "match_hosts": ["string"],
                         "match_paths": ["string"],
+                        "match_port": 1,
+                        "match_scheme": "https",
+                        "relay_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                        "rewrite": {
+                            "port": 1,
+                            "credentials": "strip",
+                            "host": "host",
+                            "sandbox": "sandbox",
+                        },
                         "type": "type",
                     }
                 ],
@@ -466,6 +497,43 @@ class TestBoxes:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
+    def test_method_batch_delete(self, client: Langsmith) -> None:
+        box = client.sandboxes.boxes.batch_delete()
+        assert_matches_type(BoxBatchDeleteResponse, box, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_batch_delete_with_all_params(self, client: Langsmith) -> None:
+        box = client.sandboxes.boxes.batch_delete(
+            names=["string"],
+        )
+        assert_matches_type(BoxBatchDeleteResponse, box, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_batch_delete(self, client: Langsmith) -> None:
+
+        response = client.sandboxes.boxes.with_raw_response.batch_delete()
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        box = response.parse()
+        assert_matches_type(BoxBatchDeleteResponse, box, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_batch_delete(self, client: Langsmith) -> None:
+        with client.sandboxes.boxes.with_streaming_response.batch_delete() as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            box = response.parse()
+            assert_matches_type(BoxBatchDeleteResponse, box, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
     def test_method_create_snapshot(self, client: Langsmith) -> None:
         box = client.sandboxes.boxes.create_snapshot(
             path_name="name",
@@ -480,9 +548,16 @@ class TestBoxes:
             path_name="name",
             body_name="name",
             checkpoint="checkpoint",
+            confirm_allow_snapshot_secret_values=True,
             description="description",
             docker_image="docker_image",
             fs_capacity_bytes=0,
+            image_config={
+                "cmd": ["string"],
+                "entrypoint": ["string"],
+                "exposed_ports": [0],
+            },
+            include=["all"],
             include_memory=True,
             labels={"foo": "string"},
             run_config={
@@ -660,6 +735,7 @@ class TestBoxes:
         box = client.sandboxes.boxes.generate_service_url(
             name="name",
             access="restricted",
+            embed_origins=["string"],
             expires_in_seconds=0,
             port=0,
         )
@@ -899,7 +975,7 @@ class TestAsyncBoxes:
     async def test_method_create_with_all_params(self, async_client: AsyncLangsmith) -> None:
         box = await async_client.sandboxes.boxes.create(
             access_delegation={
-                "mode": "INHERIT",
+                "mode": "EXPLICIT",
                 "permissions": ["string"],
             },
             cpu_millicores=0,
@@ -969,6 +1045,7 @@ class TestAsyncBoxes:
                 ],
             },
             name="name",
+            persistent=True,
             preserve_memory_on_stop=True,
             proxy_config={
                 "access_control": {
@@ -977,10 +1054,11 @@ class TestAsyncBoxes:
                 },
                 "callbacks": [
                     {
-                        "match_hosts": ["string"],
                         "ttl_seconds": 60,
                         "url": "url",
+                        "attribution_headers": ["string"],
                         "full_request": True,
+                        "match_hosts": ["string"],
                         "request_headers": [
                             {
                                 "name": "name",
@@ -998,6 +1076,7 @@ class TestAsyncBoxes:
                         "name": "name",
                         "aws": {
                             "role_arn": "x",
+                            "session_tags": {"foo": "string"},
                             "subject_scope": "tag:2fdcD1Dc-bbDb-2BBD-0Afa-1A3C33cFaADc",
                         },
                         "azure": {
@@ -1026,6 +1105,15 @@ class TestAsyncBoxes:
                         "match_headers": ["string"],
                         "match_hosts": ["string"],
                         "match_paths": ["string"],
+                        "match_port": 1,
+                        "match_scheme": "https",
+                        "relay_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                        "rewrite": {
+                            "port": 1,
+                            "credentials": "strip",
+                            "host": "host",
+                            "sandbox": "sandbox",
+                        },
                         "type": "type",
                     }
                 ],
@@ -1041,6 +1129,13 @@ class TestAsyncBoxes:
             snapshot_name="snapshot_name",
             tag_value_ids=["string"],
             vcpus=0,
+            volumes=[
+                {
+                    "mount_path": "mount_path",
+                    "volume": "volume",
+                    "read_only": True,
+                }
+            ],
         )
         assert_matches_type(SandboxResponse, box, path=["response"])
 
@@ -1136,10 +1231,11 @@ class TestAsyncBoxes:
                 },
                 "callbacks": [
                     {
-                        "match_hosts": ["string"],
                         "ttl_seconds": 60,
                         "url": "url",
+                        "attribution_headers": ["string"],
                         "full_request": True,
+                        "match_hosts": ["string"],
                         "request_headers": [
                             {
                                 "name": "name",
@@ -1157,6 +1253,7 @@ class TestAsyncBoxes:
                         "name": "name",
                         "aws": {
                             "role_arn": "x",
+                            "session_tags": {"foo": "string"},
                             "subject_scope": "tag:2fdcD1Dc-bbDb-2BBD-0Afa-1A3C33cFaADc",
                         },
                         "azure": {
@@ -1185,6 +1282,15 @@ class TestAsyncBoxes:
                         "match_headers": ["string"],
                         "match_hosts": ["string"],
                         "match_paths": ["string"],
+                        "match_port": 1,
+                        "match_scheme": "https",
+                        "relay_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                        "rewrite": {
+                            "port": 1,
+                            "credentials": "strip",
+                            "host": "host",
+                            "sandbox": "sandbox",
+                        },
                         "type": "type",
                     }
                 ],
@@ -1327,6 +1433,43 @@ class TestAsyncBoxes:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
+    async def test_method_batch_delete(self, async_client: AsyncLangsmith) -> None:
+        box = await async_client.sandboxes.boxes.batch_delete()
+        assert_matches_type(BoxBatchDeleteResponse, box, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_batch_delete_with_all_params(self, async_client: AsyncLangsmith) -> None:
+        box = await async_client.sandboxes.boxes.batch_delete(
+            names=["string"],
+        )
+        assert_matches_type(BoxBatchDeleteResponse, box, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_batch_delete(self, async_client: AsyncLangsmith) -> None:
+
+        response = await async_client.sandboxes.boxes.with_raw_response.batch_delete()
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        box = await response.parse()
+        assert_matches_type(BoxBatchDeleteResponse, box, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_batch_delete(self, async_client: AsyncLangsmith) -> None:
+        async with async_client.sandboxes.boxes.with_streaming_response.batch_delete() as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            box = await response.parse()
+            assert_matches_type(BoxBatchDeleteResponse, box, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
     async def test_method_create_snapshot(self, async_client: AsyncLangsmith) -> None:
         box = await async_client.sandboxes.boxes.create_snapshot(
             path_name="name",
@@ -1341,9 +1484,16 @@ class TestAsyncBoxes:
             path_name="name",
             body_name="name",
             checkpoint="checkpoint",
+            confirm_allow_snapshot_secret_values=True,
             description="description",
             docker_image="docker_image",
             fs_capacity_bytes=0,
+            image_config={
+                "cmd": ["string"],
+                "entrypoint": ["string"],
+                "exposed_ports": [0],
+            },
+            include=["all"],
             include_memory=True,
             labels={"foo": "string"},
             run_config={
@@ -1521,6 +1671,7 @@ class TestAsyncBoxes:
         box = await async_client.sandboxes.boxes.generate_service_url(
             name="name",
             access="restricted",
+            embed_origins=["string"],
             expires_in_seconds=0,
             port=0,
         )

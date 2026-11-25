@@ -48,7 +48,7 @@ class ProductFeedbackResource(SyncAPIResource):
         *,
         category: Literal["BUG", "FEATURE_REQUEST", "USABILITY", "DOCUMENTATION", "OTHER"],
         message: str,
-        source: Literal["LANGSMITH_CLI"],
+        source: Literal["LANGSMITH_CLI", "LANGSMITH_MCP"],
         client: product_feedback_create_params.Client | Omit = omit,
         idempotency_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -149,7 +149,7 @@ class AsyncProductFeedbackResource(AsyncAPIResource):
         *,
         category: Literal["BUG", "FEATURE_REQUEST", "USABILITY", "DOCUMENTATION", "OTHER"],
         message: str,
-        source: Literal["LANGSMITH_CLI"],
+        source: Literal["LANGSMITH_CLI", "LANGSMITH_MCP"],
         client: product_feedback_create_params.Client | Omit = omit,
         idempotency_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.

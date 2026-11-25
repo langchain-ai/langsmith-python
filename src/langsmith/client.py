@@ -13,6 +13,7 @@ For detailed API documentation, visit the [LangSmith docs](https://docs.langchai
 from __future__ import annotations
 
 import atexit
+import asyncio
 import base64
 import collections
 import concurrent.futures as cf
@@ -70,6 +71,7 @@ from langsmith import schemas as ls_schemas
 from langsmith import utils as ls_utils
 from langsmith._internal import (
     _addressing,
+    _openapi_auth,
     _orjson,
     _profiles,
     _v2_migration_utils,
@@ -81,6 +83,9 @@ from langsmith._internal._background_thread import (
 )
 from langsmith._internal._background_thread import (
     tracing_control_thread_func as _tracing_control_thread_func,
+)
+from langsmith._internal._beta_decorator import (
+    LangSmithDeprecationWarning as _LangSmithDeprecationWarning,
 )
 from langsmith._internal._beta_decorator import deprecated as _deprecated
 from langsmith._internal._beta_decorator import (
@@ -123,8 +128,8 @@ from langsmith._internal._sampling import is_sampled_by_id
 from langsmith._internal._serde import dumps_json as _dumps_json
 from langsmith._internal._uuid import uuid7
 from langsmith._internal._v2_migration_utils import QueryBackend, get_query_backend
-from langsmith import AsyncLangsmith as LangsmithOpenAPIClient
-from langsmith import Langsmith as SyncLangsmithOpenAPIClient
+from langsmith._internal._openapi_auth import AsyncClient as LangsmithOpenAPIClient
+from langsmith._internal._openapi_auth import SyncClient as SyncLangsmithOpenAPIClient
 from langsmith._base_client import (
     AsyncHttpxClientWrapper as _AsyncHttpxClientWrapper,
 )
@@ -335,6 +340,7 @@ except ImportError:
 
 
 if TYPE_CHECKING:
+    from langsmith.resources.agents import AgentsResource
     import pandas as pd  # type: ignore
     from langchain_core.runnables import Runnable
 
@@ -760,6 +766,29 @@ def _check_feedback_session_id(info: ls_schemas.LangSmithInfo) -> None:
     )
 
 
+def _check_feedback_target(
+    run_id: Optional[ID_TYPE],
+    project_id: Optional[ID_TYPE],
+    session_id: Optional[ID_TYPE],
+    address: Optional[AgentAddress],
+    thread_id: Optional[str],
+) -> None:
+    """Check that feedback names one run, project, or thread in a project.
+
+    ``run_id`` is the run id or, without one, the trace id.
+    """
+    if thread_id is not None:
+        if run_id is not None:
+            raise ValueError("thread_id cannot be combined with run_id or trace_id")
+        if project_id is None and session_id is None and address is None:
+            raise ValueError("thread_id requires the thread's project: pass session_id, project_id or address")
+        return
+    if run_id is None and project_id is None:
+        raise ValueError("One of run_id, trace_id, or project_id  must be provided")
+    if run_id is not None and project_id is not None:
+        raise ValueError("project_id cannot be provided if run_id or trace_id is provided")
+
+
 def _get_tracing_sampling_rate(
     tracing_sampling_rate: Optional[float] = None,
 ) -> float | None:
@@ -975,6 +1004,7 @@ class Client:
         "compressed_traces",
         "_data_available_event",
         "_futures",
+        "_futures_lock",
         "_run_ops_buffer",
         "_run_ops_buffer_lock",
         "otel_exporter",
@@ -1032,6 +1062,9 @@ class Client:
         otel_enabled: Optional[bool] = None,
         tracing_sampling_rate: Optional[float] = None,
         workspace_id: Optional[str] = None,
+        profile: Optional[str] = None,
+        profile_config_path: Optional[str] = None,
+        prefer_profile_auth: bool = False,
         max_batch_size_bytes: Optional[int] = None,
         headers: Optional[dict[str, str]] = None,
         tracing_error_callback: Optional[Callable[[Exception], None]] = None,
@@ -1153,6 +1186,10 @@ class Client:
             workspace_id: The workspace ID.
 
                 Required for org-scoped API keys.
+            profile: CLI login profile to use instead of `LANGSMITH_PROFILE`.
+            profile_config_path: CLI config file to use instead of `LANGSMITH_CONFIG_FILE`.
+            prefer_profile_auth: Prefer profile credentials, endpoint and workspace over
+                environment values when profile credentials exist; explicit arguments win.
             max_batch_size_bytes: The maximum size of a batch of runs in bytes.
 
                 If not provided, the default is set by the server.
@@ -1236,25 +1273,41 @@ class Client:
         env_api_url = _get_langsmith_env_var_uncached("ENDPOINT")
         env_api_key = _get_langsmith_env_var_uncached("API_KEY")
         env_workspace_id = _get_langsmith_env_var_uncached("WORKSPACE_ID")
-        profile_config = _profiles.load_profile_client_config()
-        api_url_ = api_url if api_url is not None else env_api_url or profile_config.api_url
+        profile_config = _profiles.load_profile_client_config(profile=profile, config_path=profile_config_path)
+        use_profile = (
+            prefer_profile_auth and api_key is None and (profile_config.has_oauth or profile_config.api_key is not None)
+        )
+        profile_api_url = profile_config.api_url
+        profile_workspace_id = profile_config.workspace_id
+        if use_profile:
+            # Profile credentials must only be sent to the profile's endpoint.
+            # Never mix in environment endpoint/workspace values, which may point
+            # at a different deployment; fall back to the default endpoint instead.
+            env_api_key = None
+            env_api_url = None
+            env_workspace_id = None
+            profile_api_url = profile_api_url or _profiles.DEFAULT_API_URL
+            # Empty string (rather than None) stops the env var fallback downstream.
+            profile_workspace_id = profile_workspace_id or ""
+        api_url_ = api_url if api_url is not None else env_api_url or profile_api_url
         explicit_or_env_api_key = api_key if api_key is not None else env_api_key
+        # api_urls carries its own keys, so the profile key is only resolved without it.
+        self._write_api_urls: Mapping[str, Optional[str]] = _get_write_api_urls(api_urls)
         profile_auth_enabled = api_key is None and env_api_key is None
         use_profile_oauth = profile_auth_enabled and profile_config.has_oauth
         api_key_ = (
             explicit_or_env_api_key
             if explicit_or_env_api_key is not None
             else None
-            if use_profile_oauth
-            else profile_config.api_key
+            if use_profile_oauth or self._write_api_urls
+            else profile_config.resolve_api_key()
         )
-        workspace_id_ = workspace_id if workspace_id is not None else env_workspace_id or profile_config.workspace_id
+        workspace_id_ = workspace_id if workspace_id is not None else env_workspace_id or profile_workspace_id
         self._oauth_access_token = profile_config.oauth_access_token if use_profile_oauth else None
         self._profile_auth: Optional[_profiles.ProfileAuth] = None
         self._profile_auth_headers: dict[str, str] = {}
 
         self.tracing_sample_rate = _get_tracing_sampling_rate(tracing_sampling_rate)
-        self._write_api_urls: Mapping[str, Optional[str]] = _get_write_api_urls(api_urls)
         # Initialize workspace attribute first
         self._workspace_id = ls_utils.get_workspace_id(workspace_id_)
         # Store custom headers
@@ -1275,7 +1328,7 @@ class Client:
                 )
                 self._profile_auth_headers = self._profile_auth.current_auth_headers()
                 self._oauth_access_token = self._profile_auth.oauth_access_token
-            self.api_key = ls_utils.get_api_key(api_key_)
+            self.api_key = None if use_profile_oauth else ls_utils.get_api_key(api_key_)
             _validate_api_key_if_hosted(
                 self.api_url,
                 self.api_key
@@ -1310,7 +1363,8 @@ class Client:
         atexit.register(self._atexit_handler)
         self.compressed_traces: Optional[CompressedTraces] = None
         self._data_available_event: Optional[threading.Event] = None
-        self._futures: Optional[weakref.WeakSet[cf.Future]] = None
+        self._futures: weakref.WeakSet[cf.Future] = weakref.WeakSet()
+        self._futures_lock = threading.Lock()
         self._run_ops_buffer: list[tuple[str, dict, dict[str, Any]]] = []
         self._run_ops_buffer_lock = threading.Lock()
         self.otel_exporter: Optional[OTELExporter] = None
@@ -1531,11 +1585,12 @@ class Client:
                     **_httpx_kwargs_from_session(self.session),
                 )
             self._langsmith_api = LangsmithOpenAPIClient(
+                header_provider=self._aget_openapi_headers,
                 api_key=self._api_key,
                 tenant_id=str(self._workspace_id) if self._workspace_id else None,
                 base_url=base_url,
                 timeout=timeout,
-                default_headers=self._headers or None,
+                default_headers=_openapi_auth._normalize_headers(self._headers) or None,
                 http_client=http_client,
             )
         return self._langsmith_api
@@ -1552,14 +1607,24 @@ class Client:
                     **_httpx_kwargs_from_session(self.session),
                 )
             self._langsmith_api_sync = SyncLangsmithOpenAPIClient(
+                header_provider=self._current_openapi_headers,
                 api_key=self._api_key,
                 tenant_id=str(self._workspace_id) if self._workspace_id else None,
                 base_url=base_url,
                 timeout=timeout,
-                default_headers=self._headers or None,
+                default_headers=_openapi_auth._normalize_headers(self._headers) or None,
                 http_client=http_client,
             )
         return self._langsmith_api_sync
+
+    def _current_openapi_headers(self) -> dict[str, str]:
+        self._ensure_profile_auth()
+        return _openapi_auth._normalize_headers(self._compute_headers())
+
+    async def _aget_openapi_headers(self) -> dict[str, str]:
+        if not self.api_key and self._profile_auth is not None:
+            await asyncio.to_thread(self._ensure_profile_auth)
+        return _openapi_auth._normalize_headers(self._compute_headers())
 
     @property
     def runs(self) -> AsyncRunsResource:
@@ -1606,9 +1671,17 @@ class Client:
 
     @property
     def sessions(self) -> AsyncSessionsResource:
-        """(beta) Access the sessions resource (resolve an address to its project)."""
+        """Access the sessions resource (resolve an address to its project)."""
         _check_backend_version(self.info.version, min_version="0.18.0")
         return self._get_langsmith_api().sessions
+
+    @property
+    def agents(self) -> AgentsResource:
+        """Manage workspace registry agents and their tracing destinations.
+
+        Deleting an agent also deletes its tracing history and linked runtimes.
+        """
+        return self._get_langsmith_api_sync().agents
 
     @property
     def public(self) -> AsyncPublicResource:
@@ -1906,11 +1979,21 @@ class Client:
         """
         self._ensure_profile_auth()
         request_kwargs = request_kwargs or {}
-        headers = {
-            **self._headers,
+        caller_headers = {
             **request_kwargs.get("headers", {}),
             **kwargs.get("headers", {}),
         }
+        headers = {**self._headers, **caller_headers}
+        url = _construct_url(self.api_url, pathname)
+        if (
+            self._workspace_id
+            and "X-Tenant-Id" not in caller_headers
+            and headers.get(X_API_KEY) != self.api_key
+            and urllib_parse.urlsplit(url).netloc != urllib_parse.urlsplit(self.api_url).netloc
+        ):
+            # Workspace ids are per instance: a replica with its own key on another host
+            # drops the inherited one.
+            headers.pop("X-Tenant-Id", None)
         if self._profile_auth is not None:
             headers = self._profile_auth.prepare_request_headers(headers)
         request_kwargs = {
@@ -1946,7 +2029,7 @@ class Client:
                     with ls_utils.filter_logs(_urllib3_logger, logging_filters):
                         response = self.session.request(
                             method,
-                            _construct_url(self.api_url, pathname),
+                            url,
                             stream=False,
                             **request_kwargs,
                         )
@@ -2451,13 +2534,10 @@ class Client:
                 embedding, prompt, or parser.
             project_name (Optional[str]): The project name of the run.
             revision_id (Optional[Union[UUID, str]]): The revision ID of the run.
-            address (Optional[AgentAddress]): (beta) An `AgentAddress`, such as
+            address (Optional[AgentAddress]): An `AgentAddress`, such as
                 `ls.agent_address(id, environment)`, to send the run to instead of a project.
                 Cannot be combined with `project_name` / `session_id` in the
                 same call. Defaults to the `LANGSMITH_AGENT_*` env vars.
-                This is in beta and enabled per workspace; a
-                workspace without it rejects the run, so the trace is lost
-                rather than falling back to a project.
             api_key (Optional[str]): The API key to use for this specific run.
             api_url (Optional[str]): The API URL to use for this specific run.
             service_key (Optional[str]): The service JWT key for service-to-service auth.
@@ -2904,9 +2984,7 @@ class Client:
 
         try:
             future = LANGSMITH_CLIENT_THREAD_POOL.submit(_process_buffered_run_ops_batch, self, batch_to_process)
-            # Track the future if we have a futures set
-            if self._futures is not None:
-                self._futures.add(future)
+            self._track_future(future)
         except RuntimeError:
             # Thread pool is shut down, process synchronously as fallback
             _process_buffered_run_ops_batch(self, batch_to_process)
@@ -3645,12 +3723,6 @@ class Client:
             cookie (Optional[str]): The Cookie header value.
             **kwargs (Any): Ignored, except `address`.
 
-                !!! warning "Experimental"
-                    `address` is in beta. It sends the patch to an address,
-                    and must match the post it belongs to: an update that
-                    names none is resolved by run id, as every update was
-                    before. It may change without notice.
-
         Returns:
             None
 
@@ -3904,51 +3976,33 @@ class Client:
         if self.compressed_traces is None:
             return
 
-        if self._futures is None:
-            raise ValueError("Run compression is enabled but request pool futures is not set")
-
         # Attempt to drain and send any remaining data
-        from langsmith._internal._background_thread import (
-            LANGSMITH_CLIENT_THREAD_POOL,
-            _tracing_thread_drain_compressed_buffer,
-        )
+        from langsmith._internal._background_thread import _drain_and_send_compressed
 
-        (
-            final_data_stream,
-            compressed_traces_info,
-            destinations,
-        ) = _tracing_thread_drain_compressed_buffer(self, size_limit=1, size_limit_bytes=1)
+        _drain_and_send_compressed(self, size_limit=1, size_limit_bytes=1, attempts=attempts)
+        self._wait_for_futures(timeout)
 
-        if final_data_stream is not None:
-            # We have data to send
-            future = None
-            try:
-                future = LANGSMITH_CLIENT_THREAD_POOL.submit(
-                    self._send_compressed_multipart_req,
-                    final_data_stream,
-                    compressed_traces_info,
-                    destinations=destinations,
-                    attempts=attempts,
-                )
-                self._futures.add(future)
-            except RuntimeError:
-                # In case the ThreadPoolExecutor is already shutdown
-                self._send_compressed_multipart_req(
-                    final_data_stream,
-                    compressed_traces_info,
-                    destinations=destinations,
-                    attempts=attempts,
-                )
+    def _track_future(self, future: cf.Future) -> None:
+        """Register a thread pool job so flush() waits for it."""
+        with self._futures_lock:
+            self._futures.add(future)
 
-        # If we got a future, wait for it to complete
-        if self._futures:
+    def _wait_for_futures(self, timeout: Optional[float] = None) -> None:
+        """Wait for in-flight thread pool jobs (buffered run ops, compressed sends)."""
+        # Other threads add futures concurrently; iterating the set unlocked
+        # raises "Set changed size during iteration".
+        with self._futures_lock:
             futures = list(self._futures)
+        if futures:
             done, _ = cf.wait(futures, timeout=timeout)
-            # Remove completed futures
-            self._futures.difference_update(done)
+            with self._futures_lock:
+                self._futures.difference_update(done)
 
     def flush(self, timeout: Optional[float] = None) -> None:
         """Flush the tracing queue and compressed buffer.
+
+        With ``process_buffered_run_ops`` set, this also waits for the callback
+        to finish on the buffered runs, so a slow callback uses up the timeout.
 
         Args:
             timeout: Maximum seconds to wait for pending traces to drain.
@@ -3961,6 +4015,9 @@ class Client:
             with self._run_ops_buffer_lock:
                 if self._run_ops_buffer:
                     self._flush_run_ops_buffer()
+            # The pool job is what enqueues the processed runs; wait for it
+            # before draining the queue and the compressed buffer.
+            self._wait_for_futures(max(0.0, deadline - time.monotonic()) if deadline is not None else None)
 
         if self.tracing_queue is not None:
             if deadline is None:
@@ -4630,7 +4687,7 @@ class Client:
             run (RunBase): The run.
             project_name (Optional[str]): The name of the project.
             project_id (Optional[Union[UUID, str]]): The ID of the project.
-            address (Optional[Address]): (beta) An address that names the run's
+            address (Optional[Address]): An address that names the run's
                 project, such as the `AgentAddress` the run was sent to or an
                 `ExperimentAddress`, for a run that names no project. It is
                 resolved to its project with one request, which needs LangSmith
@@ -5298,7 +5355,7 @@ class Client:
         import pandas as pd  # type: ignore
 
         backend = _v2_migration_utils.get_query_backend(self.info.instance_flags)
-        if backend != _v2_migration_utils.QueryBackend.SMITHDB_ONLY:
+        if backend == _v2_migration_utils.QueryBackend.CLICKHOUSE_ONLY:
             # Suppressed: get_test_results() is supported, so callers have nothing
             # to migrate; how it fetches runs is an implementation detail.
             with _suppress_deprecation_warning():
@@ -5344,7 +5401,7 @@ class Client:
             # Convert to `schemas.Run` so both branches yield the same datamodel:
             # the v2 model types `reference_example_id` as `str`, which would not
             # match the `UUID` example ids when joining the two dataframes below.
-            runs = (_v2_migration_utils._v2_run_to_schema(r) for r in pager)
+            runs = (_v2_migration_utils._v2_run_to_schema(r, host_url=self._host_url) for r in pager)
         results: list[dict] = []
         example_ids = []
 
@@ -6021,7 +6078,7 @@ class Client:
             try:
                 self.create_examples(
                     inputs=[e.inputs for e in examples],
-                    outputs=[e.outputs for e in examples],
+                    reference_outputs=[e.outputs for e in examples],
                     dataset_id=dataset.id,
                 )
             except BaseException as e:
@@ -6068,7 +6125,7 @@ class Client:
         """
         return self.create_example(
             inputs={"input": prompt},
-            outputs={"output": generation},
+            reference_outputs={"output": generation},
             dataset_id=dataset_id,
             dataset_name=dataset_name,
             created_at=created_at,
@@ -6114,7 +6171,7 @@ class Client:
                 final_generations = cast(dict, generations)
         return self.create_example(
             inputs={"input": final_input},
-            outputs=({"output": final_generations} if final_generations is not None else None),
+            reference_outputs=({"output": final_generations} if final_generations is not None else None),
             dataset_id=dataset_id,
             dataset_name=dataset_name,
             created_at=created_at,
@@ -6188,7 +6245,7 @@ class Client:
             raise ValueError(f"Dataset type {dataset_type} not recognized.")
         return self.create_example(
             inputs=inputs,
-            outputs=outputs,
+            reference_outputs=outputs,
             dataset_id=dataset_id,
             dataset_name=dataset_name,
             created_at=created_at,
@@ -6286,8 +6343,9 @@ class Client:
                     )
                 )
 
-            if example.outputs is not None:
-                outputsb = _dumps_json(example.outputs)
+            outputs = example.reference_outputs if isinstance(example, ls_schemas.ExampleCreate) else example.outputs
+            if outputs is not None:
+                outputsb = _dumps_json(outputs)
                 parts.append(
                     (
                         f"{example_id}.outputs",
@@ -6462,8 +6520,8 @@ class Client:
 
         if example.inputs:
             size += len(_dumps_json(example.inputs))
-        if example.outputs:
-            size += len(_dumps_json(example.outputs))
+        if example.reference_outputs:
+            size += len(_dumps_json(example.reference_outputs))
         if example.metadata:
             size += len(_dumps_json(example.metadata))
 
@@ -6650,7 +6708,8 @@ class Client:
             **kwargs (Any): Legacy keyword args. Should not be specified if 'examples' is specified.
 
                 - inputs (Sequence[Mapping[str, Any]]): The input values for the examples.
-                - outputs (Optional[Sequence[Optional[Mapping[str, Any]]]]): The output values for the examples.
+                - reference_outputs (Optional[Sequence[Optional[Mapping[str, Any]]]]): The reference output values for the examples.
+                - outputs (Optional[Sequence[Optional[Mapping[str, Any]]]]): Deprecated alias for reference_outputs.
                 - metadata (Optional[Sequence[Optional[Mapping[str, Any]]]]): The metadata for the examples.
                 - splits (Optional[Sequence[Optional[str | List[str]]]]): The splits for the examples, which are divisions of your dataset such as 'train', 'test', or 'validation'.
                 - source_run_ids (Optional[Sequence[Optional[Union[UUID, str]]]]): The IDs of the source runs associated with the examples.
@@ -6666,8 +6725,8 @@ class Client:
 
             Updated to take argument 'examples', a single list where each
             element is the full example to create. This should be used instead of the
-            legacy 'inputs', 'outputs', etc. arguments which split each examples
-            attributes across arguments.
+            legacy 'inputs', 'reference_outputs', etc. arguments which split each
+            example's attributes across arguments.
 
             Updated to support creating examples with attachments.
 
@@ -6682,12 +6741,12 @@ class Client:
             examples = [
                 {
                     "inputs": {"question": "what's an agent"},
-                    "outputs": {"answer": "an agent is..."},
+                    "reference_outputs": {"answer": "an agent is..."},
                     "metadata": {"difficulty": "easy"},
                 },
                 {
                     "inputs": {"question": "can you explain the agent architecture in this diagram?"},
-                    "outputs": {"answer": "this diagram shows..."},
+                    "reference_outputs": {"answer": "this diagram shows..."},
                     "attachments": {"diagram": {"mime_type": "image/png", "data": b"..."}},
                     "metadata": {"difficulty": "medium"},
                 },
@@ -6707,6 +6766,7 @@ class Client:
 
         supported_kwargs = {
             "inputs",
+            "reference_outputs",
             "outputs",
             "metadata",
             "splits",
@@ -6716,10 +6776,17 @@ class Client:
         if kwargs and (unsupported := set(kwargs).difference(supported_kwargs)):
             raise ValueError(f"Received unsupported keyword arguments: {tuple(unsupported)}.")
 
+        if "reference_outputs" in kwargs and "outputs" in kwargs:
+            raise ValueError("Cannot specify both 'reference_outputs' and 'outputs'.")
+        if "outputs" in kwargs:
+            warnings.warn(
+                "'outputs' is deprecated. Use 'reference_outputs' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         if not (dataset_id or dataset_name):
             raise ValueError("Either dataset_id or dataset_name must be provided.")
-        elif not dataset_id:
-            dataset_id = self.read_dataset(dataset_name=dataset_name).id
 
         if examples:
             uploads = [ls_schemas.ExampleCreate(**x) if isinstance(x, dict) else x for x in examples]
@@ -6736,26 +6803,30 @@ class Client:
                     raise ValueError(
                         f"Length of {arg_name} ({len(arg_value)}) does not match length of inputs ({input_len})"
                     )
+            reference_outputs = kwargs.get("reference_outputs", kwargs.get("outputs"))
             uploads = [
                 ls_schemas.ExampleCreate(
                     **{
                         "inputs": in_,
-                        "outputs": out_,
+                        "reference_outputs": reference_outputs_,
                         "metadata": metadata_,
                         "split": split_,
                         "id": id_ or str(uuid.uuid4()),
                         "source_run_id": source_run_id_,
                     }
                 )
-                for in_, out_, metadata_, split_, id_, source_run_id_ in zip(
+                for in_, reference_outputs_, metadata_, split_, id_, source_run_id_ in zip(
                     inputs,
-                    kwargs.get("outputs") or (None for _ in range(input_len)),
+                    reference_outputs or (None for _ in range(input_len)),
                     kwargs.get("metadata") or (None for _ in range(input_len)),
                     kwargs.get("splits") or (None for _ in range(input_len)),
                     kwargs.get("ids") or (None for _ in range(input_len)),
                     kwargs.get("source_run_ids") or (None for _ in range(input_len)),
                 )
             ]
+
+        if not dataset_id:
+            dataset_id = self.read_dataset(dataset_name=dataset_name).id
 
         if not uploads:
             return ls_schemas.UpsertExamplesResponse(
@@ -6824,7 +6895,7 @@ class Client:
                 data=_dumps_json(
                     [
                         {
-                            **dump_model(upload, exclude_none=True),
+                            **dump_model(upload, exclude_none=True, by_alias=True),
                             "dataset_id": str(dataset_id),
                         }
                         for upload in batch
@@ -6846,7 +6917,7 @@ class Client:
         dataset_id: Optional[ID_TYPE] = None,
         dataset_name: Optional[str] = None,
         created_at: Optional[datetime.datetime] = None,
-        outputs: Optional[Mapping[str, Any]] = None,
+        reference_outputs: Optional[Mapping[str, Any]] = cast(Any, _UNSET),
         metadata: Optional[Mapping[str, Any]] = None,
         split: Optional[str | list[str]] = None,
         example_id: Optional[ID_TYPE] = None,
@@ -6854,6 +6925,8 @@ class Client:
         use_source_run_io: bool = False,
         use_source_run_attachments: Optional[list[str]] = None,
         attachments: Optional[ls_schemas.Attachments] = None,
+        *,
+        outputs: Optional[Mapping[str, Any]] = cast(Any, _UNSET),
     ) -> ls_schemas.Example:
         """Create a dataset example in the LangSmith API.
 
@@ -6870,8 +6943,8 @@ class Client:
                 The name of the dataset to create the example in.
             created_at (Optional[datetime.datetime]):
                 The creation timestamp of the example.
-            outputs (Optional[Mapping[str, Any]]):
-                The output values for the example.
+            reference_outputs (Optional[Mapping[str, Any]]):
+                The reference output values for the example.
             metadata (Optional[Mapping[str, Any]]):
                 The metadata for the example.
             split (Optional[str | List[str]]):
@@ -6889,10 +6962,24 @@ class Client:
                 is True, all attachments will be used regardless of this param.
             attachments (Optional[Attachments]):
                 The attachments for the example.
+            outputs (Optional[Mapping[str, Any]]):
+                Deprecated alias for reference_outputs.
 
         Returns:
             Example: The created example.
         """
+        if reference_outputs is not _UNSET and outputs is not _UNSET:
+            raise ValueError("Cannot specify both 'reference_outputs' and 'outputs'.")
+        if outputs is not _UNSET:
+            warnings.warn(
+                "'outputs' is deprecated. Use 'reference_outputs' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            reference_outputs = outputs
+        elif reference_outputs is _UNSET:
+            reference_outputs = None
+
         if inputs is None and not use_source_run_io:
             raise ValueError("Must provide either inputs or use_source_run_io")
 
@@ -6902,7 +6989,7 @@ class Client:
         data = ls_schemas.ExampleCreate(
             **{
                 "inputs": inputs,
-                "outputs": outputs,
+                "reference_outputs": reference_outputs,
                 "metadata": metadata,
                 "split": split,
                 "source_run_id": source_run_id,
@@ -6929,7 +7016,7 @@ class Client:
                 headers={**self._headers, "Content-Type": "application/json"},
                 data=_dumps_json(
                     {
-                        **{k: v for k, v in dump_model(data).items() if v is not None},
+                        **{k: v for k, v in dump_model(data, by_alias=True).items() if v is not None},
                         "dataset_id": str(dataset_id),
                     }
                 ),
@@ -6989,6 +7076,8 @@ class Client:
         metadata: Optional[dict] = None,
         filter: Optional[str] = None,
         include_attachments: bool = False,
+        select: Optional[Sequence[str]] = None,
+        exclude_default_fields: bool = False,
         **kwargs: Any,
     ) -> Iterator[ls_schemas.Example]:
         r"""Retrieve the example rows of the specified dataset.
@@ -7012,6 +7101,12 @@ class Client:
                 the examples.
             include_attachments (bool, default=False): Whether to include the
                 attachments in the response.
+            select (Optional[Sequence[str]]): Fields to include in each example,
+                such as "id" or "outputs".
+            exclude_default_fields (bool, default=False): Return only the fields
+                in ``select``, plus ``id``. Other default fields (``created_at``,
+                ``modified_at``, ``inputs``, ``name``, ``dataset_id``) are absent
+                unless selected. Select ``dataset_id`` if you need ``Example.url``.
             **kwargs (Any): Additional keyword arguments are ignored.
 
         Yields:
@@ -7076,8 +7171,13 @@ class Client:
             params["dataset"] = dataset_id
         else:
             pass
+        select_fields = [select] if isinstance(select, str) else list(select or [])
         if include_attachments:
-            params["select"] = ["attachment_urls", "outputs", "metadata"]
+            select_fields += [f for f in ("attachment_urls", "outputs", "metadata") if f not in select_fields]
+        if select_fields:
+            params["select"] = select_fields
+        if exclude_default_fields:
+            params["exclude_default_fields"] = True
         for i, example in enumerate(self._get_paginated_list("/examples", params=params)):
             attachments = _convert_stored_attachments_to_attachments_dict(
                 example, attachments_key="attachment_urls", api_url=self.api_url
@@ -7219,12 +7319,12 @@ class Client:
             examples = [
                 {
                     "inputs": {"question": "what's an agent"},
-                    "outputs": {"answer": "an agent is..."},
+                    "reference_outputs": {"answer": "an agent is..."},
                     "metadata": {"difficulty": "easy"},
                 },
                 {
                     "inputs": {"question": "can you explain the agent architecture in this diagram?"},
-                    "outputs": {"answer": "this diagram shows..."},
+                    "reference_outputs": {"answer": "this diagram shows..."},
                     "attachments": {"diagram": {"mime_type": "image/png", "data": b"..."}},
                     "metadata": {"difficulty": "medium"},
                 },
@@ -7473,14 +7573,39 @@ class Client:
             if dataset_name is None:
                 raise ValueError("Must provide dataset name or ID")
             dataset_id = self.read_dataset(dataset_name=dataset_name).id
-        data = {
-            "split_name": split_name,
-            "examples": [str(_as_uuid(id_, f"example_ids[{i}]")) for i, id_ in enumerate(example_ids)],
-            "remove": remove,
-        }
+        dataset_uuid = _as_uuid(dataset_id, "dataset_id")
+        ids = [str(_as_uuid(id_, f"example_ids[{i}]")) for i, id_ in enumerate(example_ids)]
+        path = _platform_path(self.api_url, f"datasets/{dataset_uuid}/examples/metadata")
+        # Lowercase, because the endpoint first shipped accepting only lowercase
+        # names and BYOC data planes on that version still do; later servers
+        # accept either case.
+        operation = "array_remove" if remove else "array_add"
 
-        response = self.request_with_retries("PUT", f"/datasets/{_as_uuid(dataset_id, 'dataset_id')}/splits", json=data)
-        ls_utils.raise_for_status_with_text(response)
+        def _raise_if_route_missing(response: requests.Response, _attempt: int) -> bool:
+            if _bulk_metadata_route_missing(response):
+                raise _BulkMetadataRouteMissingError
+            return False
+
+        for start in range(0, len(ids), _BULK_METADATA_MAX_EXAMPLE_IDS):
+            body = {
+                "example_ids": ids[start : start + _BULK_METADATA_MAX_EXAMPLE_IDS],
+                "operations": [{"key": "dataset_split", "operation": operation, "values": [split_name]}],
+            }
+            try:
+                # handle_response only runs before the last attempt, so allow two.
+                self.request_with_retries(
+                    "PATCH",
+                    path,
+                    json=body,
+                    stop_after_attempt=2,
+                    handle_response=_raise_if_route_missing,
+                )
+            except _BulkMetadataRouteMissingError:
+                # Older self-hosted servers lack the bulk metadata endpoint.
+                data = {"split_name": split_name, "examples": ids[start:], "remove": remove}
+                response = self.request_with_retries("PUT", f"/datasets/{dataset_uuid}/splits", json=data)
+                ls_utils.raise_for_status_with_text(response)
+                return
 
     def _resolve_run_id(
         self,
@@ -7530,7 +7655,7 @@ class Client:
                     "Resolving a run from an ID without passing project_id is"
                     " deprecated and will raise an error in a future release."
                     " Pass project_id explicitly.",
-                    DeprecationWarning,
+                    _LangSmithDeprecationWarning,
                     stacklevel=3,
                 )
             # Suppressed: the caller passed a run ID to (a)evaluate_run(), which
@@ -7838,27 +7963,26 @@ class Client:
         start_time: Optional[datetime.datetime] = None,
         extend_trace_retention: bool = True,
         address: Optional[AgentAddress] = None,
+        thread_id: Optional[str] = None,
         **kwargs: Any,
     ) -> ls_schemas.Feedback:
-        """Create feedback for a run.
+        """Create feedback for a run, a project, or a thread.
 
         !!! note
 
             To enable feedback to be batch uploaded in the background you must
             specify `trace_id`. *We highly encourage this for latency-sensitive environments.*
 
-        !!! warning "Experimental"
-            `address` is in beta. It is enabled per workspace; a
-            workspace without it rejects the feedback, so it is lost rather
-            than falling back to a project. The address must already exist --
-            unlike run ingestion, a feedback part never creates one. It may
-            change without notice.
+        !!! note "Addressed feedback"
+            The `address` must already exist -- unlike run ingestion, a feedback
+            part never creates one.
 
         Args:
             key (str):
                 The name of the feedback metric.
             score (Optional[Union[float, int, bool]]):
-                The score to rate this run on the metric or aspect.
+                The score to rate this run on the metric or aspect. Floats are
+                rounded to 4 decimal places, the most the API stores.
             value (Optional[Union[float, int, bool, str, dict]]):
                 The display value or non-numeric value for this feedback.
             run_id (Optional[Union[UUID, str]]):
@@ -7917,6 +8041,12 @@ class Client:
                 combined with `session_id` / `project_id`, and is never read
                 from the env vars: feedback follows its run, not the ambient
                 environment.
+            thread_id (Optional[str]):
+                The thread (conversation) to provide feedback for, as its traces
+                record it. Thread feedback scores the whole conversation, the
+                way a thread evaluator does. Pass the thread's project as
+                `session_id` or `project_id` (or its `address`), and no `run_id`
+                or `trace_id`.
             **kwargs (Any):
                 Additional keyword arguments.
 
@@ -7941,18 +8071,25 @@ class Client:
             client = Client()
 
             inputs = {"x": 1}
-            with trace(name="foobar", inputs=inputs) as root_run:
+            with trace(name="foobar", inputs=inputs, client=client) as root_run:
                 result = foo(**inputs)
                 result = bar(**result)
                 root_run.outputs = result
                 trace_id = root_run.id
                 child_runs = root_run.child_runs
 
+            # The ID of the project (session) the runs were traced to. Runs are
+            # sent in the background, so flush first: the project is created
+            # when its first run arrives.
+            client.flush()
+            session_id = client.read_project(project_name=root_run.session_name).id
+
             # Provide feedback for a trace (a.k.a. a root run)
             client.create_feedback(
                 key="user_feedback",
                 score=1,
                 trace_id=trace_id,
+                session_id=session_id,
             )
 
             # Provide feedback for a child run
@@ -7964,16 +8101,22 @@ class Client:
                 # trace_id= is optional but recommended to enable batched and backgrounded
                 # feedback ingestion.
                 trace_id=trace_id,
+                session_id=session_id,
+            )
+
+            # Provide feedback for a whole conversation (thread)
+            client.create_feedback(
+                key="resolved",
+                score=1,
+                thread_id="my-thread-id",
+                session_id=session_id,
             )
             ```
         """
         address = _addressing.check_address(address)
         _addressing.reject_conflicting(project=project_id, session_id=session_id, address=address)
         run_id = run_id or trace_id
-        if run_id is None and project_id is None:
-            raise ValueError("One of run_id, trace_id, or project_id  must be provided")
-        if run_id is not None and project_id is not None:
-            raise ValueError("project_id cannot be provided if run_id or trace_id is provided")
+        _check_feedback_target(run_id, project_id, session_id, address, thread_id)
         if run_id is not None and session_id is None and address is None:
             # An address locates the project directly, so it satisfies the same
             # requirement this gate exists for.
@@ -8028,6 +8171,7 @@ class Client:
                 feedback_config=feedback_config,
                 session_id=_session_id,
                 address=address,
+                feedback_thread_id=thread_id,
                 start_time=start_time,
                 comparative_experiment_id=_ensure_uuid(comparative_experiment_id, accept_null=True),
                 feedback_group_id=_ensure_uuid(feedback_group_id, accept_null=True),
@@ -8084,18 +8228,23 @@ class Client:
         self,
         feedback_id: ID_TYPE,
         *,
-        score: Union[float, int, bool, None] = None,
-        value: Union[float, int, bool, str, dict, None] = None,
-        correction: Union[dict, None] = None,
-        comment: Union[str, None] = None,
+        score: Union[float, int, bool, None] = cast(Any, _UNSET),
+        value: Union[float, int, bool, str, dict, None] = cast(Any, _UNSET),
+        correction: Union[dict, None] = cast(Any, _UNSET),
+        comment: Union[str, None] = cast(Any, _UNSET),
     ) -> None:
         """Update a feedback in the LangSmith API.
+
+        Only the fields you pass are changed. Pass ``None`` to clear a field;
+        omit it to keep its current value.
 
         Args:
             feedback_id (Union[UUID, str]):
                 The ID of the feedback to update.
             score (Optional[Union[float, int, bool]]):
-                The score to update the feedback with.
+                The score to update the feedback with. Floats are rounded to
+                4 decimal places, the most the API stores; the API rejects
+                more precise scores sent to it directly.
             value (Optional[Union[float, int, bool, str, dict]]):
                 The value to update the feedback with.
             correction (Optional[dict]):
@@ -8105,15 +8254,24 @@ class Client:
 
         Returns:
             None
+
+        Example:
+            .. code-block:: python
+
+                from langsmith import Client
+
+                client = Client()
+                # Change the score and remove the comment.
+                client.update_feedback(feedback_id, score=0.5, comment=None)
         """
         feedback_update: dict[str, Any] = {}
-        if score is not None:
+        if score is not _UNSET:
             feedback_update["score"] = _format_feedback_score(score)
-        if value is not None:
+        if value is not _UNSET:
             feedback_update["value"] = value
-        if correction is not None:
+        if correction is not _UNSET:
             feedback_update["correction"] = correction
-        if comment is not None:
+        if comment is not _UNSET:
             feedback_update["comment"] = comment
         response = self.request_with_retries(
             "PATCH",
@@ -8384,10 +8542,7 @@ class Client:
                 f"{api_url}/feedback/tokens",
                 request_kwargs={
                     "data": body,
-                    "headers": {
-                        **self._headers,
-                        X_API_KEY: api_key or self.api_key,
-                    },
+                    "headers": {X_API_KEY: api_key or self.api_key},
                 },
             )
             ls_utils.raise_for_status_with_text(response)
@@ -8540,14 +8695,18 @@ class Client:
         feedback_key: str,
         *,
         feedback_config: ls_schemas.FeedbackConfig,
-        is_lower_score_better: Optional[bool] = False,
+        is_lower_score_better: Optional[bool] = None,
+        is_enforced: bool = False,
     ) -> ls_schemas.FeedbackConfigSchema:
         """Create a feedback configuration.
 
         Defines how feedback with a given key should be interpreted.
         If an identical configuration already exists for the key, it is
         returned unchanged. If a different configuration already exists
-        for the key, an error is raised.
+        for the key, the result depends on the workspace: with enforced
+        feedback configs on, the new configuration is added next to the
+        existing ones (unless the key has an enforced configuration);
+        otherwise an HTTP 400 "Feedback config already exists" is raised.
 
         Args:
             feedback_key (str):
@@ -8555,16 +8714,26 @@ class Client:
             feedback_config (FeedbackConfig):
                 The configuration defining type, bounds, and categories.
             is_lower_score_better (Optional[bool]):
-                Whether a lower score is considered better.
-                Defaults to False.
+                Whether a lower score is considered better. When omitted, a
+                key that already has configs keeps its direction, and a new
+                key defaults to False.
+            is_enforced (bool):
+                Create the key's enforced configuration, which sets the
+                rules for the whole workspace. Requires the
+                feedback-configs:manage-enforced permission, which workspace
+                admins have. Fails if the key already has an enforced
+                configuration. Defaults to False.
 
         Returns:
             FeedbackConfigSchema: The created or existing feedback
                 configuration.
 
         Raises:
-            requests.HTTPError: If a conflicting configuration already
-                exists for the given key (HTTP 400).
+            LangSmithError: If a different configuration already exists for
+                the key and the workspace does not allow a second one (HTTP
+                400), if is_enforced is set and the caller lacks the
+                feedback-configs:manage-enforced permission (HTTP 403), or if
+                the key already has an enforced configuration (HTTP 409).
 
         Example:
             .. code-block:: python
@@ -8580,12 +8749,28 @@ class Client:
                         "max": 5.0,
                     },
                 )
+
+                tags = client.create_feedback_config(
+                    feedback_key="topics",
+                    feedback_config={
+                        "type": "categorical",
+                        "categories": [
+                            {"value": 0, "label": "billing"},
+                            {"value": 1, "label": "shipping"},
+                        ],
+                        "allows_multiple_categories": True,
+                    },
+                )
         """
         body: dict[str, Any] = {
             "feedback_key": feedback_key,
             "feedback_config": feedback_config,
-            "is_lower_score_better": is_lower_score_better,
+            "is_enforced": is_enforced,
         }
+        # The direction is shared by every config of the key, so only send it
+        # when the caller sets it; otherwise the key keeps its own.
+        if is_lower_score_better is not None:
+            body["is_lower_score_better"] = is_lower_score_better
         response = self.request_with_retries(
             "POST",
             "/feedback-configs",
@@ -8601,8 +8786,13 @@ class Client:
         name_contains: Optional[str] = None,
         limit: Optional[int] = None,
         offset: int = 0,
+        include_all_configs: bool = False,
+        is_enforced: Optional[bool] = None,
     ) -> Iterator[ls_schemas.FeedbackConfigSchema]:
         """List feedback configurations.
+
+        By default this returns one configuration per key. A key can have
+        more than one; pass ``include_all_configs=True`` to see them all.
 
         Args:
             feedback_key (Optional[Sequence[str]]):
@@ -8613,6 +8803,15 @@ class Client:
                 The maximum number of configurations to return.
             offset (int):
                 The number of configurations to skip. Defaults to 0.
+            include_all_configs (bool):
+                Return every configuration of each key, deleted ones
+                included, instead of one per key. Defaults to False.
+            is_enforced (Optional[bool]):
+                Only enforced configurations when True, only unenforced
+                ones when False.
+
+        ``include_all_configs`` and ``is_enforced`` need LangSmith v0.18 or
+        later on self-hosted deployments.
 
         Yields:
             FeedbackConfigSchema: The feedback configurations.
@@ -8634,6 +8833,10 @@ class Client:
             params["key"] = feedback_key
         if name_contains is not None:
             params["name_contains"] = name_contains
+        if include_all_configs:
+            params["include_all_configs"] = True
+        if is_enforced is not None:
+            params["is_enforced"] = is_enforced
         for i, config in enumerate(self._get_paginated_list("/feedback-configs", params=params)):
             yield ls_schemas.FeedbackConfigSchema(**config)
             if limit is not None and i + 1 >= limit:
@@ -8645,6 +8848,7 @@ class Client:
         *,
         feedback_config: Optional[ls_schemas.FeedbackConfig] = None,
         is_lower_score_better: Optional[bool] = None,
+        config_id: Optional[ID_TYPE] = None,
     ) -> ls_schemas.FeedbackConfigSchema:
         """Update a feedback configuration.
 
@@ -8654,16 +8858,23 @@ class Client:
             feedback_key (str):
                 The feedback key of the configuration to update.
             feedback_config (Optional[FeedbackConfig]):
-                The new configuration values.
+                The new configuration values. Replaces the whole
+                configuration, so include ``allows_multiple_categories`` to
+                keep a multi-select tag multi-select.
             is_lower_score_better (Optional[bool]):
                 Whether a lower score is considered better.
+            config_id (Optional[Union[UUID, str]]):
+                The configuration to update, for keys with more than one.
+                When omitted, the key's enforced configuration is updated,
+                or else its first one, or else its most recently modified one.
+                Self-hosted deployments need LangSmith v0.18 or later.
 
         Returns:
             FeedbackConfigSchema: The updated feedback configuration.
 
         Raises:
             LangSmithNotFoundError: If no configuration exists for the
-                given feedback key (HTTP 404).
+                given feedback key or config_id (HTTP 404).
 
         Example:
             .. code-block:: python
@@ -8679,10 +8890,113 @@ class Client:
         body: dict[str, Any] = {
             "feedback_key": feedback_key,
         }
+        if config_id is not None:
+            body["id"] = str(_as_uuid(config_id, "config_id"))
         if feedback_config is not None:
             body["feedback_config"] = feedback_config
         if is_lower_score_better is not None:
             body["is_lower_score_better"] = is_lower_score_better
+        return self._patch_feedback_config(body)
+
+    def add_feedback_categories(
+        self,
+        feedback_key: str,
+        categories: Sequence[ls_schemas.FeedbackCategory],
+        *,
+        config_id: Optional[ID_TYPE] = None,
+    ) -> ls_schemas.FeedbackConfigSchema:
+        """Add categories to a categorical feedback configuration.
+
+        The existing categories and ``allows_multiple_categories`` are kept.
+        Self-hosted deployments need LangSmith v0.18 or later;
+        older versions ignore the change and return the configuration
+        unchanged.
+
+        Args:
+            feedback_key (str):
+                The feedback key of the configuration to update.
+            categories (Sequence[FeedbackCategory]):
+                The categories to add. Values and labels must not clash with
+                existing ones.
+            config_id (Optional[Union[UUID, str]]):
+                The configuration to update, for keys with more than one.
+                When omitted, the key's enforced configuration is updated,
+                or else its first one, or else its most recently modified one.
+
+        Returns:
+            FeedbackConfigSchema: The updated feedback configuration.
+
+        Raises:
+            LangSmithNotFoundError: If no configuration matches (HTTP 404).
+            LangSmithError: If the configuration is not categorical or a
+                value or label is duplicated (HTTP 422).
+
+        Example:
+            .. code-block:: python
+
+                from langsmith import Client
+
+                client = Client()
+                client.add_feedback_categories("topics", [{"value": 2, "label": "returns"}])
+        """
+        body: dict[str, Any] = {
+            "feedback_key": feedback_key,
+            "add_categories": list(categories),
+        }
+        if config_id is not None:
+            body["id"] = str(_as_uuid(config_id, "config_id"))
+        return self._patch_feedback_config(body)
+
+    def remove_feedback_categories(
+        self,
+        feedback_key: str,
+        values: Sequence[float],
+        *,
+        config_id: Optional[ID_TYPE] = None,
+    ) -> ls_schemas.FeedbackConfigSchema:
+        """Remove categories from a categorical feedback configuration.
+
+        Feedback already written with a removed value is unchanged. The other
+        categories and ``allows_multiple_categories`` are kept.
+        Self-hosted deployments need LangSmith v0.18 or later;
+        older versions ignore the change and return the configuration
+        unchanged.
+
+        Args:
+            feedback_key (str):
+                The feedback key of the configuration to update.
+            values (Sequence[float]):
+                The values (not labels) of the categories to remove.
+            config_id (Optional[Union[UUID, str]]):
+                The configuration to update, for keys with more than one.
+                When omitted, the key's enforced configuration is updated,
+                or else its first one, or else its most recently modified one.
+
+        Returns:
+            FeedbackConfigSchema: The updated feedback configuration.
+
+        Raises:
+            LangSmithNotFoundError: If no configuration matches (HTTP 404).
+            LangSmithError: If the configuration is not categorical or fewer
+                than two categories would remain (HTTP 422).
+
+        Example:
+            .. code-block:: python
+
+                from langsmith import Client
+
+                client = Client()
+                client.remove_feedback_categories("topics", [2])
+        """
+        body: dict[str, Any] = {
+            "feedback_key": feedback_key,
+            "remove_categories": list(values),
+        }
+        if config_id is not None:
+            body["id"] = str(_as_uuid(config_id, "config_id"))
+        return self._patch_feedback_config(body)
+
+    def _patch_feedback_config(self, body: dict[str, Any]) -> ls_schemas.FeedbackConfigSchema:
         response = self.request_with_retries(
             "PATCH",
             "/feedback-configs",
@@ -8691,15 +9005,24 @@ class Client:
         ls_utils.raise_for_status_with_text(response)
         return ls_schemas.FeedbackConfigSchema(**response.json())
 
-    def delete_feedback_config(self, feedback_key: str) -> None:
+    def delete_feedback_config(
+        self,
+        feedback_key: Optional[str] = None,
+        *,
+        config_id: Optional[ID_TYPE] = None,
+    ) -> None:
         """Delete a feedback configuration.
 
         This performs a soft delete. The configuration can be recreated
-        later with the same key.
+        later with the same key. Pass exactly one of ``feedback_key`` or
+        ``config_id``.
 
         Args:
-            feedback_key (str):
-                The feedback key of the configuration to delete.
+            feedback_key (Optional[str]):
+                Delete every configuration of this feedback key.
+            config_id (Optional[Union[UUID, str]]):
+                Delete only this configuration. Self-hosted deployments
+                need LangSmith v0.18 or later.
 
         Example:
             .. code-block:: python
@@ -8709,10 +9032,15 @@ class Client:
                 client = Client()
                 client.delete_feedback_config("user-rating")
         """
+        if (feedback_key is None) == (config_id is None):
+            raise ValueError("Pass exactly one of feedback_key or config_id.")
+        params = (
+            {"id": str(_as_uuid(config_id, "config_id"))} if config_id is not None else {"feedback_key": feedback_key}
+        )
         response = self.request_with_retries(
             "DELETE",
             "/feedback-configs",
-            params={"feedback_key": feedback_key},
+            params=params,
         )
         ls_utils.raise_for_status_with_text(response)
 
@@ -8780,9 +9108,13 @@ class Client:
                 The feedback configs to assign to this queue's rubric.
                 Each item specifies a feedback_key and optional per-queue
                 customization like description and value_descriptions.
+                Items read from another queue's ``rubric_items`` can be
+                passed as-is to copy its rubric.
 
         Returns:
-            AnnotationQueue: The created annotation queue object.
+            AnnotationQueueWithDetails: The created annotation queue. Its
+                ``rubric_items`` is not filled in; call ``read_annotation_queue``
+                to get the stored rubric.
         """
         body: dict[str, Any] = {
             "name": name,
@@ -8795,21 +9127,22 @@ class Client:
         response = self.request_with_retries(
             "POST",
             "/annotation-queues",
-            json={k: v for k, v in body.items() if v is not None},
+            data=_dumps_json({k: v for k, v in body.items() if v is not None}),
         )
         ls_utils.raise_for_status_with_text(response)
         return ls_schemas.AnnotationQueueWithDetails(
             **response.json(),
         )
 
-    def read_annotation_queue(self, queue_id: ID_TYPE) -> ls_schemas.AnnotationQueue:
+    def read_annotation_queue(self, queue_id: ID_TYPE) -> ls_schemas.AnnotationQueueWithDetails:
         """Read an annotation queue with the specified `queue_id`.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue to read.
 
         Returns:
-            AnnotationQueue: The annotation queue object.
+            AnnotationQueueWithDetails: The annotation queue, including its
+                rubric items and the feedback config each one uses.
         """
         base_url = f"/annotation-queues/{_as_uuid(queue_id, 'queue_id')}"
         response = self.request_with_retries(
@@ -8840,6 +9173,7 @@ class Client:
                 annotation queue.
             rubric_items (Optional[list[AnnotationQueueRubricItem]]):
                 The feedback configs to assign to this queue's rubric.
+                Replaces the existing rubric.
 
         Returns:
             None
@@ -8856,7 +9190,7 @@ class Client:
         response = self.request_with_retries(
             "PATCH",
             f"/annotation-queues/{_as_uuid(queue_id, 'queue_id')}",
-            json=body,
+            data=_dumps_json(body),
         )
         ls_utils.raise_for_status_with_text(response)
 
@@ -8876,6 +9210,11 @@ class Client:
         )
         ls_utils.raise_for_status_with_text(response)
 
+    @_deprecated(
+        "add_runs_to_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.annotation_queues.items.create() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs for the migration guide."
+    )
     def add_runs_to_annotation_queue(
         self,
         queue_id: ID_TYPE,
@@ -8885,15 +9224,19 @@ class Client:
     ) -> None:
         """Add runs to an annotation queue with the specified `queue_id`.
 
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.annotation_queues.items.create` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs for the migration guide.
+            Will be removed after Jan 31, 2027.
+
         Provide exactly one of `runs` or `run_ids`:
 
-        - `runs` (preferred): each entry carries the run's full lookup key
+        - `runs`: each entry carries the run's full lookup key
           (`run_id`, `session_id`, `start_time`, and an optional
           `source_proposed_example_id`). This lets the run be located directly,
           without a scan, and is required for workspaces served by SmithDB.
-        - `run_ids`: a plain list of run IDs. This path is deprecated and will
-          be removed after Jan 31, 2027; prefer `runs`.
-          See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs.
+        - `run_ids`: a plain list of run IDs.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue.
@@ -8912,13 +9255,6 @@ class Client:
             path = f"/annotation-queues/{_as_uuid(queue_id, 'queue_id')}/runs/by-key"
             json_body = [_serialize_run_key(run, i) for i, run in enumerate(runs)]
         elif run_ids is not None:
-            warnings.warn(
-                "The run_ids parameter of add_runs_to_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
-                "Use the runs parameter with RunKey objects instead. "
-                "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs for the migration guide.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
             path = f"/annotation-queues/{_as_uuid(queue_id, 'queue_id')}/runs"
             json_body = [str(_as_uuid(id_, f"run_ids[{i}]")) for i, id_ in enumerate(run_ids)]
         else:
@@ -8926,8 +9262,19 @@ class Client:
         response = self.request_with_retries("POST", path, json=json_body)
         ls_utils.raise_for_status_with_text(response)
 
+    @_deprecated(
+        "delete_run_from_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.annotation_queues.items.delete_all() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration for the migration guide."
+    )
     def delete_run_from_annotation_queue(self, queue_id: ID_TYPE, *, run_id: ID_TYPE) -> None:
         """Delete a run from an annotation queue with the specified `queue_id` and `run_id`.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.annotation_queues.items.delete_all` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue.
@@ -8943,8 +9290,19 @@ class Client:
         )
         ls_utils.raise_for_status_with_text(response)
 
+    @_deprecated(
+        "get_run_from_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.annotation_queues.items.list() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide."
+    )
     def get_run_from_annotation_queue(self, queue_id: ID_TYPE, *, index: int) -> ls_schemas.RunWithAnnotationQueueInfo:
         """Get a run from an annotation queue at the specified index.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.annotation_queues.items.list` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue.
@@ -8966,6 +9324,11 @@ class Client:
         ls_utils.raise_for_status_with_text(response)
         return ls_schemas.RunWithAnnotationQueueInfo(**response.json())
 
+    @_deprecated(
+        "list_runs_from_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.annotation_queues.items.list() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide."
+    )
     def list_runs_from_annotation_queue(
         self,
         queue_id: ID_TYPE,
@@ -8974,6 +9337,12 @@ class Client:
         limit: Optional[int] = None,
     ) -> Iterator[ls_schemas.RunWithAnnotationQueueInfo]:
         """List runs in an annotation queue with the specified `queue_id`.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.annotation_queues.items.list` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue.
@@ -10130,7 +10499,7 @@ class Client:
     @overload
     def evaluate(
         self,
-        target: Union[TARGET_T, Runnable, EXPERIMENT_T],
+        target: Union[TARGET_T, Runnable],
         /,
         data: Optional[DATA_T] = None,
         evaluators: Optional[Sequence[EVALUATOR_T]] = None,
@@ -10142,7 +10511,27 @@ class Client:
         num_repetitions: int = 1,
         blocking: bool = True,
         experiment: Optional[EXPERIMENT_T] = None,
-        upload_results: bool = True,
+        upload_runs: Optional[Union[bool, Callable[[ls_schemas.Example], bool]]] = None,
+        disable_evaluator_tracing: bool = False,
+        **kwargs: Any,
+    ) -> ExperimentResults: ...
+
+    @overload
+    def evaluate(
+        self,
+        target: EXPERIMENT_T,
+        /,
+        data: Optional[DATA_T] = None,
+        evaluators: Optional[Sequence[EVALUATOR_T]] = None,
+        summary_evaluators: Optional[Sequence[SUMMARY_EVALUATOR_T]] = None,
+        metadata: Optional[dict] = None,
+        experiment_prefix: Optional[str] = None,
+        description: Optional[str] = None,
+        max_concurrency: Optional[int] = 0,
+        num_repetitions: int = 1,
+        blocking: bool = True,
+        experiment: Optional[EXPERIMENT_T] = None,
+        upload_runs: Optional[bool] = None,
         disable_evaluator_tracing: bool = False,
         **kwargs: Any,
     ) -> ExperimentResults: ...
@@ -10162,7 +10551,7 @@ class Client:
         num_repetitions: int = 1,
         blocking: bool = True,
         experiment: Optional[EXPERIMENT_T] = None,
-        upload_results: bool = True,
+        upload_runs: Optional[bool] = None,
         disable_evaluator_tracing: bool = False,
         **kwargs: Any,
     ) -> ComparativeExperimentResults: ...
@@ -10181,7 +10570,7 @@ class Client:
         num_repetitions: int = 1,
         blocking: bool = True,
         experiment: Optional[EXPERIMENT_T] = None,
-        upload_results: bool = True,
+        upload_runs: Optional[Union[bool, Callable[[ls_schemas.Example], bool]]] = None,
         disable_evaluator_tracing: bool = False,
         error_handling: Literal["log", "ignore"] = "log",
         **kwargs: Any,
@@ -10221,7 +10610,10 @@ class Client:
 
                 For advanced usage only. Should not be specified if target is an existing experiment or
                 two-tuple fo experiments.
-            upload_results (bool, default=True): Whether to upload the results to LangSmith.
+            upload_runs (bool | Callable[[Example], bool] | None, default=None):
+                Whether to upload run traces and row feedback. `None` enables uploads.
+                A callable selects runs; summary scores still use every run.
+                `upload_results` remains an alias through keyword arguments.
             error_handling (str, default="log"): How to handle individual run errors.
 
                 `'log'` will trace the runs with the error message as part of the
@@ -10392,7 +10784,7 @@ class Client:
             client=self,
             blocking=blocking,
             experiment=experiment,
-            upload_results=upload_results,
+            upload_runs=upload_runs,
             error_handling=error_handling,
             disable_evaluator_tracing=disable_evaluator_tracing,
             **kwargs,
@@ -10419,7 +10811,7 @@ class Client:
         num_repetitions: int = 1,
         blocking: bool = True,
         experiment: Optional[Union[schemas.TracerSession, str, uuid.UUID]] = None,
-        upload_results: bool = True,
+        upload_runs: Optional[Union[bool, Callable[[ls_schemas.Example], bool]]] = None,
         disable_evaluator_tracing: bool = False,
         error_handling: Literal["log", "ignore"] = "log",
         **kwargs: Any,
@@ -10456,7 +10848,10 @@ class Client:
                 If provided, `experiment_prefix` is ignored.
 
                 For advanced usage only.
-            upload_results (bool, default=True): Whether to upload the results to LangSmith.
+            upload_runs (bool | Callable[[Example], bool] | None, default=None):
+                Whether to upload run traces and row feedback. `None` enables uploads.
+                A callable selects runs; summary scores still use every run.
+                `upload_results` remains an alias through keyword arguments.
             error_handling (str, default="log"): How to handle individual run errors.
 
                 `'log'` will trace the runs with the error message as part of the
@@ -10648,7 +11043,7 @@ class Client:
             client=self,
             blocking=blocking,
             experiment=experiment,
-            upload_results=upload_results,
+            upload_runs=upload_runs,
             error_handling=error_handling,
             disable_evaluator_tracing=disable_evaluator_tracing,
             **kwargs,
@@ -11285,6 +11680,24 @@ def _dataset_examples_path(api_url: str, dataset_id: ID_TYPE) -> str:
         return f"/v1/platform/datasets/{dataset_id}/examples"
 
 
+# The most example IDs the bulk metadata endpoint accepts in one request.
+_BULK_METADATA_MAX_EXAMPLE_IDS = 10_000
+
+
+class _BulkMetadataRouteMissingError(Exception):
+    """The server has no bulk metadata endpoint."""
+
+
+def _bulk_metadata_route_missing(response: requests.Response) -> bool:
+    """Whether a bulk metadata response means the server lacks the route.
+
+    A missing dataset is also a 404, but its problem details say "dataset not found".
+    """
+    if response.status_code == 405:
+        return True
+    return response.status_code == 404 and "dataset not found" not in response.text.lower()
+
+
 def _platform_path(api_url: str, path: str) -> str:
     """Construct a platform API path based on the API URL structure."""
     if api_url.rstrip("/").endswith("/v1"):
@@ -11324,12 +11737,17 @@ def _construct_url(api_url: str, pathname: str) -> str:
     return http + "/".join(p for p in parts if p)
 
 
-def dump_model(model, *, exclude_none: bool = False) -> dict[str, Any]:
+def dump_model(
+    model,
+    *,
+    exclude_none: bool = False,
+    by_alias: bool = False,
+) -> dict[str, Any]:
     """Dump model depending on pydantic version."""
     if hasattr(model, "model_dump"):
-        return model.model_dump(exclude_none=exclude_none)
+        return model.model_dump(exclude_none=exclude_none, by_alias=by_alias)
     elif hasattr(model, "dict"):
-        return model.dict(exclude_none=exclude_none)
+        return model.dict(exclude_none=exclude_none, by_alias=by_alias)
     else:
         raise TypeError("Unsupported model type")
 
@@ -11436,6 +11854,9 @@ def _apply_auth_overrides(
         headers["X-Service-Key"] = service_key
     if tenant_id is not None:
         headers["X-Tenant-Id"] = tenant_id
+    else:
+        # Inherited: request_with_retries re-adds it unless the host differs.
+        headers.pop("X-Tenant-Id", None)
     if authorization is not None:
         headers["Authorization"] = authorization
     if cookie is not None:

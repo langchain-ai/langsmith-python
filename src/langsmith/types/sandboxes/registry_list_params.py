@@ -8,11 +8,17 @@ __all__ = ["RegistryListParams"]
 
 
 class RegistryListParams(TypedDict, total=False):
+    cursor: str
+    """Opaque cursor from a prior response's next_cursor"""
+
     limit: int
-    """Maximum number of registries to return"""
+    """Deprecated: use page_size. Maximum number of registries to return"""
 
     name_contains: str
     """Filter to registries whose name contains this substring"""
 
     offset: int
-    """Number of registries to skip"""
+    """Deprecated: use cursor. Number of registries to skip"""
+
+    page_size: int
+    """Number of results per cursor page"""

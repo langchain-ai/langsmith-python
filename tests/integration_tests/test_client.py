@@ -21,6 +21,7 @@ from typing import Any, Callable, Dict, cast
 from unittest import mock
 
 import pytest
+import requests
 from freezegun import freeze_time
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.trace import set_tracer_provider
@@ -58,7 +59,10 @@ from langsmith.utils import (
     LangSmithError,
     LangSmithNotFoundError,
     get_env_var,
+    get_tracer_project,
+    is_version_greater_or_equal,
 )
+from tests.integration_tests.conftest import TEST_RUN_START
 
 logger = logging.getLogger(__name__)
 
@@ -422,9 +426,9 @@ def test_list_examples(langchain_client: "Client") -> None:
         safe_delete_dataset(langchain_client, dataset_id=dataset.id)
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @pytest.mark.skip(reason="This test is flaky")
-def test_persist_update_run(langchain_client: Client) -> None:
+async def test_persist_update_run(langchain_client: Client) -> None:
     """Test the persist and update methods work as expected."""
     project_name = "__test_persist_update_run" + uuid7().hex
     if langchain_client.has_project(project_name):
@@ -448,20 +452,19 @@ def test_persist_update_run(langchain_client: Client) -> None:
         run["extra"]["foo"] = "bar"
         run["name"] = "test_run_updated"
         langchain_client.update_run(run["id"], **run)
-        wait_for(lambda: langchain_client.read_run(run["id"]).end_time is not None)
-        stored_run = langchain_client.read_run(run["id"])
+        stored_run = await _v2_wait_for_run(langchain_client, project_name, run["id"], lambda r: r.end_time is not None)
         assert stored_run.name == run["name"]
-        assert stored_run.id == run["id"]
+        assert stored_run.id == str(run["id"])
         assert stored_run.outputs == run["outputs"]
-        assert stored_run.start_time == run["start_time"]
-        assert stored_run.revision_id == str(revision_id)
+        assert stored_run.start_time == run["start_time"].astimezone(datetime.timezone.utc)
+        assert stored_run.metadata["revision_id"] == str(revision_id)
     finally:
         langchain_client.delete_project(project_name=project_name)
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @pytest.mark.slow
-def test_update_run_attachments(langchain_client: Client) -> None:
+async def test_update_run_attachments(langchain_client: Client) -> None:
     """Test the persist and update methods work as expected."""
     project_name = "__test_update_run_attachments" + uuid7().hex
     try:
@@ -484,12 +487,11 @@ def test_update_run_attachments(langchain_client: Client) -> None:
         run["extra"]["foo"] = "bar"
         run["name"] = "test_run_updated"
         langchain_client.update_run(run["id"], **run)
-        wait_for(lambda: langchain_client.read_run(run["id"]).end_time is not None)
-        stored_run = langchain_client.read_run(run["id"])
+        stored_run = await _v2_wait_for_run(langchain_client, project_name, run["id"], lambda r: r.end_time is not None)
         assert stored_run.name == run["name"]
-        assert str(stored_run.id) == run["id"]
+        assert stored_run.id == run["id"]
         assert stored_run.outputs == run["outputs"]
-        assert stored_run.start_time == run["start_time"].replace(tzinfo=None)
+        assert stored_run.start_time == run["start_time"]
     finally:
         langchain_client.delete_project(project_name=project_name)
 
@@ -789,9 +791,9 @@ def test_list_datasets(langchain_client: Client) -> None:
                 pass
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @pytest.mark.skip(reason="This test is flaky")
-def test_create_run_with_masked_inputs_outputs(langchain_client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_create_run_with_masked_inputs_outputs(langchain_client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
     project_name = "__test_create_run_with_masked_inputs_outputs" + uuid7().hex
     monkeypatch.setenv("LANGCHAIN_HIDE_INPUTS", "true")
     monkeypatch.setenv("LANGCHAIN_HIDE_OUTPUTS", "true")
@@ -829,13 +831,11 @@ def test_create_run_with_masked_inputs_outputs(langchain_client: Client, monkeyp
             end_time=datetime.datetime.now(datetime.timezone.utc),
             hide_outputs=True,
         )
-        wait_for(lambda: langchain_client.read_run(run_id).end_time is not None)
-        stored_run = langchain_client.read_run(run_id)
+        stored_run = await _v2_wait_for_run(langchain_client, project_name, run_id, lambda r: r.end_time is not None)
         assert "hello" not in str(stored_run.inputs)
         assert stored_run.outputs is not None
         assert "hi" not in str(stored_run.outputs)
-        wait_for(lambda: langchain_client.read_run(run_id2).end_time is not None)
-        stored_run2 = langchain_client.read_run(run_id2)
+        stored_run2 = await _v2_wait_for_run(langchain_client, project_name, run_id2, lambda r: r.end_time is not None)
         assert "hello" not in str(stored_run2.inputs)
         assert stored_run2.outputs is not None
         assert "hi" not in str(stored_run2.outputs)
@@ -891,10 +891,10 @@ def test_create_chat_example(monkeypatch: pytest.MonkeyPatch, langchain_client: 
     safe_delete_dataset(langchain_client, dataset_id=dataset.id)
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @pytest.mark.parametrize("use_multipart_endpoint", [True, False])
 @pytest.mark.slow
-def test_batch_ingest_runs(langchain_client: Client, use_multipart_endpoint: bool) -> None:
+async def test_batch_ingest_runs(langchain_client: Client, use_multipart_endpoint: bool) -> None:
     _session = "__test_batch_ingest_runs + " + str(uuid7)
     trace_id = uuid7()
     trace_id_2 = uuid7()
@@ -956,21 +956,25 @@ def test_batch_ingest_runs(langchain_client: Client, use_multipart_endpoint: boo
         langchain_client.multipart_ingest(create=runs_to_create, update=runs_to_update)
     else:
         langchain_client.batch_ingest_runs(create=runs_to_create, update=runs_to_update)
+    project_id = _v2_get_project_id_or_skip(langchain_client, _session)
     runs = []
     wait = 4
     for _ in range(15):
         try:
-            runs = list(
-                langchain_client.list_runs(
-                    project_name=_session,
-                    run_ids=[str(trace_id), str(run_id_2), str(trace_id_2)],
+            runs = [
+                run
+                async for run in langchain_client.runs.query_v2(
+                    project_ids=[project_id],
+                    ids=[str(trace_id), str(run_id_2), str(trace_id_2)],
+                    min_start_time=TEST_RUN_START,
+                    selects=["ID", "INPUTS", "OUTPUTS", "ERROR"],
                 )
-            )
+            ]
             if len(runs) == 3:
                 break
             raise LangSmithError("Runs not created yet")
-        except LangSmithError:
-            time.sleep(wait)
+        except (LangSmithError, langsmith.APIError):
+            await asyncio.sleep(wait)
             wait += 1
     else:
         pytest.skip("Aya.")
@@ -979,17 +983,17 @@ def test_batch_ingest_runs(langchain_client: Client, use_multipart_endpoint: boo
     assert len(runs) == 3
 
     # Assert inputs and outputs of run 1
-    run1 = next(run for run in runs if run.id == trace_id)
+    run1 = next(run for run in runs if run.id == str(trace_id))
     assert run1.inputs == {"input1": 1, "input2": 2}
     assert run1.outputs == {"output1": 3, "output2": 4}
 
     # Assert inputs and outputs of run 2
-    run2 = next(run for run in runs if run.id == run_id_2)
+    run2 = next(run for run in runs if run.id == str(run_id_2))
     assert run2.inputs == {"input1": 5, "input2": 6}
     assert run2.outputs == {"output1": 4, "output2": 5}
 
     # Assert inputs and outputs of run 3
-    run3 = next(run for run in runs if run.id == trace_id_2)
+    run3 = next(run for run in runs if run.id == str(trace_id_2))
     assert run3.inputs == {"input1": 1, "input2": 2}
     assert run3.error == "error"
 
@@ -1036,9 +1040,11 @@ def test_multipart_ingest_create_with_attachments_error(
         langchain_client.multipart_ingest(create=runs_to_create, update=[])
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @pytest.mark.slow
-def test_multipart_ingest_create_with_attachments(langchain_client: Client, caplog: pytest.LogCaptureFixture) -> None:
+async def test_multipart_ingest_create_with_attachments(
+    langchain_client: Client, caplog: pytest.LogCaptureFixture
+) -> None:
     _session = "__test_multipart_ingest_create_with_attachments"
     trace_a_id = uuid7()
     current_time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
@@ -1067,19 +1073,20 @@ def test_multipart_ingest_create_with_attachments(langchain_client: Client, capl
         langchain_client.multipart_ingest(create=runs_to_create, update=[], dangerously_allow_filesystem=True)
         langchain_client.flush()
         assert not caplog.records
-        wait_for(lambda: _get_run(str(trace_a_id), langchain_client))
-        created_run = langchain_client.read_run(run_id=str(trace_a_id))
-        assert sorted(created_run.attachments.keys()) == sorted(["foo", "bar"]), f"See failed run at {created_run.url}"
-        assert created_run.attachments["foo"]["reader"].read() == b"bar"
+        created_run = await _v2_wait_for_run(langchain_client, _session, trace_a_id)
+        assert sorted(created_run.attachments.keys()) == sorted(["foo", "bar"]), f"See failed run {created_run.id}"
+        assert requests.get(created_run.attachments["foo"]).content == b"bar"
         assert (
-            created_run.attachments["bar"]["reader"].read()
+            requests.get(created_run.attachments["bar"]).content
             == (Path(__file__).parent / "test_data/parrot-icon.png").read_bytes()
         )
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @pytest.mark.slow
-def test_multipart_ingest_update_with_attachments_no_paths(langchain_client: Client, caplog: pytest.LogCaptureFixture):
+async def test_multipart_ingest_update_with_attachments_no_paths(
+    langchain_client: Client, caplog: pytest.LogCaptureFixture
+):
     _session = "__test_multipart_ingest_update_with_attachments_no_paths" + uuid7().hex[:6]
     trace_a_id = uuid7()
     current_time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
@@ -1103,12 +1110,11 @@ def test_multipart_ingest_update_with_attachments_no_paths(langchain_client: Cli
         langchain_client.multipart_ingest(create=runs_to_create, update=[])
 
         assert not caplog.records
-        wait_for(lambda: _get_run(str(trace_a_id), langchain_client))
-        created_run = langchain_client.read_run(run_id=str(trace_a_id))
+        created_run = await _v2_wait_for_run(langchain_client, _session, trace_a_id)
         assert created_run.attachments
         assert sorted(created_run.attachments.keys()) == sorted(["foo", "bar"])
-        assert created_run.attachments["foo"]["reader"].read() == b"bar"
-        assert created_run.attachments["bar"]["reader"].read() == b"bar"
+        assert requests.get(created_run.attachments["foo"]).content == b"bar"
+        assert requests.get(created_run.attachments["bar"]).content == b"bar"
 
     runs_to_update: list[dict] = [
         {
@@ -1128,6 +1134,43 @@ def test_multipart_ingest_update_with_attachments_no_paths(langchain_client: Cli
         assert not caplog.records
 
 
+_V2_READ_SELECTS: list = [
+    "ID",
+    "NAME",
+    "START_TIME",
+    "END_TIME",
+    "INPUTS",
+    "OUTPUTS",
+    "ERROR",
+    "EXTRA",
+    "METADATA",
+    "TAGS",
+    "ATTACHMENTS",
+]
+
+
+async def _v2_wait_for_run(
+    client: Client,
+    project_name: str,
+    run_id: ID_TYPE,
+    condition: Callable[[Any], bool] = lambda run: True,
+    max_sleep_time: int = 120,
+    sleep_time: int = 3,
+) -> Any:
+    """Return the run from `client.runs.retrieve_v2` once `condition(run)` holds."""
+    project_id = _v2_get_project_id_or_skip(client, project_name)
+    start_time = time.time()
+    while time.time() - start_time < max_sleep_time:
+        try:
+            run = await client.runs.retrieve_v2(run_id=str(run_id), project_id=project_id, selects=_V2_READ_SELECTS)
+            if condition(run):
+                return run
+        except langsmith.APIError:
+            logger.debug("Error reading run", exc_info=True)
+        await asyncio.sleep(sleep_time)
+    raise ValueError(f"Run {run_id} not readable within {max_sleep_time}s")
+
+
 def _get_run(run_id: ID_TYPE, langchain_client: Client, has_end: bool = False) -> bool:
     try:
         r = langchain_client.read_run(run_id)  # type: ignore
@@ -1138,9 +1181,9 @@ def _get_run(run_id: ID_TYPE, langchain_client: Client, has_end: bool = False) -
         return False
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @pytest.mark.skip(reason="Flakey")
-def test_multipart_ingest_update_with_attachments_error(
+async def test_multipart_ingest_update_with_attachments_error(
     langchain_client: Client, caplog: pytest.LogCaptureFixture
 ) -> None:
     _session = "__test_multipart_ingest_update_with_attachments"
@@ -1164,7 +1207,7 @@ def test_multipart_ingest_update_with_attachments_error(
     with caplog.at_level(logging.WARNING, logger="langsmith.client"):
         langchain_client.multipart_ingest(create=runs_to_create, update=[])
         assert not caplog.records
-        wait_for(lambda: _get_run(str(trace_a_id), langchain_client))
+        await _v2_wait_for_run(langchain_client, _session, trace_a_id)
 
         runs_to_update: list[dict] = [
             {
@@ -1186,9 +1229,11 @@ def test_multipart_ingest_update_with_attachments_error(
 
 
 # TODO: fix flakiness
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @pytest.mark.skip(reason="Flakey")
-def test_multipart_ingest_update_with_attachments(langchain_client: Client, caplog: pytest.LogCaptureFixture) -> None:
+async def test_multipart_ingest_update_with_attachments(
+    langchain_client: Client, caplog: pytest.LogCaptureFixture
+) -> None:
     _session = "__test_multipart_ingest_update_with_attachments"
     trace_a_id = uuid7()
     current_time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
@@ -1232,13 +1277,12 @@ def test_multipart_ingest_update_with_attachments(langchain_client: Client, capl
         assert image_path.read_bytes() == image_content
 
         assert not caplog.records
-        wait_for(lambda: _get_run(str(trace_a_id), langchain_client))
-        created_run = langchain_client.read_run(run_id=str(trace_a_id))
+        created_run = await _v2_wait_for_run(langchain_client, _session, trace_a_id)
         assert created_run.inputs == {"input1": 3, "input2": 4}
         assert sorted(created_run.attachments.keys()) == sorted(["foo", "bar"])
-        assert created_run.attachments["foo"]["reader"].read() == b"bar"
+        assert requests.get(created_run.attachments["foo"]).content == b"bar"
         assert (
-            created_run.attachments["bar"]["reader"].read()
+            requests.get(created_run.attachments["bar"]).content
             == (Path(__file__).parent / "test_data/parrot-icon.png").read_bytes()
         )
 
@@ -1371,11 +1415,11 @@ def test_get_info() -> None:
     assert info.batch_ingest_config["size_limit"] > 0  # type: ignore
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @pytest.mark.skip(reason="This test is flaky")
 @pytest.mark.parametrize("add_metadata", [True, False])
 @pytest.mark.parametrize("do_batching", [True, False])
-def test_update_run_extra(add_metadata: bool, do_batching: bool) -> None:
+async def test_update_run_extra(add_metadata: bool, do_batching: bool) -> None:
     langchain_client = Client()
     run_id = uuid7()
     run: Dict[str, Any] = {
@@ -1399,8 +1443,7 @@ def test_update_run_extra(add_metadata: bool, do_batching: bool) -> None:
     revision_id = uuid7()
     langchain_client.create_run(**run, revision_id=revision_id)  # type: ignore
 
-    wait_for(lambda: _get_run(run_id, langchain_client))
-    created_run = langchain_client.read_run(run_id)
+    created_run = await _v2_wait_for_run(langchain_client, get_tracer_project(), run_id)
     assert created_run.metadata["foo"] == "bar"
     assert created_run.metadata["revision_id"] == str(revision_id)
     # Update the run
@@ -1408,10 +1451,11 @@ def test_update_run_extra(add_metadata: bool, do_batching: bool) -> None:
         run["extra"]["metadata"]["foo2"] = "baz"  # type: ignore
         run["tags"] = ["tag3"]
     langchain_client.update_run(run_id, **run)  # type: ignore
-    wait_for(lambda: _get_run(run_id, langchain_client, has_end=True))
-    updated_run = langchain_client.read_run(run_id)
+    updated_run = await _v2_wait_for_run(
+        langchain_client, get_tracer_project(), run_id, lambda r: r.end_time is not None
+    )
     assert updated_run.metadata["foo"] == "bar"  # type: ignore
-    assert updated_run.revision_id == str(revision_id)
+    assert updated_run.metadata["revision_id"] == str(revision_id)
     if add_metadata:
         updated_run.metadata["foo2"] == "baz"  # type: ignore
         assert updated_run.tags == ["tag3"]
@@ -1541,6 +1585,66 @@ def test_slow_run_read_multipart(langchain_client: Client, caplog: pytest.LogCap
                 myobj["key_1"]
 
         assert not caplog.records
+
+
+def test_list_examples_exclude_default_fields() -> None:
+    """Same cases the server pins: flag on returns select plus id, flag off keeps defaults."""
+    langchain_client = Client()
+    version = langchain_client.info.version
+    assert version, "Server /info must report a version"
+    if not is_version_greater_or_equal(version, "0.18.15rc1"):
+        pytest.skip("exclude_default_fields requires server >= 0.18.15rc1")
+    dataset_name = "__test_list_examples_exclude_default_fields" + uuid7().hex
+    dataset = _create_dataset(langchain_client, dataset_name)
+    example = langchain_client.create_example(
+        inputs={"input": "hello"},
+        outputs={"output": "hi"},
+        metadata={"key": "value"},
+        dataset_id=dataset.id,
+    )
+    # Example has no `name` field, so the server's name is not observable here.
+    default_fields = {"id", "created_at", "modified_at", "inputs", "dataset_id"}
+    # The client adds `attachments` to every row; everything else is what the server sent.
+    client_added = {"attachments"}
+
+    def rows(**kwargs):
+        return [
+            (e, e.model_fields_set - client_added)
+            for e in langchain_client.list_examples(dataset_id=dataset.id, **kwargs)
+        ]
+
+    # Flag on: the row is exactly the selected fields plus id.
+    for select in (["id"], ["id", "inputs"], ["outputs"]):
+        ((e, fields),) = rows(select=select, exclude_default_fields=True)
+        assert fields == {"id", *select}
+        assert e.id == example.id
+        if "inputs" in select:
+            assert e.inputs == {"input": "hello"}
+        if "outputs" in select:
+            assert e.outputs == {"output": "hi"}
+
+    # Flag on with include_attachments: its fields are selected, inputs is not.
+    ((e, fields),) = rows(include_attachments=True, exclude_default_fields=True)
+    assert e.id == example.id
+    assert e.outputs == {"output": "hi"}
+    assert e.metadata["key"] == "value"
+    assert "inputs" not in fields
+
+    # Flag on without select: the default fields still come back.
+    ((e, fields),) = rows(exclude_default_fields=True)
+    assert default_fields <= fields
+    assert e.inputs == {"input": "hello"}
+
+    # Flag off: every default field is present whatever select says.
+    for select in (None, ["id"], ["outputs"]):
+        ((e, fields),) = rows(select=select, exclude_default_fields=False)
+        assert default_fields <= fields
+        assert e.id == example.id
+        assert e.inputs == {"input": "hello"}
+        if select and "outputs" in select:
+            assert e.outputs == {"output": "hi"}
+
+    safe_delete_dataset(langchain_client, dataset_id=dataset.id)
 
 
 def test_list_examples_attachments_keys(langchain_client: Client) -> None:
@@ -3459,7 +3563,7 @@ def test_list_threads(langchain_client: Client) -> None:
         wait_for(
             lambda: (
                 next(
-                    langchain_client.list_runs(project_name=project_name, limit=1),
+                    langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, limit=1),
                     None,
                 )
                 is not None
@@ -3529,7 +3633,7 @@ def test_read_thread(langchain_client: Client) -> None:
         wait_for(
             lambda: (
                 next(
-                    langchain_client.list_runs(project_name=project_name, limit=1),
+                    langchain_client.list_runs(start_time=TEST_RUN_START, project_name=project_name, limit=1),
                     None,
                 )
                 is not None
@@ -3590,9 +3694,9 @@ def test_list_runs_with_child_runs(langchain_client: Client):
             langchain_client.delete_project(project_name=project_name)
 
 
-@pytest.mark.require_clickhouse
+@pytest.mark.require_v2
 @pytest.mark.skip(reason="Flakey")
-def test_run_ops_buffer_integration(langchain_client: Client) -> None:
+async def test_run_ops_buffer_integration(langchain_client: Client) -> None:
     project_name = f"test-run-ops-buffer-{str(uuid7())[:8]}"
 
     # Clean up existing project if it exists
@@ -3659,16 +3763,9 @@ def test_run_ops_buffer_integration(langchain_client: Client) -> None:
         # Flush to ensure all runs are processed
         buffer_client.flush()
 
-        # Wait for runs to be created and processed
-        for run_id in run_ids:
-            wait_for(
-                lambda rid=run_id: _get_run(rid, langchain_client=langchain_client),
-                max_sleep_time=30,
-            )
-
         # Verify that the modifications were applied in LangSmith
         for i, run_id in enumerate(run_ids):
-            stored_run = langchain_client.read_run(run_id)
+            stored_run = await _v2_wait_for_run(langchain_client, project_name, run_id, max_sleep_time=30)
 
             # Check that custom metadata was added
             assert stored_run.extra.get("custom_processed") is True

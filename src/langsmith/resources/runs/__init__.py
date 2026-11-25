@@ -16,8 +16,22 @@ from .share import (
     ShareResourceWithStreamingResponse,
     AsyncShareResourceWithStreamingResponse,
 )
+from .streaming import (
+    StreamingResource,
+    AsyncStreamingResource,
+    StreamingResourceWithRawResponse,
+    AsyncStreamingResourceWithRawResponse,
+    StreamingResourceWithStreamingResponse,
+    AsyncStreamingResourceWithStreamingResponse,
+)
 
 __all__ = [
+    "StreamingResource",
+    "AsyncStreamingResource",
+    "StreamingResourceWithRawResponse",
+    "AsyncStreamingResourceWithRawResponse",
+    "StreamingResourceWithStreamingResponse",
+    "AsyncStreamingResourceWithStreamingResponse",
     "ShareResource",
     "AsyncShareResource",
     "ShareResourceWithRawResponse",

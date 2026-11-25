@@ -36,34 +36,50 @@ from ._base_client import (
 
 if TYPE_CHECKING:
     from .resources import (
+        sql,
         info,
         runs,
         fleet,
+        repos,
+        agents,
         issues,
         public,
         traces,
+        commits,
         threads,
         datasets,
         sessions,
+        ai_search,
         sandboxes,
+        evaluators,
+        workspace_tags,
         prompt_webhooks,
         product_feedback,
         annotation_queues,
         online_evaluators,
+        workspace_secrets,
     )
+    from .resources.sql import SqlResource, AsyncSqlResource
     from .resources.info import InfoResource, AsyncInfoResource
+    from .resources.agents import AgentsResource, AsyncAgentsResource
     from .resources.issues import IssuesResource, AsyncIssuesResource
-    from .resources.traces import TracesResource, AsyncTracesResource
+    from .resources.commits import CommitsResource, AsyncCommitsResource
     from .resources.sessions import SessionsResource, AsyncSessionsResource
+    from .resources.ai_search import AISearchResource, AsyncAISearchResource
     from .resources.runs.runs import RunsResource, AsyncRunsResource
+    from .resources.evaluators import EvaluatorsResource, AsyncEvaluatorsResource
     from .resources.fleet.fleet import FleetResource, AsyncFleetResource
+    from .resources.repos.repos import ReposResource, AsyncReposResource
     from .resources.public.public import PublicResource, AsyncPublicResource
+    from .resources.traces.traces import TracesResource, AsyncTracesResource
     from .resources.prompt_webhooks import PromptWebhooksResource, AsyncPromptWebhooksResource
     from .resources.threads.threads import ThreadsResource, AsyncThreadsResource
     from .resources.product_feedback import ProductFeedbackResource, AsyncProductFeedbackResource
     from .resources.datasets.datasets import DatasetsResource, AsyncDatasetsResource
     from .resources.online_evaluators import OnlineEvaluatorsResource, AsyncOnlineEvaluatorsResource
+    from .resources.workspace_secrets import WorkspaceSecretsResource, AsyncWorkspaceSecretsResource
     from .resources.sandboxes.sandboxes import SandboxesResource, AsyncSandboxesResource
+    from .resources.workspace_tags.workspace_tags import WorkspaceTagsResource, AsyncWorkspaceTagsResource
     from .resources.annotation_queues.annotation_queues import AnnotationQueuesResource, AsyncAnnotationQueuesResource
 
 __all__ = [
@@ -146,11 +162,25 @@ class Langsmith(SyncAPIClient):
             _strict_response_validation=_strict_response_validation,
         )
 
+        self._default_stream_cls = Stream
+
+    @cached_property
+    def sql(self) -> SqlResource:
+        from .resources.sql import SqlResource
+
+        return SqlResource(self)
+
     @cached_property
     def product_feedback(self) -> ProductFeedbackResource:
         from .resources.product_feedback import ProductFeedbackResource
 
         return ProductFeedbackResource(self)
+
+    @cached_property
+    def agents(self) -> AgentsResource:
+        from .resources.agents import AgentsResource
+
+        return AgentsResource(self)
 
     @cached_property
     def fleet(self) -> FleetResource:
@@ -189,6 +219,18 @@ class Langsmith(SyncAPIClient):
         return TracesResource(self)
 
     @cached_property
+    def ai_search(self) -> AISearchResource:
+        from .resources.ai_search import AISearchResource
+
+        return AISearchResource(self)
+
+    @cached_property
+    def evaluators(self) -> EvaluatorsResource:
+        from .resources.evaluators import EvaluatorsResource
+
+        return EvaluatorsResource(self)
+
+    @cached_property
     def online_evaluators(self) -> OnlineEvaluatorsResource:
         from .resources.online_evaluators import OnlineEvaluatorsResource
 
@@ -217,6 +259,30 @@ class Langsmith(SyncAPIClient):
         from .resources.info import InfoResource
 
         return InfoResource(self)
+
+    @cached_property
+    def workspace_secrets(self) -> WorkspaceSecretsResource:
+        from .resources.workspace_secrets import WorkspaceSecretsResource
+
+        return WorkspaceSecretsResource(self)
+
+    @cached_property
+    def workspace_tags(self) -> WorkspaceTagsResource:
+        from .resources.workspace_tags import WorkspaceTagsResource
+
+        return WorkspaceTagsResource(self)
+
+    @cached_property
+    def repos(self) -> ReposResource:
+        from .resources.repos import ReposResource
+
+        return ReposResource(self)
+
+    @cached_property
+    def commits(self) -> CommitsResource:
+        from .resources.commits import CommitsResource
+
+        return CommitsResource(self)
 
     @cached_property
     def issues(self) -> IssuesResource:
@@ -438,11 +504,25 @@ class AsyncLangsmith(AsyncAPIClient):
             _strict_response_validation=_strict_response_validation,
         )
 
+        self._default_stream_cls = AsyncStream
+
+    @cached_property
+    def sql(self) -> AsyncSqlResource:
+        from .resources.sql import AsyncSqlResource
+
+        return AsyncSqlResource(self)
+
     @cached_property
     def product_feedback(self) -> AsyncProductFeedbackResource:
         from .resources.product_feedback import AsyncProductFeedbackResource
 
         return AsyncProductFeedbackResource(self)
+
+    @cached_property
+    def agents(self) -> AsyncAgentsResource:
+        from .resources.agents import AsyncAgentsResource
+
+        return AsyncAgentsResource(self)
 
     @cached_property
     def fleet(self) -> AsyncFleetResource:
@@ -481,6 +561,18 @@ class AsyncLangsmith(AsyncAPIClient):
         return AsyncTracesResource(self)
 
     @cached_property
+    def ai_search(self) -> AsyncAISearchResource:
+        from .resources.ai_search import AsyncAISearchResource
+
+        return AsyncAISearchResource(self)
+
+    @cached_property
+    def evaluators(self) -> AsyncEvaluatorsResource:
+        from .resources.evaluators import AsyncEvaluatorsResource
+
+        return AsyncEvaluatorsResource(self)
+
+    @cached_property
     def online_evaluators(self) -> AsyncOnlineEvaluatorsResource:
         from .resources.online_evaluators import AsyncOnlineEvaluatorsResource
 
@@ -509,6 +601,30 @@ class AsyncLangsmith(AsyncAPIClient):
         from .resources.info import AsyncInfoResource
 
         return AsyncInfoResource(self)
+
+    @cached_property
+    def workspace_secrets(self) -> AsyncWorkspaceSecretsResource:
+        from .resources.workspace_secrets import AsyncWorkspaceSecretsResource
+
+        return AsyncWorkspaceSecretsResource(self)
+
+    @cached_property
+    def workspace_tags(self) -> AsyncWorkspaceTagsResource:
+        from .resources.workspace_tags import AsyncWorkspaceTagsResource
+
+        return AsyncWorkspaceTagsResource(self)
+
+    @cached_property
+    def repos(self) -> AsyncReposResource:
+        from .resources.repos import AsyncReposResource
+
+        return AsyncReposResource(self)
+
+    @cached_property
+    def commits(self) -> AsyncCommitsResource:
+        from .resources.commits import AsyncCommitsResource
+
+        return AsyncCommitsResource(self)
 
     @cached_property
     def issues(self) -> AsyncIssuesResource:
@@ -669,10 +785,22 @@ class LangsmithWithRawResponse:
         self._client = client
 
     @cached_property
+    def sql(self) -> sql.SqlResourceWithRawResponse:
+        from .resources.sql import SqlResourceWithRawResponse
+
+        return SqlResourceWithRawResponse(self._client.sql)
+
+    @cached_property
     def product_feedback(self) -> product_feedback.ProductFeedbackResourceWithRawResponse:
         from .resources.product_feedback import ProductFeedbackResourceWithRawResponse
 
         return ProductFeedbackResourceWithRawResponse(self._client.product_feedback)
+
+    @cached_property
+    def agents(self) -> agents.AgentsResourceWithRawResponse:
+        from .resources.agents import AgentsResourceWithRawResponse
+
+        return AgentsResourceWithRawResponse(self._client.agents)
 
     @cached_property
     def fleet(self) -> fleet.FleetResourceWithRawResponse:
@@ -711,6 +839,18 @@ class LangsmithWithRawResponse:
         return TracesResourceWithRawResponse(self._client.traces)
 
     @cached_property
+    def ai_search(self) -> ai_search.AISearchResourceWithRawResponse:
+        from .resources.ai_search import AISearchResourceWithRawResponse
+
+        return AISearchResourceWithRawResponse(self._client.ai_search)
+
+    @cached_property
+    def evaluators(self) -> evaluators.EvaluatorsResourceWithRawResponse:
+        from .resources.evaluators import EvaluatorsResourceWithRawResponse
+
+        return EvaluatorsResourceWithRawResponse(self._client.evaluators)
+
+    @cached_property
     def online_evaluators(self) -> online_evaluators.OnlineEvaluatorsResourceWithRawResponse:
         from .resources.online_evaluators import OnlineEvaluatorsResourceWithRawResponse
 
@@ -741,6 +881,30 @@ class LangsmithWithRawResponse:
         return InfoResourceWithRawResponse(self._client.info)
 
     @cached_property
+    def workspace_secrets(self) -> workspace_secrets.WorkspaceSecretsResourceWithRawResponse:
+        from .resources.workspace_secrets import WorkspaceSecretsResourceWithRawResponse
+
+        return WorkspaceSecretsResourceWithRawResponse(self._client.workspace_secrets)
+
+    @cached_property
+    def workspace_tags(self) -> workspace_tags.WorkspaceTagsResourceWithRawResponse:
+        from .resources.workspace_tags import WorkspaceTagsResourceWithRawResponse
+
+        return WorkspaceTagsResourceWithRawResponse(self._client.workspace_tags)
+
+    @cached_property
+    def repos(self) -> repos.ReposResourceWithRawResponse:
+        from .resources.repos import ReposResourceWithRawResponse
+
+        return ReposResourceWithRawResponse(self._client.repos)
+
+    @cached_property
+    def commits(self) -> commits.CommitsResourceWithRawResponse:
+        from .resources.commits import CommitsResourceWithRawResponse
+
+        return CommitsResourceWithRawResponse(self._client.commits)
+
+    @cached_property
     def issues(self) -> issues.IssuesResourceWithRawResponse:
         from .resources.issues import IssuesResourceWithRawResponse
 
@@ -760,10 +924,22 @@ class AsyncLangsmithWithRawResponse:
         self._client = client
 
     @cached_property
+    def sql(self) -> sql.AsyncSqlResourceWithRawResponse:
+        from .resources.sql import AsyncSqlResourceWithRawResponse
+
+        return AsyncSqlResourceWithRawResponse(self._client.sql)
+
+    @cached_property
     def product_feedback(self) -> product_feedback.AsyncProductFeedbackResourceWithRawResponse:
         from .resources.product_feedback import AsyncProductFeedbackResourceWithRawResponse
 
         return AsyncProductFeedbackResourceWithRawResponse(self._client.product_feedback)
+
+    @cached_property
+    def agents(self) -> agents.AsyncAgentsResourceWithRawResponse:
+        from .resources.agents import AsyncAgentsResourceWithRawResponse
+
+        return AsyncAgentsResourceWithRawResponse(self._client.agents)
 
     @cached_property
     def fleet(self) -> fleet.AsyncFleetResourceWithRawResponse:
@@ -802,6 +978,18 @@ class AsyncLangsmithWithRawResponse:
         return AsyncTracesResourceWithRawResponse(self._client.traces)
 
     @cached_property
+    def ai_search(self) -> ai_search.AsyncAISearchResourceWithRawResponse:
+        from .resources.ai_search import AsyncAISearchResourceWithRawResponse
+
+        return AsyncAISearchResourceWithRawResponse(self._client.ai_search)
+
+    @cached_property
+    def evaluators(self) -> evaluators.AsyncEvaluatorsResourceWithRawResponse:
+        from .resources.evaluators import AsyncEvaluatorsResourceWithRawResponse
+
+        return AsyncEvaluatorsResourceWithRawResponse(self._client.evaluators)
+
+    @cached_property
     def online_evaluators(self) -> online_evaluators.AsyncOnlineEvaluatorsResourceWithRawResponse:
         from .resources.online_evaluators import AsyncOnlineEvaluatorsResourceWithRawResponse
 
@@ -832,6 +1020,30 @@ class AsyncLangsmithWithRawResponse:
         return AsyncInfoResourceWithRawResponse(self._client.info)
 
     @cached_property
+    def workspace_secrets(self) -> workspace_secrets.AsyncWorkspaceSecretsResourceWithRawResponse:
+        from .resources.workspace_secrets import AsyncWorkspaceSecretsResourceWithRawResponse
+
+        return AsyncWorkspaceSecretsResourceWithRawResponse(self._client.workspace_secrets)
+
+    @cached_property
+    def workspace_tags(self) -> workspace_tags.AsyncWorkspaceTagsResourceWithRawResponse:
+        from .resources.workspace_tags import AsyncWorkspaceTagsResourceWithRawResponse
+
+        return AsyncWorkspaceTagsResourceWithRawResponse(self._client.workspace_tags)
+
+    @cached_property
+    def repos(self) -> repos.AsyncReposResourceWithRawResponse:
+        from .resources.repos import AsyncReposResourceWithRawResponse
+
+        return AsyncReposResourceWithRawResponse(self._client.repos)
+
+    @cached_property
+    def commits(self) -> commits.AsyncCommitsResourceWithRawResponse:
+        from .resources.commits import AsyncCommitsResourceWithRawResponse
+
+        return AsyncCommitsResourceWithRawResponse(self._client.commits)
+
+    @cached_property
     def issues(self) -> issues.AsyncIssuesResourceWithRawResponse:
         from .resources.issues import AsyncIssuesResourceWithRawResponse
 
@@ -851,10 +1063,22 @@ class LangsmithWithStreamedResponse:
         self._client = client
 
     @cached_property
+    def sql(self) -> sql.SqlResourceWithStreamingResponse:
+        from .resources.sql import SqlResourceWithStreamingResponse
+
+        return SqlResourceWithStreamingResponse(self._client.sql)
+
+    @cached_property
     def product_feedback(self) -> product_feedback.ProductFeedbackResourceWithStreamingResponse:
         from .resources.product_feedback import ProductFeedbackResourceWithStreamingResponse
 
         return ProductFeedbackResourceWithStreamingResponse(self._client.product_feedback)
+
+    @cached_property
+    def agents(self) -> agents.AgentsResourceWithStreamingResponse:
+        from .resources.agents import AgentsResourceWithStreamingResponse
+
+        return AgentsResourceWithStreamingResponse(self._client.agents)
 
     @cached_property
     def fleet(self) -> fleet.FleetResourceWithStreamingResponse:
@@ -893,6 +1117,18 @@ class LangsmithWithStreamedResponse:
         return TracesResourceWithStreamingResponse(self._client.traces)
 
     @cached_property
+    def ai_search(self) -> ai_search.AISearchResourceWithStreamingResponse:
+        from .resources.ai_search import AISearchResourceWithStreamingResponse
+
+        return AISearchResourceWithStreamingResponse(self._client.ai_search)
+
+    @cached_property
+    def evaluators(self) -> evaluators.EvaluatorsResourceWithStreamingResponse:
+        from .resources.evaluators import EvaluatorsResourceWithStreamingResponse
+
+        return EvaluatorsResourceWithStreamingResponse(self._client.evaluators)
+
+    @cached_property
     def online_evaluators(self) -> online_evaluators.OnlineEvaluatorsResourceWithStreamingResponse:
         from .resources.online_evaluators import OnlineEvaluatorsResourceWithStreamingResponse
 
@@ -923,6 +1159,30 @@ class LangsmithWithStreamedResponse:
         return InfoResourceWithStreamingResponse(self._client.info)
 
     @cached_property
+    def workspace_secrets(self) -> workspace_secrets.WorkspaceSecretsResourceWithStreamingResponse:
+        from .resources.workspace_secrets import WorkspaceSecretsResourceWithStreamingResponse
+
+        return WorkspaceSecretsResourceWithStreamingResponse(self._client.workspace_secrets)
+
+    @cached_property
+    def workspace_tags(self) -> workspace_tags.WorkspaceTagsResourceWithStreamingResponse:
+        from .resources.workspace_tags import WorkspaceTagsResourceWithStreamingResponse
+
+        return WorkspaceTagsResourceWithStreamingResponse(self._client.workspace_tags)
+
+    @cached_property
+    def repos(self) -> repos.ReposResourceWithStreamingResponse:
+        from .resources.repos import ReposResourceWithStreamingResponse
+
+        return ReposResourceWithStreamingResponse(self._client.repos)
+
+    @cached_property
+    def commits(self) -> commits.CommitsResourceWithStreamingResponse:
+        from .resources.commits import CommitsResourceWithStreamingResponse
+
+        return CommitsResourceWithStreamingResponse(self._client.commits)
+
+    @cached_property
     def issues(self) -> issues.IssuesResourceWithStreamingResponse:
         from .resources.issues import IssuesResourceWithStreamingResponse
 
@@ -942,10 +1202,22 @@ class AsyncLangsmithWithStreamedResponse:
         self._client = client
 
     @cached_property
+    def sql(self) -> sql.AsyncSqlResourceWithStreamingResponse:
+        from .resources.sql import AsyncSqlResourceWithStreamingResponse
+
+        return AsyncSqlResourceWithStreamingResponse(self._client.sql)
+
+    @cached_property
     def product_feedback(self) -> product_feedback.AsyncProductFeedbackResourceWithStreamingResponse:
         from .resources.product_feedback import AsyncProductFeedbackResourceWithStreamingResponse
 
         return AsyncProductFeedbackResourceWithStreamingResponse(self._client.product_feedback)
+
+    @cached_property
+    def agents(self) -> agents.AsyncAgentsResourceWithStreamingResponse:
+        from .resources.agents import AsyncAgentsResourceWithStreamingResponse
+
+        return AsyncAgentsResourceWithStreamingResponse(self._client.agents)
 
     @cached_property
     def fleet(self) -> fleet.AsyncFleetResourceWithStreamingResponse:
@@ -984,6 +1256,18 @@ class AsyncLangsmithWithStreamedResponse:
         return AsyncTracesResourceWithStreamingResponse(self._client.traces)
 
     @cached_property
+    def ai_search(self) -> ai_search.AsyncAISearchResourceWithStreamingResponse:
+        from .resources.ai_search import AsyncAISearchResourceWithStreamingResponse
+
+        return AsyncAISearchResourceWithStreamingResponse(self._client.ai_search)
+
+    @cached_property
+    def evaluators(self) -> evaluators.AsyncEvaluatorsResourceWithStreamingResponse:
+        from .resources.evaluators import AsyncEvaluatorsResourceWithStreamingResponse
+
+        return AsyncEvaluatorsResourceWithStreamingResponse(self._client.evaluators)
+
+    @cached_property
     def online_evaluators(self) -> online_evaluators.AsyncOnlineEvaluatorsResourceWithStreamingResponse:
         from .resources.online_evaluators import AsyncOnlineEvaluatorsResourceWithStreamingResponse
 
@@ -1012,6 +1296,30 @@ class AsyncLangsmithWithStreamedResponse:
         from .resources.info import AsyncInfoResourceWithStreamingResponse
 
         return AsyncInfoResourceWithStreamingResponse(self._client.info)
+
+    @cached_property
+    def workspace_secrets(self) -> workspace_secrets.AsyncWorkspaceSecretsResourceWithStreamingResponse:
+        from .resources.workspace_secrets import AsyncWorkspaceSecretsResourceWithStreamingResponse
+
+        return AsyncWorkspaceSecretsResourceWithStreamingResponse(self._client.workspace_secrets)
+
+    @cached_property
+    def workspace_tags(self) -> workspace_tags.AsyncWorkspaceTagsResourceWithStreamingResponse:
+        from .resources.workspace_tags import AsyncWorkspaceTagsResourceWithStreamingResponse
+
+        return AsyncWorkspaceTagsResourceWithStreamingResponse(self._client.workspace_tags)
+
+    @cached_property
+    def repos(self) -> repos.AsyncReposResourceWithStreamingResponse:
+        from .resources.repos import AsyncReposResourceWithStreamingResponse
+
+        return AsyncReposResourceWithStreamingResponse(self._client.repos)
+
+    @cached_property
+    def commits(self) -> commits.AsyncCommitsResourceWithStreamingResponse:
+        from .resources.commits import AsyncCommitsResourceWithStreamingResponse
+
+        return AsyncCommitsResourceWithStreamingResponse(self._client.commits)
 
     @cached_property
     def issues(self) -> issues.AsyncIssuesResourceWithStreamingResponse:

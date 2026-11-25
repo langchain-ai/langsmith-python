@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Dict, Optional
+
 from ..types import (
     OnlineEvaluatorType,
     online_evaluator_list_params,
@@ -63,6 +65,7 @@ class OnlineEvaluatorsResource(SyncAPIResource):
         *,
         code_evaluator: CreateOnlineCodeEvaluatorRequestParam | Omit = omit,
         llm_evaluator: CreateOnlineLlmEvaluatorRequestParam | Omit = omit,
+        metadata: Optional[Dict[str, object]] | Omit = omit,
         name: str | Omit = omit,
         type: OnlineEvaluatorType | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -90,6 +93,7 @@ class OnlineEvaluatorsResource(SyncAPIResource):
                 {
                     "code_evaluator": code_evaluator,
                     "llm_evaluator": llm_evaluator,
+                    "metadata": metadata,
                     "name": name,
                     "type": type,
                 },
@@ -140,6 +144,7 @@ class OnlineEvaluatorsResource(SyncAPIResource):
         *,
         code_evaluator: UpdateOnlineCodeEvaluatorRequestParam | Omit = omit,
         llm_evaluator: UpdateOnlineLlmEvaluatorRequestParam | Omit = omit,
+        metadata: Optional[Dict[str, object]] | Omit = omit,
         name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -169,6 +174,7 @@ class OnlineEvaluatorsResource(SyncAPIResource):
                 {
                     "code_evaluator": code_evaluator,
                     "llm_evaluator": llm_evaluator,
+                    "metadata": metadata,
                     "name": name,
                 },
                 online_evaluator_update_params.OnlineEvaluatorUpdateParams,
@@ -185,6 +191,7 @@ class OnlineEvaluatorsResource(SyncAPIResource):
         agent_id: str | Omit = omit,
         feedback_key: str | Omit = omit,
         limit: int | Omit = omit,
+        metadata: str | Omit = omit,
         name_contains: str | Omit = omit,
         offset: int | Omit = omit,
         resource_id: SequenceNotStr[str] | Omit = omit,
@@ -210,6 +217,8 @@ class OnlineEvaluatorsResource(SyncAPIResource):
           feedback_key: Filter by feedback key
 
           limit: Maximum number of results (1-100)
+
+          metadata: Filter by metadata containment using a JSON object
 
           name_contains: Filter by name substring (also searches creator names)
 
@@ -246,6 +255,7 @@ class OnlineEvaluatorsResource(SyncAPIResource):
                         "agent_id": agent_id,
                         "feedback_key": feedback_key,
                         "limit": limit,
+                        "metadata": metadata,
                         "name_contains": name_contains,
                         "offset": offset,
                         "resource_id": resource_id,
@@ -406,8 +416,8 @@ class OnlineEvaluatorsResource(SyncAPIResource):
           tag_value_id: Filter grouped results to evaluators, projects, or datasets tagged with all
               supplied tag value IDs. Only valid with group_by.
 
-          type: Filter grouped results by evaluator type: 'llm' or 'code'. Only valid with
-              group_by.
+          type: Filter grouped results by evaluator type: 'llm', 'code' or 'decision_model'.
+              Only valid with group_by.
 
           extra_headers: Send extra headers
 
@@ -469,6 +479,7 @@ class AsyncOnlineEvaluatorsResource(AsyncAPIResource):
         *,
         code_evaluator: CreateOnlineCodeEvaluatorRequestParam | Omit = omit,
         llm_evaluator: CreateOnlineLlmEvaluatorRequestParam | Omit = omit,
+        metadata: Optional[Dict[str, object]] | Omit = omit,
         name: str | Omit = omit,
         type: OnlineEvaluatorType | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -496,6 +507,7 @@ class AsyncOnlineEvaluatorsResource(AsyncAPIResource):
                 {
                     "code_evaluator": code_evaluator,
                     "llm_evaluator": llm_evaluator,
+                    "metadata": metadata,
                     "name": name,
                     "type": type,
                 },
@@ -546,6 +558,7 @@ class AsyncOnlineEvaluatorsResource(AsyncAPIResource):
         *,
         code_evaluator: UpdateOnlineCodeEvaluatorRequestParam | Omit = omit,
         llm_evaluator: UpdateOnlineLlmEvaluatorRequestParam | Omit = omit,
+        metadata: Optional[Dict[str, object]] | Omit = omit,
         name: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -575,6 +588,7 @@ class AsyncOnlineEvaluatorsResource(AsyncAPIResource):
                 {
                     "code_evaluator": code_evaluator,
                     "llm_evaluator": llm_evaluator,
+                    "metadata": metadata,
                     "name": name,
                 },
                 online_evaluator_update_params.OnlineEvaluatorUpdateParams,
@@ -591,6 +605,7 @@ class AsyncOnlineEvaluatorsResource(AsyncAPIResource):
         agent_id: str | Omit = omit,
         feedback_key: str | Omit = omit,
         limit: int | Omit = omit,
+        metadata: str | Omit = omit,
         name_contains: str | Omit = omit,
         offset: int | Omit = omit,
         resource_id: SequenceNotStr[str] | Omit = omit,
@@ -616,6 +631,8 @@ class AsyncOnlineEvaluatorsResource(AsyncAPIResource):
           feedback_key: Filter by feedback key
 
           limit: Maximum number of results (1-100)
+
+          metadata: Filter by metadata containment using a JSON object
 
           name_contains: Filter by name substring (also searches creator names)
 
@@ -652,6 +669,7 @@ class AsyncOnlineEvaluatorsResource(AsyncAPIResource):
                         "agent_id": agent_id,
                         "feedback_key": feedback_key,
                         "limit": limit,
+                        "metadata": metadata,
                         "name_contains": name_contains,
                         "offset": offset,
                         "resource_id": resource_id,
@@ -812,8 +830,8 @@ class AsyncOnlineEvaluatorsResource(AsyncAPIResource):
           tag_value_id: Filter grouped results to evaluators, projects, or datasets tagged with all
               supplied tag value IDs. Only valid with group_by.
 
-          type: Filter grouped results by evaluator type: 'llm' or 'code'. Only valid with
-              group_by.
+          type: Filter grouped results by evaluator type: 'llm', 'code' or 'decision_model'.
+              Only valid with group_by.
 
           extra_headers: Send extra headers
 

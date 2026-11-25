@@ -29,6 +29,7 @@ from contextlib import AbstractContextManager
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
+from langsmith.address import AgentAddress
 from langsmith._internal._package_version import get_package_version
 from langsmith._internal.voice.helpers import dump_event, observe_safely, scrub
 from langsmith._internal.voice.session import (
@@ -390,6 +391,7 @@ class _GeminiLiveTracingSession:
         thread_id: Optional[str],
         sample_rate: int,
         project_name: Optional[str],
+        address: Optional[AgentAddress],
         tags: Optional[list[str]],
         metadata: Optional[dict[str, Any]],
         is_agent_speaking: Optional[Callable[[], bool]],
@@ -402,6 +404,7 @@ class _GeminiLiveTracingSession:
         self._thread_id = thread_id or str(uuid.uuid4())
         self._sample_rate = sample_rate
         self._project_name = project_name
+        self._address = address
         self._tags = tags
         self._metadata = metadata
         self._is_agent_speaking = is_agent_speaking
@@ -417,6 +420,7 @@ class _GeminiLiveTracingSession:
             thread_id=self._thread_id,
             sample_rate=self._sample_rate,
             project_name=self._project_name,
+            address=self._address,
             tags=self._tags,
             metadata=self._metadata,
             max_audio_seconds=self._max_audio_seconds,
@@ -430,6 +434,7 @@ class _GeminiLiveTracingSession:
             metadata={"thread_id": self._thread_id},
             tags=self._tags,
             project_name=self._project_name,
+            address=self._address,
             replicas=self._replicas,
         )
         self._context.__enter__()
@@ -468,6 +473,7 @@ def wrap_gemini_live(
     thread_id: Optional[str] = None,
     sample_rate: int = DEFAULT_SAMPLE_RATE,
     project_name: Optional[str] = None,
+    address: Optional[AgentAddress] = None,
     tags: Optional[list[str]] = None,
     metadata: Optional[dict[str, Any]] = None,
     is_agent_speaking: Optional[Callable[[], bool]] = None,
@@ -494,6 +500,7 @@ def wrap_gemini_live(
         thread_id=thread_id,
         sample_rate=sample_rate,
         project_name=project_name,
+        address=address,
         tags=tags,
         metadata=metadata,
         is_agent_speaking=is_agent_speaking,

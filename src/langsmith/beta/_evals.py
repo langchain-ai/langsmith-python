@@ -132,7 +132,7 @@ def convert_runs_to_test(
     outputs = [r.outputs for r in runs] if include_outputs else None
     client.create_examples(
         inputs=[r.inputs for r in runs],
-        outputs=outputs,
+        reference_outputs=outputs,
         source_run_ids=[r.id for r in runs],
         dataset_id=ds.id,
     )
@@ -172,10 +172,10 @@ def convert_runs_to_test(
 
 
 def _load_nested_traces(project_name: str, client: Client) -> list[ls_schemas.Run]:
-    # v1 `/runs/query` returns 501 when ClickHouse query support is disabled;
-    # only then fall back to v2. Dual backends keep using the legacy path.
+    # Use v2 wherever SmithDB serves queries; v1 `/runs/query` only works while
+    # ClickHouse does, so it stays for ClickHouse-only backends.
     backend = _v2_migration_utils.get_query_backend(client.info.instance_flags)
-    if backend == _v2_migration_utils.QueryBackend.SMITHDB_ONLY:
+    if backend != _v2_migration_utils.QueryBackend.CLICKHOUSE_ONLY:
         return _v2_migration_utils._load_nested_traces_v2(project_name, client)
 
     # Suppressed: compute_test_metrics() already warned, and it points at

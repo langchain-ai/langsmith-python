@@ -368,7 +368,7 @@ class TestParseWriteReplicasFromEnvVar:
                     "project_name": "project-staging",
                     "primary": False,
                 },
-                {"api_url": "https://api.example.com", "api_key": "key3"},
+                {"api_url": "https://api.example.com", "api_key": "key3", "workspace_id": "ws-3"},
             ]
         )
 
@@ -376,6 +376,7 @@ class TestParseWriteReplicasFromEnvVar:
             result = _parse_write_replicas_from_env_var(env_var)
 
         assert len(result) == 3
+        assert [r["auth"].get("tenant_id") for r in result] == [None, None, "ws-3"]
         assert all(r["api_url"] == "https://api.example.com" for r in result)
 
         keys = [r["auth"]["api_key"] for r in result]
@@ -390,6 +391,13 @@ class TestParseWriteReplicasFromEnvVar:
         ]
         assert all(r["updates"] is None for r in result)
         assert [r.get("primary") for r in result] == [True, False, None]
+
+    @pytest.mark.parametrize("workspace_id", [1, "", "  "])
+    def test_parse_new_array_format_ignores_empty_or_invalid_workspace_id(self, workspace_id):
+        env_var = json.dumps([{"api_url": "https://api.example.com", "api_key": "key1", "workspace_id": workspace_id}])
+        result = _parse_write_replicas_from_env_var(env_var)
+        assert len(result) == 1
+        assert "tenant_id" not in result[0]["auth"]
 
     @pytest.mark.parametrize("primary", ["true", 1, None])
     def test_parse_new_array_format_rejects_invalid_primary(self, primary):
@@ -610,6 +618,76 @@ class TestClientReplicaMethods:
                 api_key="custom-key",
                 api_url="https://custom.example.com",
             )
+
+    @pytest.mark.parametrize(
+        ("replica_url", "replica_auth", "expected_tenant"),
+        [
+            ("https://dev.example.com", AuthHeaders(api_key="dev-key"), None),
+            ("https://dev.example.com", AuthHeaders(api_key="dev-key", tenant_id="dev-workspace"), "dev-workspace"),
+            ("https://base.example.com", AuthHeaders(api_key="same-org-key"), "base-workspace"),
+            ("https://data-plane.example.com", AuthHeaders(api_key="base-key"), "base-workspace"),
+            ("https://dev.example.com", AuthHeaders(api_key="dev-key", tenant_id="base-workspace"), "base-workspace"),
+        ],
+        ids=[
+            "other-instance",
+            "other-instance-own-tenant",
+            "same-instance",
+            "other-host-same-key",
+            "other-instance-explicit-base-tenant",
+        ],
+    )
+    @pytest.mark.parametrize(
+        ("auto_batch_tracing", "info"),
+        [
+            (False, {}),
+            (
+                True,
+                {
+                    "batch_ingest_config": {
+                        "use_multipart_endpoint": False,
+                        "scale_up_qsize_trigger": 1000,
+                        "scale_up_nthreads_limit": 16,
+                        "scale_down_nempty_trigger": 4,
+                        "size_limit": 100,
+                        "size_limit_bytes": 20971520,
+                    }
+                },
+            ),
+            (True, {}),
+            (True, {"instance_flags": {"zstd_compression_enabled": True}}),
+        ],
+        ids=["single", "batch-json", "multipart", "compressed"],
+    )
+    def test_replica_on_another_instance_does_not_send_base_workspace(
+        self, monkeypatch, replica_url, replica_auth, expected_tenant, auto_batch_tracing, info
+    ):
+        monkeypatch.delenv("LANGSMITH_DISABLE_RUN_COMPRESSION", raising=False)
+        client = Client(
+            api_url="https://base.example.com",
+            api_key="base-key",
+            workspace_id="base-workspace",
+            auto_batch_tracing=auto_batch_tracing,
+            info=info,
+        )
+        with patch.object(client.session, "request") as mock_request:
+            mock_request.return_value.status_code = 200
+            mock_request.return_value.text = ""
+            run_tree = RunTree(
+                name="test_run",
+                inputs={"input": "test"},
+                client=client,
+                replicas=[WriteReplica(api_url=replica_url, auth=replica_auth)],
+            )
+            run_tree.post()
+            run_tree.end(outputs={"output": "test"})
+            run_tree.patch()
+            client.flush()
+
+        posts = [c for c in mock_request.call_args_list if c.args[1].startswith(replica_url)]
+        assert posts
+        for call in posts:
+            assert call.kwargs["headers"]["x-api-key"] == replica_auth["api_key"]
+            assert call.kwargs["headers"].get("X-Tenant-Id") == expected_tenant
 
 
 class TestReplicaAuthExtraction:

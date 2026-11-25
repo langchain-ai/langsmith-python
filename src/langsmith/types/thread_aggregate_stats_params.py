@@ -8,7 +8,7 @@ from typing_extensions import Literal, Required, Annotated, TypedDict
 
 from .._utils import PropertyInfo
 
-__all__ = ["ThreadAggregateStatsParams"]
+__all__ = ["ThreadAggregateStatsParams", "Stride"]
 
 
 class ThreadAggregateStatsParams(TypedDict, total=False):
@@ -67,6 +67,13 @@ class ThreadAggregateStatsParams(TypedDict, total=False):
     date-time). Defaults to 1 day before now (UTC) when omitted.
     """
 
+    stride: Stride
+    """`stride` returns the statistics as a time series in `buckets`.
+
+    Each thread counts once, in the bucket containing the start of its most recent
+    trace. Omit for a single aggregate over the whole window.
+    """
+
     thread_filter: str
     """
     `thread_filter` narrows eligible threads using a LangSmith filter expression
@@ -84,3 +91,19 @@ class ThreadAggregateStatsParams(TypedDict, total=False):
     `tree_filter` narrows eligible threads to those containing a matching run
     anywhere in a trace tree.
     """
+
+
+class Stride(TypedDict, total=False):
+    """`stride` returns the statistics as a time series in `buckets`.
+
+    Each thread counts once, in the bucket containing the start of its most recent trace. Omit for a single aggregate over the whole window.
+    """
+
+    unit: Literal["SECOND", "MINUTE", "HOUR", "DAY"]
+    """`unit` is the unit of time used for each bucket.
+
+    See the `StrideUnit` enum for allowed values.
+    """
+
+    value: int
+    """`value` is the number of time units per bucket. Must be at least 1."""

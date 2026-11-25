@@ -1,5 +1,6 @@
 """Tests for AsyncExperimentResults edge cases."""
 
+import asyncio
 import uuid
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
@@ -118,6 +119,57 @@ async def test_summary_error_propagates():
             collected.append(r)
 
     # All items were yielded before the summary error.
+    assert len(collected) == 2
+
+
+async def _drain(results: AsyncExperimentResults, collected: list) -> None:
+    """Drain results into collected, failing fast instead of hanging forever."""
+
+    async def _consume() -> None:
+        async for r in results:
+            collected.append(r)
+
+    await asyncio.wait_for(_consume(), timeout=5)
+
+
+async def test_exception_propagates_when_producer_awaits_before_failing():
+    """A producer that awaits (e.g. network I/O) before raising must not hang.
+
+    The consumer is parked in Condition.wait() when the producer task dies, so
+    the task must notify waiters on failure for __anext__ to see it is done.
+    """
+    item = _make_result(0)
+    manager = _make_manager([])
+
+    async def _aget_results():
+        yield item
+        await asyncio.sleep(0.05)
+        raise RuntimeError("transient API error")
+
+    manager.aget_results = _aget_results
+
+    results = AsyncExperimentResults(manager)
+    collected: list = []
+    with pytest.raises(RuntimeError, match="transient API error"):
+        await _drain(results, collected)
+    assert collected == [item]
+
+
+async def test_summary_error_propagates_when_summary_awaits_before_failing():
+    """An aget_summary_scores() that awaits before raising must not hang."""
+    items = [_make_result(i) for i in range(2)]
+    manager = _make_manager(items)
+
+    async def _failing_summary():
+        await asyncio.sleep(0.05)
+        raise RuntimeError("summary failed")
+
+    manager.aget_summary_scores = _failing_summary
+
+    results = AsyncExperimentResults(manager)
+    collected: list = []
+    with pytest.raises(RuntimeError, match="summary failed"):
+        await _drain(results, collected)
     assert len(collected) == 2
 
 

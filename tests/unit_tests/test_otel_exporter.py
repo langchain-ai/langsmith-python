@@ -40,8 +40,8 @@ def test_cleanup_stale_spans():
         stale_id = uuid.uuid4()
         fresh_id = uuid.uuid4()
 
-        exporter._span_info.set(stale_id, stale_span, created_at=time.time() - 2)
-        exporter._span_info.set(fresh_id, fresh_span, created_at=time.time())
+        exporter._span_info.set(stale_id, stale_span, created_at=time.monotonic() - 2)
+        exporter._span_info.set(fresh_id, fresh_span, created_at=time.monotonic())
         exporter._last_cleanup = 0.0  # Force cleanup
 
         exporter._cleanup_stale_spans()
@@ -53,6 +53,28 @@ def test_cleanup_stale_spans():
         fresh_span.end.assert_not_called()
 
 
+def test_cleanup_keeps_span_refreshed_while_cleanup_ends_others():
+    """An entry another worker refreshes while cleanup is ending stale spans is kept."""
+    with patch("langsmith._internal.otel._otel_exporter._import_otel_exporter") as mock_import:
+        mock_import.return_value = (MagicMock(),) * 8
+
+        exporter = OTELExporter(span_ttl_seconds=1)
+        first_id, second_id = uuid.uuid4(), uuid.uuid4()
+        refreshed_span = MagicMock()
+        first_span = MagicMock()
+        first_span.end.side_effect = lambda: exporter._span_info.set(second_id, refreshed_span)
+
+        exporter._span_info.set(first_id, first_span, created_at=time.monotonic() - 3)
+        exporter._span_info.set(second_id, MagicMock(), created_at=time.monotonic() - 2)
+        exporter._last_cleanup = 0.0  # Force cleanup
+
+        exporter._cleanup_stale_spans()
+
+        first_span.end.assert_called_once()
+        assert exporter._span_info.get(first_id) is None
+        assert exporter._span_info.get(second_id).span is refreshed_span
+
+
 def test_cleanup_periodic_behavior():
     """Test cleanup only runs periodically."""
     with patch("langsmith._internal.otel._otel_exporter._import_otel_exporter") as mock_import:
@@ -62,8 +84,8 @@ def test_cleanup_periodic_behavior():
         stale_span = MagicMock()
         stale_id = uuid.uuid4()
 
-        exporter._span_info.set(stale_id, stale_span, created_at=time.time() - 2)
-        exporter._last_cleanup = time.time() - 5  # Recent cleanup
+        exporter._span_info.set(stale_id, stale_span, created_at=time.monotonic() - 2)
+        exporter._last_cleanup = time.monotonic() - 5  # Recent cleanup
 
         exporter._cleanup_stale_spans()
 
@@ -75,8 +97,7 @@ def test_cleanup_periodic_behavior():
 def test_cleanup_stale_spans_tolerates_concurrent_mutation():
     """Cleanup plus concurrent insert/delete from other batch workers must not
     raise ``RuntimeError: dictionary changed size during iteration`` or any
-    ``KeyError``. The span info store locks all access and snapshots before
-    iterating.
+    ``KeyError``. The span info store locks all access.
     """
     with patch("langsmith._internal.otel._otel_exporter._import_otel_exporter") as mock_import:
         mock_import.return_value = (MagicMock(),) * 8
@@ -88,7 +109,7 @@ def test_cleanup_stale_spans_tolerates_concurrent_mutation():
         stop = threading.Event()
 
         # Seed one stale span so cleanup has work to do.
-        exporter._span_info.set(uuid.uuid4(), MagicMock(), created_at=time.time() - 2)
+        exporter._span_info.set(uuid.uuid4(), MagicMock(), created_at=time.monotonic() - 2)
 
         def mutator():
             while not stop.is_set():
@@ -112,6 +133,98 @@ def test_cleanup_stale_spans_tolerates_concurrent_mutation():
                 t.join(timeout=2)
 
         assert not errors, f"concurrent access raised: {errors}"
+
+
+def _otel_run_op(operation, run_id, trace_id, name, **fields):
+    from langsmith._internal._operations import serialize_run_dict
+
+    return serialize_run_dict(
+        operation,
+        {
+            "id": run_id,
+            "trace_id": trace_id,
+            "name": name,
+            "run_type": "chain",
+            "start_time": "2026-01-01T00:00:00.000000Z",
+            **fields,
+        },
+    )
+
+
+@pytest.fixture
+def otel_sdk_exporter():
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+        InMemorySpanExporter,
+    )
+
+    provider = TracerProvider()
+    sink = InMemorySpanExporter()
+    provider.add_span_processor(SimpleSpanProcessor(sink))
+    try:
+        yield provider, sink
+    finally:
+        provider.shutdown()
+
+
+@pytest.mark.parametrize("ended_by", ["post", "patch"])
+def test_ended_span_keeps_only_its_context(otel_sdk_exporter, ended_by):
+    """An ended run keeps only its span context, and children exported later still link to it."""
+    provider, sink = otel_sdk_exporter
+    exporter = OTELExporter(tracer_provider=provider)
+    trace_id, parent_id, child_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    end = {"end_time": "2026-01-01T00:00:01.000000Z", "outputs": {"output": "payload"}}
+
+    if ended_by == "post":
+        exporter.export_batch([_otel_run_op("post", parent_id, trace_id, "parent", **end)], {})
+    else:
+        exporter.export_batch([_otel_run_op("post", parent_id, trace_id, "parent")], {})
+        exporter.export_batch([_otel_run_op("patch", parent_id, trace_id, "parent", **end)], {})
+
+    assert not hasattr(exporter._span_info.get(parent_id).span, "attributes")
+
+    exporter.export_batch(
+        [_otel_run_op("post", child_id, trace_id, "child", parent_run_id=str(parent_id), **end)],
+        {},
+    )
+    spans = {span.name: span for span in sink.get_finished_spans()}
+    assert spans["child"].parent.span_id == spans["parent"].context.span_id
+    assert spans["child"].context.trace_id == spans["parent"].context.trace_id
+
+
+def test_ended_span_info_expires_ttl_after_run_end(otel_sdk_exporter):
+    """Span info is kept for the TTL after a run ends, not after it starts."""
+    from langsmith._internal.otel import _otel_exporter
+
+    provider, sink = otel_sdk_exporter
+    clock = SimpleNamespace(now=0.0)
+    trace_id, parent_id, orphan_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    end = {"end_time": "2026-01-01T00:00:01.000000Z"}
+
+    def export_at(now, op):
+        clock.now = now
+        exporter.export_batch([op], {})
+
+    with patch.object(_otel_exporter, "time", SimpleNamespace(monotonic=lambda: clock.now)):
+        exporter = OTELExporter(tracer_provider=provider, span_ttl_seconds=60)
+        export_at(0, _otel_run_op("post", parent_id, trace_id, "parent"))
+        export_at(0, _otel_run_op("post", orphan_id, trace_id, "orphan"))
+        export_at(50, _otel_run_op("patch", parent_id, trace_id, "parent", **end))
+        export_at(
+            75,
+            _otel_run_op("post", uuid.uuid4(), trace_id, "linked", parent_run_id=str(parent_id), **end),
+        )
+        spans = {span.name: span for span in sink.get_finished_spans()}
+        assert "orphan" in spans
+        assert spans["linked"].parent.span_id == spans["parent"].context.span_id
+
+        export_at(
+            200,
+            _otel_run_op("post", uuid.uuid4(), trace_id, "unlinked", parent_run_id=str(parent_id), **end),
+        )
+        spans = {span.name: span for span in sink.get_finished_spans()}
+        assert spans["unlinked"].parent.span_id != spans["parent"].context.span_id
 
 
 @patch("langsmith.utils.get_env_var")

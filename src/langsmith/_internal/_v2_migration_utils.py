@@ -77,6 +77,10 @@ _V2_RUN_SELECTS: list[RunSelectField] = [
     "COMPLETION_COST_DETAILS",
 ]
 
+# Sync readers also download attachments, as the v1 `list_runs` does. The async
+# reader leaves them out: the download is a blocking `requests.get`.
+_V2_RUN_SELECTS_WITH_ATTACHMENTS: list[RunSelectField] = [*_V2_RUN_SELECTS, "ATTACHMENTS"]
+
 
 def _load_traces_v2(
     project: schemas.TracerSession,
@@ -94,19 +98,31 @@ def _load_traces_v2(
         "project_ids": [str(project.id)],
         "min_start_time": project.start_time,
         "max_start_time": project.end_time or now,
-        "selects": _V2_RUN_SELECTS,
+        "selects": _V2_RUN_SELECTS_WITH_ATTACHMENTS,
     }
     if is_root is not None:
         kwargs["is_root"] = is_root
     pager = client._get_langsmith_api_sync().runs.query_v2(**kwargs)
-    return [_v2_run_to_schema(run) for run in pager]
+    return [_v2_run_to_schema(run, host_url=client._host_url) for run in pager]
 
 
-def _v2_run_to_schema(run: Any) -> schemas.Run:
+def _v2_attachments_to_schema(attachments: Optional[Mapping[str, str]]) -> Optional[dict[str, Any]]:
+    """Download v2 attachments (name → pre-signed URL) into `schemas.Run` attachments."""
+    if not attachments:
+        return None
+    from langsmith.client import _convert_stored_attachments_to_attachments_dict
+
+    # v2 names carry no storage prefix; add one so the converter's strip
+    # returns the original name.
+    stored = {f"attachment.{name}": {"presigned_url": url} for name, url in attachments.items()}
+    return _convert_stored_attachments_to_attachments_dict({"s3_urls": stored}, attachments_key="s3_urls")
+
+
+def _v2_run_to_schema(run: Any, *, host_url: Optional[str] = None) -> schemas.Run:
     """Map a v2 `Run` to `schemas.Run`.
 
     `project_id`→`session_id`, `parent_run_ids[-1]`→`parent_run_id`; drop `None` so
-    schema defaults apply (e.g. `dotted_order`).
+    schema defaults apply (e.g. `dotted_order`). `host_url` lets `Run.url` resolve.
     """
     parent_run_ids = getattr(run, "parent_run_ids", None)
     fb = getattr(run, "feedback_stats", None)
@@ -146,8 +162,12 @@ def _v2_run_to_schema(run: Any) -> schemas.Run:
         "completion_token_details": ctd.raw if ctd else None,
         "prompt_cost_details": pcd.raw if pcd else None,
         "completion_cost_details": ccd.raw if ccd else None,
+        "attachments": _v2_attachments_to_schema(getattr(run, "attachments", None)),
     }
-    return schemas.Run(**{key: value for key, value in fields.items() if value is not None})
+    return schemas.Run(
+        **{key: value for key, value in fields.items() if value is not None},
+        _host_url=host_url,
+    )
 
 
 def _read_run_v2(
@@ -161,10 +181,10 @@ def _read_run_v2(
     run = client._get_langsmith_api_sync().runs.retrieve_v2(
         run_id=str(run_id),
         project_id=str(project_id),
-        selects=_V2_RUN_SELECTS,
+        selects=_V2_RUN_SELECTS_WITH_ATTACHMENTS,
         start_time=start_time if start_time is not None else omit,
     )
-    return _v2_run_to_schema(run)
+    return _v2_run_to_schema(run, host_url=client._host_url)
 
 
 def _load_nested_traces_v2(project_name: str, client: Client) -> list[schemas.Run]:
@@ -179,9 +199,9 @@ def _load_nested_traces_v2(project_name: str, client: Client) -> list[schemas.Ru
         project_ids=[str(project.id)],
         min_start_time=project.start_time,
         max_start_time=project.end_time or now,
-        selects=_V2_RUN_SELECTS,
+        selects=_V2_RUN_SELECTS_WITH_ATTACHMENTS,
     )
-    runs_flat = [_v2_run_to_schema(r) for r in pager]
+    runs_flat = [_v2_run_to_schema(r, host_url=client._host_url) for r in pager]
 
     treemap: collections.defaultdict[uuid.UUID, list[schemas.Run]] = collections.defaultdict(list)
     results: list[schemas.Run] = []

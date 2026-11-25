@@ -230,36 +230,49 @@ For this example, we will do so using the Client, but you can also do this using
 the web interface, as explained in the [LangSmith docs](https://docs.smith.langchain.com/).
 
 ```python
+import asyncio
+from datetime import datetime, timedelta, timezone
+
 from langsmith import Client
 
-client = Client()
-dataset_name = "Example Dataset"
-# We will only use examples from the top level AgentExecutor run here,
-# and exclude runs that errored.
-runs = client.list_runs(
-    project_name="my_project",
-    execution_order=1,
-    error=False,
-)
 
-dataset = client.create_dataset(dataset_name, description="An example dataset")
-for run in runs:
-    client.create_example(
-        inputs=run.inputs,
-        outputs=run.outputs,
-        dataset_id=dataset.id,
-    )
+async def main():
+    client = Client()
+    dataset_name = "Example Dataset"
+    project = await client.aread_project(project_name="my_project")
+    dataset = client.create_dataset(dataset_name, description="An example dataset")
+    # We will only use examples from the top level AgentExecutor run here,
+    # and exclude runs that errored. Without min_start_time, only the last
+    # 24 hours are queried.
+    async for run in client.runs.query(
+        project_ids=[str(project.id)],
+        is_root=True,
+        has_error=False,
+        min_start_time=datetime.now(timezone.utc) - timedelta(days=7),
+        selects=["INPUTS", "OUTPUTS"],
+    ):
+        client.create_example(
+            inputs=run.inputs,
+            outputs=run.outputs,
+            dataset_id=dataset.id,
+        )
+
+
+asyncio.run(main())
 ```
 
 ## Evaluating Runs
 
 Check out the [LangSmith Testing & Evaluation dos](https://docs.smith.langchain.com/evaluation) for up-to-date workflows.
 
-For generating automated feedback on individual runs, you can run evaluations directly using the LangSmith client.
+For generating automated feedback on individual runs, you can grade the runs yourself and log the result as feedback with the LangSmith client.
 
 ```python
+import asyncio
+from datetime import datetime, timedelta, timezone
 from typing import Optional
-from langsmith.evaluation import StringEvaluator
+
+from langsmith import Client
 
 
 def jaccard_chars(output: str, answer: str) -> float:
@@ -282,15 +295,27 @@ def grader(run_input: str, run_output: str, answer: Optional[str]) -> dict:
     return dict(score=score, value=value)
 
 
-evaluator = StringEvaluator(evaluation_name="Jaccard", grading_function=grader)
+async def main():
+    client = Client()
+    project = await client.aread_project(project_name="my_project")
+    async for run in client.runs.query(
+        project_ids=[str(project.id)],
+        is_root=True,
+        has_error=False,
+        min_start_time=datetime.now(timezone.utc) - timedelta(days=7),
+        selects=["ID", "INPUTS", "OUTPUTS"],
+    ):
+        result = grader(run.inputs["input"], run.outputs["output"], answer=None)
+        client.create_feedback(
+            run_id=run.id,
+            trace_id=run.id,
+            session_id=project.id,
+            key="Jaccard",
+            **result,
+        )
 
-runs = client.list_runs(
-    project_name="my_project",
-    execution_order=1,
-    error=False,
-)
-for run in runs:
-    client.evaluate_run(run, evaluator)
+
+asyncio.run(main())
 ```
 
 ## Integrations
@@ -351,6 +376,28 @@ def my_function(text: str):
 
 my_function("hello world")
 ```
+
+### OpenAI Agents API (beta)
+
+The wrapped client also traces [Agents API](https://developers.openai.com/api/docs/guides/agents-api/quickstart) sessions. The agent runs on OpenAI's side, so each turn is read from OpenAI's trace export and sent to LangSmith in the background, a few seconds after the turn ends.
+
+```python
+client = wrappers.wrap_openai(OpenAI())
+
+stream = client.beta.agents.sessions.create(
+    agent={"model": "gpt-6-astra", "instructions": "Run commands, report output."},
+    environment={"type": "openai_hosted"},
+    input="Print 6*7 with a shell command.",
+    stream=True,
+)
+result = stream.get_final_result()  # reads the stream until the turn ends
+
+# Deleting a session deletes its OpenAI traces: delete() sends the pending turns first.
+client.beta.agents.sessions.delete(result.session_id)
+```
+
+1. Trace export must be on for your OpenAI organization, and the key needs `api.traces.read` or `api.agents.read`.
+2. Each session is one LangSmith thread, and a turn started inside a `@traceable` function nests under it.
 
 ## Instructor
 
@@ -548,6 +595,32 @@ async def main() -> None:
 
 
 asyncio.run(main())
+```
+
+## Streaming responses
+
+We provide support for streaming responses using Server Side Events (SSE).
+
+```python
+from langsmith import Langsmith
+
+client = Langsmith()
+
+stream = client.runs.streaming.query_v2()
+for streaming in stream:
+    print(streaming.items)
+```
+
+The async client uses the exact same interface.
+
+```python
+from langsmith import AsyncLangsmith
+
+client = AsyncLangsmith()
+
+stream = await client.runs.streaming.query_v2()
+async for streaming in stream:
+    print(streaming.items)
 ```
 
 ## Using types
@@ -1099,7 +1172,7 @@ print(langsmith.__version__)
 
 ## Requirements
 
-Python 3.10 or higher.
+Python 3.11 or higher.
 
 ## Contributing
 

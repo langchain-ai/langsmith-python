@@ -8,6 +8,14 @@ from .boxes import (
     BoxesResourceWithStreamingResponse,
     AsyncBoxesResourceWithStreamingResponse,
 )
+from .volumes import (
+    VolumesResource,
+    AsyncVolumesResource,
+    VolumesResourceWithRawResponse,
+    AsyncVolumesResourceWithRawResponse,
+    VolumesResourceWithStreamingResponse,
+    AsyncVolumesResourceWithStreamingResponse,
+)
 from .sandboxes import (
     SandboxesResource,
     AsyncSandboxesResource,
@@ -40,6 +48,12 @@ __all__ = [
     "AsyncBoxesResourceWithRawResponse",
     "BoxesResourceWithStreamingResponse",
     "AsyncBoxesResourceWithStreamingResponse",
+    "VolumesResource",
+    "AsyncVolumesResource",
+    "VolumesResourceWithRawResponse",
+    "AsyncVolumesResourceWithRawResponse",
+    "VolumesResourceWithStreamingResponse",
+    "AsyncVolumesResourceWithStreamingResponse",
     "RegistriesResource",
     "AsyncRegistriesResource",
     "RegistriesResourceWithRawResponse",

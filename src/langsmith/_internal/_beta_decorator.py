@@ -11,6 +11,28 @@ class LangSmithBetaWarning(UserWarning):
     """This is a warning specific to the LangSmithBeta module."""
 
 
+class LangSmithDeprecationWarning(DeprecationWarning):
+    """A LangSmith SDK method or parameter that will be removed."""
+
+
+def _show_deprecations_by_default() -> None:
+    """Python hides DeprecationWarning outside __main__; show ours unless the app set a policy.
+
+    App and -W filters sit before Python's built-in default::DeprecationWarning:__main__.
+    """
+    past_builtins = False
+    for action, message, category, module, lineno in warnings.filters:
+        if action == "default" and category is DeprecationWarning and getattr(module, "pattern", module) == "__main__":
+            past_builtins = True
+        elif message is None and module is None and not lineno and issubclass(LangSmithDeprecationWarning, category):
+            if past_builtins and action == "ignore" and category is DeprecationWarning:
+                warnings.filterwarnings("default", category=LangSmithDeprecationWarning)
+            return
+
+
+_show_deprecations_by_default()
+
+
 _suppress_deprecation: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "langsmith_suppress_deprecation", default=False
 )
@@ -39,7 +61,7 @@ def suppress_deprecation_warning() -> Iterator[None]:
 
 def _warn_deprecated(message: str) -> None:
     if not _suppress_deprecation.get():
-        warnings.warn(message, DeprecationWarning, stacklevel=3)
+        warnings.warn(message, LangSmithDeprecationWarning, stacklevel=3)
 
 
 @functools.lru_cache(maxsize=100)

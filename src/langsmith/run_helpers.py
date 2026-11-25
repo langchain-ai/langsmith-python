@@ -180,18 +180,14 @@ def tracing_context(
     client: Optional[ls_client.Client] = None,
     replicas: Optional[Sequence[Union[WriteReplica, str]]] = None,
     distributed_parent_id: Optional[str] = None,
+    inherit_parent_tags_and_metadata: bool = True,
     **kwargs: Any,
 ) -> Generator[None, None, None]:
     """Set the tracing context for a block of code.
 
-    !!! warning "Experimental"
-        `address` is in beta. It is enabled per workspace; a
-        workspace without it rejects the runs, so tracing is lost rather than
-        falling back to a project. It may change without notice.
-
     Args:
         project_name: The name of the project to log the run to.
-        address: (beta) An `AgentAddress`, such as `ls.agent_address(id, environment)`, to log the
+        address: An `AgentAddress`, such as `ls.agent_address(id, environment)`, to log the
             run to instead of a project. Cannot be combined with a project in
             the same call. Defaults to the `LANGSMITH_AGENT_*` env vars.
         tags: The tags to add to the run.
@@ -210,6 +206,7 @@ def tracing_context(
             Example: `[{"api_url": "https://api.example.com", "auth": {"api_key": "key"}, "project_name": "proj"}]`
             or `[{"project_name": "my_experiment", "updates": {"reference_example_id": None}}]`
         distributed_parent_id: The distributed parent ID for distributed tracing. Defaults to None.
+        inherit_parent_tags_and_metadata: Whether runs in this block also get the parent run's tags and metadata. Defaults to True.
     """
     if kwargs:
         # warn
@@ -235,9 +232,10 @@ def tracing_context(
     )
     distributed_parent_id_to_use = distributed_parent_id
     if distributed_parent_id_to_use is None and parent_run is not None:
-        # TODO(angus): decide if we want to merge tags and metadata
-        tags = sorted(set(tags or []) | set(parent_run.tags or []))
-        metadata = {**parent_run.metadata, **(metadata or {})}
+        if inherit_parent_tags_and_metadata:
+            # TODO(angus): decide if we want to merge tags and metadata
+            tags = sorted(set(tags or []) | set(parent_run.tags or []))
+            metadata = {**parent_run.metadata, **(metadata or {})}
         distributed_parent_id_to_use = parent_run.id  # type: ignore[assignment]
     enabled = enabled if enabled is not None else current_context.get("enabled")
     _set_tracing_context(
@@ -253,10 +251,17 @@ def tracing_context(
             "distributed_parent_id": distributed_parent_id_to_use,
         }
     )
+    previous_unmerged_parent_ids = run_trees._UNMERGED_PARENT_IDS.get()
+    if parent_run is not None:
+        if not inherit_parent_tags_and_metadata:
+            run_trees._UNMERGED_PARENT_IDS.set(previous_unmerged_parent_ids | {parent_run.id})
+        elif distributed_parent_id is None:
+            run_trees._UNMERGED_PARENT_IDS.set(previous_unmerged_parent_ids - {parent_run.id})
     try:
         yield
     finally:
         _set_tracing_context(current_context)
+        run_trees._UNMERGED_PARENT_IDS.set(previous_unmerged_parent_ids)
 
 
 # Alias for backwards compatibility
@@ -326,7 +331,7 @@ class LangSmithExtra(TypedDict, total=False):
     project_name: Optional[str]
     """Optional name of the project."""
     address: Optional[AgentAddress]
-    """(beta) An `AgentAddress` to log the run to, instead of a project."""
+    """An `AgentAddress` to log the run to, instead of a project."""
     metadata: Optional[dict[str, Any]]
     """Optional metadata for the run."""
     tags: Optional[list[str]]
@@ -415,11 +420,6 @@ def traceable(
 ) -> Union[Callable, Callable[[Callable], Callable]]:
     """Trace a function with langsmith.
 
-    !!! warning "Experimental"
-        `address` is in beta. It is enabled per workspace; a
-        workspace without it rejects the runs, so tracing is lost rather than
-        falling back to a project. It may change without notice.
-
     Args:
         run_type: The type of run (span) to create.
 
@@ -444,7 +444,7 @@ def traceable(
         project_name: The name of the project to log the run to.
 
             Defaults to `None`, which will use the default project.
-        address: (beta) An `AgentAddress`, such as `ls.agent_address(id, environment)`, to log the
+        address: An `AgentAddress`, such as `ls.agent_address(id, environment)`, to log the
             run to instead of a project. Cannot be combined with a project in
             the same call. Defaults to the `LANGSMITH_AGENT_*` env vars.
         process_inputs: Custom serialization / processing function for inputs.
@@ -980,17 +980,12 @@ class trace:
 
     This class can be used as both a synchronous and asynchronous context manager.
 
-    !!! warning "Experimental"
-        `address` is in beta. It is enabled per workspace; a
-        workspace without it rejects the runs, so tracing is lost rather than
-        falling back to a project. It may change without notice.
-
     Args:
         name: Name of the run.
         run_type: Type of run (e.g., `'chain'`, `'llm'`, `'tool'`).
         inputs: Initial input data for the run.
         project_name: Project name to associate the run with.
-        address: (beta) An `AgentAddress`, such as `ls.agent_address(id, environment)`, to log the
+        address: An `AgentAddress`, such as `ls.agent_address(id, environment)`, to log the
             run to instead of a project. Cannot be combined with a project in
             the same call. Defaults to the `LANGSMITH_AGENT_*` env vars.
         parent: Parent run.

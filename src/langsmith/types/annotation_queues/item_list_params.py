@@ -15,11 +15,26 @@ class ItemListParams(TypedDict, total=False):
     status: Required[Literal["needs_my_review", "needs_others_review", "archived"]]
     """Review section: needs_my_review, needs_others_review, or archived"""
 
+    agreement: Literal["disagreed"]
+    """Only completed items whose reviewers disagreed on at least one rubric key.
+
+    Returns 501 unless multi-reviewer queues are on for the workspace. Requires
+    status=archived
+    """
+
     cursor: str
     """Opaque pagination cursor"""
 
     direction: Literal["forward", "backward"]
     """Pagination direction. backward requires cursor"""
+
+    has_unresolved_keys: bool
+    """
+    Only completed items that do (true) or do not (false) still have a disagreed
+    rubric key with no final answer. Items with no agreement result match neither
+    value. Returns 501 unless multi-reviewer queues are on for the workspace.
+    Requires status=archived
+    """
 
     item_type: Literal["RUN", "THREAD"]
     """Filter to RUN or THREAD"""

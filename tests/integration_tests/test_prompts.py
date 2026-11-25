@@ -212,6 +212,7 @@ def test_update_prompt(langsmith_client: Client, prompt_template_1: ChatPromptTe
     langsmith_client.delete_prompt(prompt_name)
 
 
+@skip_if_rate_limited
 def test_delete_prompt(langsmith_client: Client, prompt_template_1: ChatPromptTemplate):
     prompt_name = f"test_prompt_{uuid4().hex[:8]}"
     langsmith_client.push_prompt(prompt_name, object=prompt_template_1)
@@ -221,6 +222,7 @@ def test_delete_prompt(langsmith_client: Client, prompt_template_1: ChatPromptTe
     assert not langsmith_client._prompt_exists(prompt_name)
 
 
+@skip_if_rate_limited
 def test_pull_prompt_object(langsmith_client: Client, prompt_template_1: ChatPromptTemplate):
     prompt_name = f"test_prompt_{uuid4().hex[:8]}"
     langsmith_client.push_prompt(prompt_name, object=prompt_template_1)
@@ -317,6 +319,7 @@ def test_get_latest_commit_hash(langsmith_client: Client, prompt_template_1: Cha
     langsmith_client.delete_prompt(prompt_name)
 
 
+@skip_if_rate_limited
 def test_create_prompt(langsmith_client: Client):
     prompt_name = f"test_create_prompt_{uuid4().hex[:8]}"
     created_prompt = langsmith_client.create_prompt(
@@ -347,6 +350,8 @@ def test_create_commit(
         # this should fail because the prompt does not exist
         commit_url = langsmith_client.create_commit(prompt_name, object=prompt_template_2)
         pytest.fail("Expected LangSmithNotFoundError was not raised")
+    except ls_utils.LangSmithRateLimitError:
+        raise
     except ls_utils.LangSmithNotFoundError as e:
         assert str(e) == "Prompt does not exist, you must create it first."
     except Exception as e:
@@ -365,6 +370,8 @@ def test_create_commit(
     try:
         # this should fail
         commit_url = langsmith_client.create_commit(prompt_name, object={"hi": "hello"})
+    except ls_utils.LangSmithRateLimitError:
+        raise
     except ls_utils.LangSmithError as e:
         err = str(e)
         assert "Manifest must have an id field" in err
@@ -375,6 +382,8 @@ def test_create_commit(
     try:
         # this should fail
         commit_url = langsmith_client.create_commit(prompt_name, object={"id": ["hi"]})
+    except ls_utils.LangSmithRateLimitError:
+        raise
     except ls_utils.LangSmithError as e:
         err = str(e)
         assert "Manifest type hi is not supported" in err

@@ -564,6 +564,8 @@ def instrument_claude_client(original_class: Any) -> None:
         }
         if config.get("project_name"):
             trace_kwargs["project_name"] = config["project_name"]
+        if config.get("address"):
+            trace_kwargs["address"] = config["address"]
         if config.get("tags"):
             trace_kwargs["tags"] = config["tags"]
 

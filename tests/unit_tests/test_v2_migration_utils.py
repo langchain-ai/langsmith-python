@@ -3,6 +3,7 @@
 import datetime
 import uuid
 from types import SimpleNamespace
+from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
@@ -289,3 +290,20 @@ def test_reference_example_id_coerced_to_uuid():
 def test_reference_example_id_none_stays_none():
     result = _v2_run_to_schema(_make_v2_run(reference_example_id=None))
     assert result.reference_example_id is None
+
+
+def test_run_url_resolves_with_host_url():
+    path = "/o/my-org/projects/p/abc123/r/run-id"
+    result = _v2_run_to_schema(_make_v2_run(app_path=path), host_url="https://smith.example")
+    assert result.url == f"https://smith.example{path}"
+
+
+@pytest.mark.parametrize("name", ["image.png", "attachment.image.png"])
+def test_attachments_downloaded_under_their_own_name(name):
+    url = "https://smith.example/public/download?jwt=abc"
+    response = MagicMock(content=b"png-bytes")
+    with mock.patch("langsmith.client.requests.get", return_value=response) as get:
+        result = _v2_run_to_schema(_make_v2_run(attachments={name: url}))
+    get.assert_called_once_with(url, stream=True)
+    assert result.attachments[name]["presigned_url"] == url
+    assert result.attachments[name]["reader"].read() == b"png-bytes"

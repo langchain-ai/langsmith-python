@@ -14,7 +14,7 @@ class ProductFeedbackCreateParams(TypedDict, total=False):
 
     message: Required[str]
 
-    source: Required[Literal["LANGSMITH_CLI"]]
+    source: Required[Literal["LANGSMITH_CLI", "LANGSMITH_MCP"]]
 
     client: Client
 

@@ -3,6 +3,7 @@
 import asyncio
 import functools
 import inspect
+import io
 import itertools
 import json
 import random
@@ -22,6 +23,7 @@ import pytest
 from langchain_core.runnables import chain as as_runnable
 
 from langsmith import Client, aevaluate, evaluate
+from langsmith import run_helpers as rh
 from langsmith import schemas as ls_schemas
 from langsmith._internal._v2_migration_utils import _v2_run_to_schema
 from langsmith.evaluation import evaluate_comparative
@@ -29,8 +31,10 @@ from langsmith.evaluation._runner import (
     ComparativeExperimentResults,
     _build_comparative_url,
     _collect_evaluator_keys,
+    _forward,
     _get_target_args,
     _load_traces_for_experiment,
+    _resolve_upload,
 )
 from langsmith.evaluation.evaluator import (
     DynamicRunEvaluator,
@@ -237,6 +241,343 @@ async def test_aevaluate_feedback_includes_experiment_id_and_start_time() -> Non
     assert feedback["start_time"] == run["start_time"]
 
 
+@pytest.mark.parametrize("disable_evaluator_tracing", [True, False])
+def test_evaluate_upload_runs_callable_samples_runs_but_scores_all(
+    disable_evaluator_tracing: bool,
+) -> None:
+    """`upload_runs` as a callable controls which runs are persisted, but
+    summary evaluators must still see -- and score -- every run/repetition."""
+    NUM_EXAMPLES = 3
+    NUM_REPETITIONS = 4
+    example_responses = [_create_example(i) for i in range(NUM_EXAMPLES)]
+    examples = [e[0] for e in example_responses]
+    client, fake_request = _fake_client_for_examples(
+        [e[1] for e in example_responses],
+        "00886375-eb2a-4038-9032-efff60309896",
+        "my-dataset",
+    )
+
+    def predict(inputs: dict) -> dict:
+        return {"output": inputs["in"] + 1}
+
+    def score(run, example):
+        return {"key": "quality", "score": 1}
+
+    summary_run_counts: List[int] = []
+
+    def summary_eval(runs_, examples_):
+        summary_run_counts.append(len(runs_))
+        return {"key": "count", "score": len(runs_)}
+
+    # Called once per generated run (once per repetition of each example), so a
+    # stateful predicate can sample independently across repetitions.
+    call_count = 0
+
+    def upload_every_other(example: ls_schemas.Example) -> bool:
+        nonlocal call_count
+        call_count += 1
+        return call_count % 2 == 1
+
+    results = evaluate(
+        predict,
+        client=client,
+        data=examples,
+        evaluators=[score],
+        summary_evaluators=[summary_eval],
+        num_repetitions=NUM_REPETITIONS,
+        upload_runs=upload_every_other,
+        disable_evaluator_tracing=disable_evaluator_tracing,
+        max_concurrency=0,
+    )
+    results_list = list(results)
+
+    total_runs = NUM_EXAMPLES * NUM_REPETITIONS
+    uploaded_runs = total_runs // 2
+    assert len(results_list) == total_runs
+    assert call_count == total_runs
+
+    # The experiment is still created even though only some runs are uploaded.
+    # It has no expected run count, so the UI doesn't wait for skipped runs.
+    assert fake_request.created_session
+    assert "num_examples" not in fake_request.created_session
+
+    # Only sampled target runs are uploaded. Unless evaluator tracing is
+    # disabled, their evaluator runs and the summary evaluator are uploaded too.
+    expected_runs = uploaded_runs if disable_evaluator_tracing else uploaded_runs * 2 + 1
+    _wait_until(lambda: len(fake_request.runs) == expected_runs)
+    assert len(fake_request.runs) == expected_runs
+
+    # The summary evaluator saw every run, not just the uploaded ones.
+    assert summary_run_counts == [total_runs]
+
+    # Row-level feedback only exists for the runs that were actually uploaded,
+    # but the aggregate (project-level, run_id=None) feedback always reflects
+    # every run.
+    _wait_until(lambda: len(fake_request.feedbacks) == uploaded_runs + 1)
+    per_run_feedback = [f for f in fake_request.feedbacks if f.get("run_id") is not None]
+    aggregate_feedback = [f for f in fake_request.feedbacks if f.get("run_id") is None]
+    assert len(per_run_feedback) == uploaded_runs
+    assert len(aggregate_feedback) == 1
+    assert aggregate_feedback[0]["score"] == total_runs
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("max_concurrency", [0, 3])
+async def test_aevaluate_upload_runs_callable_samples_runs_but_scores_all(max_concurrency: int) -> None:
+    num_examples, num_repetitions = 3, 4
+    example_responses = [_create_example(i) for i in range(num_examples)]
+    examples = [example for example, _ in example_responses]
+    client, fake_request = _fake_client_for_examples(
+        [response for _, response in example_responses],
+        "00886375-eb2a-4038-9032-efff60309896",
+        "my-dataset",
+    )
+
+    async def predict(inputs: dict) -> dict:
+        return {"output": inputs["in"] + 1}
+
+    async def score(run, example):
+        return {"key": "quality", "score": 1}
+
+    summary_run_counts: List[int] = []
+
+    def summary_eval(runs_, examples_):
+        summary_run_counts.append(len(runs_))
+        return {"key": "count", "score": len(runs_)}
+
+    call_count = 0
+
+    def upload_every_other(example: ls_schemas.Example) -> bool:
+        nonlocal call_count
+        call_count += 1
+        return call_count % 2 == 1
+
+    results = await aevaluate(
+        predict,
+        client=client,
+        data=examples,
+        evaluators=[score],
+        summary_evaluators=[summary_eval],
+        num_repetitions=num_repetitions,
+        upload_runs=upload_every_other,
+        disable_evaluator_tracing=True,
+        max_concurrency=max_concurrency,
+    )
+    rows = [row async for row in results]
+
+    total_runs = num_examples * num_repetitions
+    uploaded_runs = total_runs // 2
+    assert len(rows) == total_runs
+    assert call_count == total_runs
+    assert "num_examples" not in fake_request.created_session
+
+    _wait_until(lambda: len(fake_request.runs) == uploaded_runs)
+    assert len(fake_request.runs) == uploaded_runs
+    assert summary_run_counts == [total_runs]
+
+    _wait_until(lambda: len(fake_request.feedbacks) == uploaded_runs + 1)
+    per_run_feedback = [f for f in fake_request.feedbacks if f.get("run_id") is not None]
+    aggregate_feedback = [f for f in fake_request.feedbacks if f.get("run_id") is None]
+    assert {f["run_id"] for f in per_run_feedback} == set(fake_request.runs)
+    assert len(aggregate_feedback) == 1
+    assert aggregate_feedback[0]["score"] == total_runs
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("upload_parameter", ["upload_runs", "upload_results"])
+async def test_aevaluate_upload_false_keeps_target_runs_local(upload_parameter: str) -> None:
+    example, example_payload = _create_example(0)
+    client, fake_request = _fake_client_for_examples([example_payload], str(example.dataset_id), "my-dataset")
+
+    async def predict(inputs: dict) -> dict:
+        return {"output": inputs["in"] + 1}
+
+    async def score(run, example):
+        return {"key": "quality", "score": 1}
+
+    results = await aevaluate(
+        predict,
+        data=[example],
+        evaluators=[score],
+        client=client,
+        max_concurrency=0,
+        **{upload_parameter: False},
+    )
+    assert len([row async for row in results]) == 1
+    client.flush()
+    assert fake_request.runs == {}
+    assert fake_request.feedbacks == []
+    assert fake_request.created_session is None
+
+
+def test_upload_runs_callable_rewinds_attachments() -> None:
+    reader = io.BytesIO(b"image-bytes")
+    example = _create_example(0)[0].model_copy(
+        update={"attachments": {"image": {"presigned_url": "", "mime_type": "image/png", "reader": reader}}}
+    )
+
+    def large_image(example: ls_schemas.Example) -> bool:
+        return len(example.attachments["image"]["reader"].read()) > 4
+
+    assert _resolve_upload(large_image, example) is True
+    assert reader.read() == b"image-bytes"
+
+
+@pytest.mark.parametrize("disable_evaluator_tracing", [True, False])
+@pytest.mark.parametrize("max_concurrency", [2, None])
+def test_evaluate_upload_runs_callable_out_of_order(max_concurrency, disable_evaluator_tracing: bool) -> None:
+    """Keep upload decisions tied to runs when predictions finish out of order."""
+    example_responses = [_create_example(i) for i in range(4)]
+    examples = [example for example, _ in example_responses]
+    client, fake_request = _fake_client_for_examples(
+        [response for _, response in example_responses],
+        "00886375-eb2a-4038-9032-efff60309896",
+        "my-dataset",
+    )
+    later_run_finished = Event()
+    completion_order = []
+    completion_lock = Lock()
+    predicate_examples = []
+    summary_counts = []
+
+    def upload_every_other(example):
+        predicate_examples.append(example.id)
+        return len(predicate_examples) % 2 == 1
+
+    def predict(inputs):
+        assert examples[inputs["in"]].id in predicate_examples
+        if inputs["in"] == 0:
+            assert later_run_finished.wait(timeout=10)
+        return {"output": inputs["in"] + 1}
+
+    def forward(*args, **kwargs):
+        result = _forward(*args, **kwargs)
+        value = result["example"].inputs["in"]
+        with completion_lock:
+            completion_order.append(value)
+        if value == 1:
+            later_run_finished.set()
+        return result
+
+    def score(run, example):
+        return {"key": "quality", "score": run.outputs["output"]}
+
+    def summary_eval(runs, examples):
+        summary_counts.append((len(runs), len(examples)))
+        return {"key": "count", "score": len(runs)}
+
+    with mock.patch("langsmith.evaluation._runner._forward", side_effect=forward):
+        rows = list(
+            evaluate(
+                predict,
+                client=client,
+                data=examples,
+                evaluators=[score],
+                summary_evaluators=[summary_eval],
+                upload_runs=upload_every_other,
+                disable_evaluator_tracing=disable_evaluator_tracing,
+                max_concurrency=max_concurrency,
+            )
+        )
+
+    assert completion_order.index(1) < completion_order.index(0)
+    assert predicate_examples == [example.id for example in examples]
+    assert len(rows) == len(examples)
+    assert summary_counts == [(4, 4)]
+    selected_runs = {
+        str(row["run"].id): row["example"].inputs["in"] + 1
+        for row in rows
+        if row["example"].id in {examples[0].id, examples[2].id}
+    }
+    _wait_until(lambda: len(fake_request.feedbacks) == 3)
+    assert {
+        feedback["run_id"]: feedback["score"]
+        for feedback in fake_request.feedbacks
+        if feedback.get("run_id") is not None
+    } == selected_runs
+    assert [feedback["score"] for feedback in fake_request.feedbacks if feedback.get("run_id") is None] == [4]
+    expected_runs = 2 if disable_evaluator_tracing else 5
+    _wait_until(lambda: len(fake_request.runs) == expected_runs)
+    assert {run_id for run_id, run in fake_request.runs.items() if run.get("reference_example_id")} == set(
+        selected_runs
+    )
+    if disable_evaluator_tracing:
+        assert not _evaluator_run_ids(fake_request)
+        assert all(_feedback_source_run_id(feedback) is None for feedback in fake_request.feedbacks)
+    assert not fake_request.should_fail
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "00886375-eb2a-4038-9032-efff60309896",
+        (
+            "00886375-eb2a-4038-9032-efff60309896",
+            "11886375-eb2a-4038-9032-efff60309896",
+        ),
+    ],
+)
+@pytest.mark.parametrize("upload_parameter", ["upload_runs", "upload_results"])
+def test_evaluate_rejects_callable_upload_runs_for_experiment_targets(
+    target: Any,
+    upload_parameter: str,
+) -> None:
+    """A per-run callable only makes sense when new runs are being created.
+
+    Re-evaluating an existing experiment, or comparing two existing
+    experiments, doesn't create any new runs, so a callable `upload_runs`
+    must be rejected rather than silently ignored.
+    """
+    with pytest.raises(ValueError, match="upload_runs"):
+        evaluate(target, **{upload_parameter: lambda example: True})
+
+
+@pytest.mark.parametrize("via_client", [False, True])
+@pytest.mark.parametrize("upload_runs", [True, False, lambda example: True])
+def test_evaluate_rejects_both_upload_names(upload_runs, via_client) -> None:
+    entrypoint = (
+        Client(
+            api_url="http://localhost:1984",
+            api_key="test",
+            info={},
+            auto_batch_tracing=False,
+        ).evaluate
+        if via_client
+        else evaluate
+    )
+    with pytest.raises(ValueError, match="only one of upload_runs and upload_results"):
+        entrypoint(lambda inputs: inputs, upload_runs=upload_runs, upload_results=True)
+
+
+@pytest.mark.parametrize("via_client", [False, True])
+@pytest.mark.parametrize(
+    "options, expected",
+    [
+        ({}, True),
+        ({"upload_runs": None}, True),
+        ({"upload_runs": True}, True),
+        ({"upload_runs": False}, False),
+        ({"upload_results": False}, False),
+    ],
+)
+def test_evaluate_upload_runs_default_and_alias(options, expected, via_client) -> None:
+    entrypoint = (
+        Client(
+            api_url="http://localhost:1984",
+            api_key="test",
+            info={},
+            auto_batch_tracing=False,
+        ).evaluate
+        if via_client
+        else evaluate
+    )
+    assert inspect.signature(entrypoint).parameters["upload_runs"].default is None
+    example, _ = _create_example(0)
+    with mock.patch("langsmith.evaluation._runner._evaluate") as run_evaluate:
+        entrypoint(lambda inputs: inputs, data=[example], **options)
+    assert run_evaluate.call_args.kwargs["upload_runs"] is expected
+
+
 def _evaluator_run_ids(fake_request: FakeRequest) -> set:
     return {run_id for run_id, run in fake_request.runs.items() if run.get("session_name") == "evaluators"}
 
@@ -361,10 +702,12 @@ async def test_aevaluate_disable_evaluator_tracing(
 
 
 @pytest.mark.skipif(sys.version_info < (3, 9), reason="requires python3.9 or higher")
-@pytest.mark.parametrize("blocking", [False, True])
+@pytest.mark.parametrize("blocking,upload_parameter", [(False, "upload_runs"), (True, "upload_results")])
 @pytest.mark.parametrize("as_runnable", [False, True])
 @pytest.mark.parametrize("upload_results", [False, True])
-def test_evaluate_results(blocking: bool, as_runnable: bool, upload_results: bool) -> None:
+def test_evaluate_results(
+    blocking: bool, as_runnable: bool, upload_results: bool, upload_parameter: str, capsys
+) -> None:
     session = mock.Mock()
     ds_name = "my-dataset"
     ds_id = "00886375-eb2a-4038-9032-efff60309896"
@@ -394,6 +737,8 @@ def test_evaluate_results(blocking: bool, as_runnable: bool, upload_results: boo
     client._tenant_id = uuid.UUID(tenant_id)
 
     ordering_of_stuff: List[str] = []
+    evaluator_experiments = []
+    summary_experiments = []
     locked = False
 
     lock = Lock()
@@ -426,6 +771,7 @@ def test_evaluate_results(blocking: bool, as_runnable: bool, upload_results: boo
             predict = RunnableLambda(predict)
 
     def score_value_first(run, example):
+        evaluator_experiments.append(rh.get_tracing_context()["metadata"]["experiment"])
         ordering_of_stuff.append("evaluate")
         return {"score": 0.3}
 
@@ -461,6 +807,7 @@ def test_evaluate_results(blocking: bool, as_runnable: bool, upload_results: boo
         ]
 
     def summary_eval_runs_examples(runs_, examples_):
+        summary_experiments.append(rh.get_tracing_context()["metadata"]["experiment"])
         return {"score": len(runs_[0].dotted_order)}
 
     def summary_eval_inputs_outputs(inputs, outputs):
@@ -493,8 +840,9 @@ def test_evaluate_results(blocking: bool, as_runnable: bool, upload_results: boo
         evaluators=evaluators,
         summary_evaluators=summary_evaluators,
         num_repetitions=NUM_REPETITIONS,
+        experiment_prefix="my-exp",
         blocking=blocking,
-        upload_results=upload_results,
+        **{upload_parameter: upload_results},
         max_concurrency=None,
     )
     if not blocking:
@@ -518,6 +866,8 @@ def test_evaluate_results(blocking: bool, as_runnable: bool, upload_results: boo
         assert total_quick > (SPLIT_SIZE * NUM_REPETITIONS - 1) - tolerance
 
     for r in results:
+        if not upload_results:
+            assert r["run"].session_name == results.experiment_name
         assert r["run"].outputs["output"] == r["example"].inputs["in"] + 1  # type: ignore
         assert set(r["run"].outputs.keys()) == {"output"}  # type: ignore
         assert len(r["evaluation_results"]["results"]) == len(evaluators) + 1
@@ -534,6 +884,10 @@ def test_evaluate_results(blocking: bool, as_runnable: bool, upload_results: boo
         assert ordering_of_stuff[:N_PREDS] != ["predict"] * N_PREDS
     else:
         assert not fake_request.created_session
+        assert capsys.readouterr().out.strip() == f"Starting evaluation of experiment: {results.experiment_name}"
+        assert results.experiment_name.startswith("my-exp-")
+        assert set(evaluator_experiments) == {results.experiment_name}
+        assert set(summary_experiments) == {results.experiment_name}
 
     # It's delayed, so it'll be the penultimate event
     # Will run all other preds and evals, then this, then the last eval
@@ -652,7 +1006,7 @@ def test_evaluate_raises_for_async():
 @pytest.mark.parametrize("blocking", [False, True])
 @pytest.mark.parametrize("as_runnable", [False, True])
 @pytest.mark.parametrize("upload_results", [False, True])
-async def test_aevaluate_results(blocking: bool, as_runnable: bool, upload_results: bool) -> None:
+async def test_aevaluate_results(blocking: bool, as_runnable: bool, upload_results: bool, capsys) -> None:
     session = mock.Mock()
     ds_name = "my-dataset"
     ds_id = "00886375-eb2a-4038-9032-efff60309896"
@@ -682,6 +1036,8 @@ async def test_aevaluate_results(blocking: bool, as_runnable: bool, upload_resul
     client._tenant_id = uuid.UUID(tenant_id)
 
     ordering_of_stuff: List[str] = []
+    evaluator_experiments = []
+    summary_experiments = []
     locked = False
 
     lock = asyncio.Lock()
@@ -715,6 +1071,7 @@ async def test_aevaluate_results(blocking: bool, as_runnable: bool, upload_resul
             predict = RunnableLambda(predict)
 
     async def score_value_first(run, example):
+        evaluator_experiments.append(rh.get_tracing_context()["metadata"]["experiment"])
         ordering_of_stuff.append("evaluate")
         return {"score": 0.3}
 
@@ -750,6 +1107,7 @@ async def test_aevaluate_results(blocking: bool, as_runnable: bool, upload_resul
         ]
 
     def summary_eval_runs_examples(runs_, examples_):
+        summary_experiments.append(rh.get_tracing_context()["metadata"]["experiment"])
         return {"score": len(runs_[0].dotted_order)}
 
     def summary_eval_inputs_outputs(inputs, outputs):
@@ -782,6 +1140,7 @@ async def test_aevaluate_results(blocking: bool, as_runnable: bool, upload_resul
         evaluators=evaluators,
         summary_evaluators=summary_evaluators,
         num_repetitions=NUM_REPETITIONS,
+        experiment_prefix="my-exp",
         blocking=blocking,
         upload_results=upload_results,
         max_concurrency=None,
@@ -810,6 +1169,8 @@ async def test_aevaluate_results(blocking: bool, as_runnable: bool, upload_resul
         assert max(deltas) > (total / 3)
 
     async for r in results:
+        if not upload_results:
+            assert r["run"].session_name == results.experiment_name
         assert r["run"].outputs["output"] == r["example"].inputs["in"] + 1  # type: ignore
         assert set(r["run"].outputs.keys()) == {"output"}  # type: ignore
         assert all(er.score is not None or er.value is not None for er in r["evaluation_results"]["results"])
@@ -832,6 +1193,10 @@ async def test_aevaluate_results(blocking: bool, as_runnable: bool, upload_resul
         assert fake_request.created_session["name"]
     else:
         assert not fake_request.created_session
+        assert capsys.readouterr().out.strip() == f"Starting evaluation of experiment: {results.experiment_name}"
+        assert results.experiment_name.startswith("my-exp-")
+        assert set(evaluator_experiments) == {results.experiment_name}
+        assert set(summary_experiments) == {results.experiment_name}
 
     async def score_value(run, example):
         return {"score": 0.7}
@@ -1859,8 +2224,13 @@ def _experiment_session() -> ls_schemas.TracerSession:
     )
 
 
-def test_load_traces_uses_v2_when_smithdb_only() -> None:
-    """ClickHouse off + SmithDB on → query_v2 (/v2/runs/query), never v1 list_runs."""
+@pytest.mark.parametrize(
+    "ch_query_enabled",
+    [False, True],
+    ids=["smithdb-only", "dual"],
+)
+def test_load_traces_uses_v2_when_smithdb_is_enabled(ch_query_enabled: bool) -> None:
+    """SmithDB on → query_v2 (/v2/runs/query), never v1 list_runs."""
     project = _experiment_session()
     gen_runs = [_make_generated_run(), _make_generated_run()]
 
@@ -1874,7 +2244,7 @@ def test_load_traces_uses_v2_when_smithdb_only() -> None:
 
     client = mock.Mock()
     client.info.instance_flags = {
-        "ch_query_enabled": False,
+        "ch_query_enabled": ch_query_enabled,
         "sdb_query_enabled": True,
     }
     client._get_langsmith_api_sync.return_value.runs.query_v2 = _query_v2
@@ -1891,13 +2261,10 @@ def test_load_traces_uses_v2_when_smithdb_only() -> None:
     [
         ({}, "clickhouse-only (sdb_query_enabled absent)"),
         ({"ch_query_enabled": True}, "clickhouse-only (explicit)"),
-        # Dual: SmithDB is available but ClickHouse still serves queries, so the
-        # legacy path stays in use until ClickHouse is actually switched off.
-        ({"ch_query_enabled": True, "sdb_query_enabled": True}, "dual"),
     ],
 )
-def test_load_traces_uses_v1_unless_smithdb_only(instance_flags, case) -> None:
-    """Keep the v1 client.list_runs path whenever ClickHouse can serve queries."""
+def test_load_traces_uses_v1_on_clickhouse_only(instance_flags, case) -> None:
+    """Keep the v1 client.list_runs path when SmithDB cannot serve queries."""
     project = _experiment_session()
     client = mock.Mock()
     client.info.instance_flags = instance_flags

@@ -60,13 +60,7 @@ class AuthHeaders(TypedDict, total=False):
 
 
 class WriteReplica(TypedDict, total=False):
-    """Configuration for a write replica endpoint.
-
-    !!! warning "Experimental"
-        `address` is in beta. It is enabled per workspace; a
-        workspace without it rejects the runs, so tracing is lost rather than
-        falling back to a project. It may change without notice.
-    """
+    """Configuration for a write replica endpoint."""
 
     api_url: Optional[str]
     api_key: NotRequired[str]
@@ -212,6 +206,8 @@ _REPLICAS = contextvars.ContextVar[Optional[Sequence[WriteReplica]]]("_REPLICAS"
 
 _DISTRIBUTED_PARENT_ID = contextvars.ContextVar[Optional[str]]("_DISTRIBUTED_PARENT_ID", default=None)
 
+_UNMERGED_PARENT_IDS = contextvars.ContextVar[frozenset[UUID]]("_UNMERGED_PARENT_IDS", default=frozenset())
+
 _SENTINEL = cast(None, object())
 
 
@@ -255,11 +251,6 @@ def configure(
     If, instead, you wish to only configure tracing for a single invocation,
     use the `tracing_context` context manager instead.
 
-    !!! warning "Experimental"
-        `address` is in beta. It is enabled per workspace; a
-        workspace without it rejects the runs, so tracing is lost rather than
-        falling back to a project. It may change without notice.
-
     Args:
         client: A LangSmith Client instance to use for all tracing operations.
 
@@ -279,7 +270,7 @@ def configure(
             This determines which project dashboard will display your traces.
 
             Pass `None` to explicitly clear the project name.
-        address: (beta) An `AgentAddress`, such as
+        address: An `AgentAddress`, such as
             `ls.agent_address(id, environment)`, to send traces to instead of a
             project. Mutually exclusive with `project_name`.
 
@@ -439,15 +430,9 @@ class RunTree(ls_schemas.RunBase):
         default=None,
         exclude=True,
         description=(
-            "Beta. The address to ingest this run into, instead of a "
-            "project. Put in the payload only when the run is sent."
+            "The address to ingest this run into, instead of a project. Put in the payload only when the run is sent."
         ),
     )
-    """Agent addressing is in beta and enabled per workspace.
-
-    A workspace without it rejects these runs, so tracing is lost rather than
-    falling back to a project. Both fields may change without notice.
-    """
     extra: dict = Field(default_factory=dict)
     tags: Optional[list[str]] = Field(default_factory=list)
     events: list[dict] = Field(default_factory=list)
@@ -757,6 +742,8 @@ class RunTree(ls_schemas.RunBase):
             child_extra = {}
             child_meta = {}
         parent_meta = (self.extra or {}).get("metadata") or {}
+        if self.id in _UNMERGED_PARENT_IDS.get():
+            parent_meta = {}
         child_extra["metadata"] = {**parent_meta, **child_meta}
         # upfront resolution of start_time so run_id can be derived from it.
         child_start_time = start_time or datetime.now(timezone.utc)
@@ -1472,6 +1459,7 @@ def _parse_write_replicas_from_env_var(env_var: Optional[str]) -> list[WriteRepl
                 api_url = item.get("api_url")
                 api_key = item.get("api_key")
                 project_name = item.get("project_name")
+                workspace_id = item.get("workspace_id")
                 primary = item.get("primary")
                 has_primary = "primary" in item
 
@@ -1496,6 +1484,13 @@ def _parse_write_replicas_from_env_var(env_var: Optional[str]) -> list[WriteRepl
                     )
                     continue
 
+                if workspace_id is not None and not isinstance(workspace_id, str):
+                    logger.warning(
+                        f"Invalid workspace_id type in LANGSMITH_RUNS_ENDPOINTS: "
+                        f"expected string, got {type(workspace_id).__name__}; ignoring it"
+                    )
+                    workspace_id = None
+
                 if has_primary and not isinstance(primary, bool):
                     logger.warning(
                         f"Invalid primary type in LANGSMITH_RUNS_ENDPOINTS: "
@@ -1503,9 +1498,12 @@ def _parse_write_replicas_from_env_var(env_var: Optional[str]) -> list[WriteRepl
                     )
                     continue
 
+                auth = AuthHeaders(api_key=api_key)
+                if workspace_id and workspace_id.strip():
+                    auth["tenant_id"] = workspace_id.strip()
                 replica = WriteReplica(
                     api_url=api_url.rstrip("/"),
-                    auth=AuthHeaders(api_key=api_key),
+                    auth=auth,
                     project_name=project_name,
                     updates=None,
                 )

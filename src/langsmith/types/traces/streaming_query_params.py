@@ -1,0 +1,105 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+from typing import List, Union
+from datetime import datetime
+from typing_extensions import Annotated, TypedDict
+
+from ..._types import SequenceNotStr
+from ..._utils import PropertyInfo
+from ..run_select_field import RunSelectField
+
+__all__ = ["StreamingQueryParams"]
+
+
+class StreamingQueryParams(TypedDict, total=False):
+    ai_search: str
+    """
+    `ai_search` translates natural language into structured filters, semantic
+    criteria and time bounds. Cannot be combined with sem_filter. With full AI
+    search enabled, also cannot be combined with explicit filter expressions;
+    otherwise retains legacy semantic-only behavior. Must contain nonempty text of
+    at most 2000 UTF-8 bytes.
+    """
+
+    cursor: str
+    """`cursor` is the opaque string returned in a previous response's `next_cursor`."""
+
+    max_feedback_modified_at: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
+    """
+    `max_feedback_modified_at` is the exclusive upper bound (RFC3339) on feedback
+    `modified_at`, applied to the feedback conditions in `trace_filter` or
+    `tree_filter` (for example eq(feedback_key, "correctness")). Requires at least
+    one feedback condition. Root runs must still fall within the `start_time`
+    window.
+    """
+
+    max_start_time: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
+    """
+    `max_start_time` is the exclusive upper bound for the root-run start time scan
+    (RFC3339). Defaults to the request time when omitted.
+    """
+
+    min_feedback_modified_at: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
+    """
+    `min_feedback_modified_at` is the inclusive lower bound (RFC3339) on feedback
+    `modified_at`, applied to the feedback conditions in `trace_filter` or
+    `tree_filter` (for example eq(feedback_key, "correctness")). Requires at least
+    one feedback condition. Root runs must still fall within the `start_time`
+    window.
+    """
+
+    min_start_time: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
+    """
+    `min_start_time` is the inclusive lower bound for the root-run start time scan
+    (RFC3339). Defaults to 24 hours before the request when omitted.
+    """
+
+    page_size: int
+    """`page_size` is the maximum number of traces to return per page.
+
+    Defaults to 20; must be between 1 and 100 when set.
+    """
+
+    project_id: str
+    """`project_id` is the UUID of the tracing project that owns the traces. Required."""
+
+    selects: List[RunSelectField]
+    """`selects` lists which properties to include on each returned trace.
+
+    Properties listed here are routed to the appropriate sub-object on each item:
+    `total_tokens`, `total_cost`, and `first_token_time` appear under
+    `trace_aggregates`; everything else appears under `root_run`. If omitted, only
+    `id` is returned on `root_run`.
+    """
+
+    sem_filter: str
+    """
+    SemFilter evaluates a plain-language criterion against trajectory messages,
+    AND-ed with structured filters.
+    """
+
+    trace_filter: str
+    """
+    `trace_filter` narrows results to traces whose root run matches this LangSmith
+    filter expression. This filter targets root runs only — `is_root = true` is
+    implied. See
+    https://docs.langchain.com/langsmith/trace-query-syntax#filter-query-language
+    for syntax.
+    """
+
+    trace_ids: SequenceNotStr[str]
+    """`trace_ids` is an optional fast-path restriction to a known set of trace UUIDs.
+
+    Equivalent in result to including each UUID in a `trace_filter`, but more
+    efficient at scale.
+    """
+
+    tree_filter: str
+    """
+    `tree_filter` narrows results to traces containing at least one run anywhere in
+    the run tree (root or descendant) that matches this LangSmith filter expression.
+    """
+
+    accept: Annotated[str, PropertyInfo(alias="Accept")]

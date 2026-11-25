@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -90,6 +91,34 @@ def _acknowledges_reconnect(msg: dict, command_id: Optional[str]) -> bool:
         command_id,
     )
     return False
+
+
+def _log_command_reconnect(
+    command_id: Optional[str],
+    attempt: int,
+    max_attempts: int,
+    elapsed: float,
+    error: SandboxConnectionError,
+    delay: float,
+) -> None:
+    """Log a command stream disconnect before attempting to reattach."""
+    closed = error.__cause__
+    close_info = (
+        f" (close received: {getattr(closed, 'rcvd', None)}; sent: {getattr(closed, 'sent', None)})"
+        if closed is not None and (hasattr(closed, "rcvd") or hasattr(closed, "sent"))
+        else ""
+    )
+    logger.warning(
+        "Sandbox command %s lost its connection %.1fs in; reattaching (attempt %d/%d, delay %.1fs). %s: %s%s",
+        command_id,
+        elapsed,
+        attempt,
+        max_attempts,
+        delay,
+        type(error).__name__,
+        error,
+        close_info,
+    )
 
 
 class _StreamEndedBeforeStarted(SandboxOperationError):
@@ -481,12 +510,16 @@ class ServiceURL:
         token: str,
         expires_at: str,
         *,
+        embed_url: str = "",
+        embed_origins: Optional[list[str]] = None,
         _refresher: Optional[Callable[[], ServiceURL]] = None,
     ) -> None:
         self._browser_url = browser_url
         self._service_url = service_url
         self._token = token
         self._expires_at = expires_at
+        self._embed_url = embed_url
+        self._embed_origins = list(embed_origins or [])
         self._refresher = _refresher
         self._sandbox_id: Optional[str] = None
 
@@ -509,6 +542,8 @@ class ServiceURL:
             self._service_url = fresh._service_url
             self._token = fresh._token
             self._expires_at = fresh._expires_at
+            self._embed_url = fresh._embed_url
+            self._embed_origins = fresh._embed_origins
 
     # -- Properties (auto-refresh on access) --------------------------------
 
@@ -535,6 +570,22 @@ class ServiceURL:
         """Return the ISO 8601 expiration, refreshing if near expiry."""
         self._maybe_refresh()
         return self._expires_at
+
+    @property
+    def embed_url(self) -> str:
+        """Return the URL to load in an iframe, refreshing if near expiry.
+
+        The token rides the URL fragment, so no server sees it. Append
+        ``&redirect=/path`` to open a page other than ``/``. Only pages on
+        :attr:`embed_origins` may frame it.
+        """
+        self._maybe_refresh()
+        return self._embed_url
+
+    @property
+    def embed_origins(self) -> list[str]:
+        """Return the origins allowed to frame the URL, as the server normalized them."""
+        return list(self._embed_origins)
 
     # -- HTTP helpers (stateless, one httpx call per request) ----------------
 
@@ -590,6 +641,8 @@ class ServiceURL:
             service_url=data["service_url"],
             token=data["token"],
             expires_at=data["expires_at"],
+            embed_url=data.get("embed_url") or "",
+            embed_origins=data.get("embed_origins"),
             _refresher=_refresher,
         )
 
@@ -618,12 +671,16 @@ class AsyncServiceURL:
         token: str,
         expires_at: str,
         *,
+        embed_url: str = "",
+        embed_origins: Optional[list[str]] = None,
         _refresher: Optional[Callable[[], Awaitable[AsyncServiceURL]]] = None,
     ) -> None:
         self._browser_url = browser_url
         self._service_url = service_url
         self._token = token
         self._expires_at = expires_at
+        self._embed_url = embed_url
+        self._embed_origins = list(embed_origins or [])
         self._refresher = _refresher
         self._sandbox_id: Optional[str] = None
 
@@ -646,6 +703,8 @@ class AsyncServiceURL:
             self._service_url = fresh._service_url
             self._token = fresh._token
             self._expires_at = fresh._expires_at
+            self._embed_url = fresh._embed_url
+            self._embed_origins = fresh._embed_origins
 
     # -- Async accessors (auto-refresh on access) ---------------------------
 
@@ -669,6 +728,16 @@ class AsyncServiceURL:
         await self._maybe_refresh()
         return self._expires_at
 
+    async def get_embed_url(self) -> str:
+        """Return the URL to load in an iframe, refreshing if near expiry.
+
+        The token rides the URL fragment, so no server sees it. Append
+        ``&redirect=/path`` to open a page other than ``/``. Only pages on
+        :attr:`embed_origins` may frame it.
+        """
+        await self._maybe_refresh()
+        return self._embed_url
+
     # -- Sync property access (no refresh, use when token is known-fresh) ---
 
     @property
@@ -690,6 +759,16 @@ class AsyncServiceURL:
     def expires_at(self) -> str:
         """Return the expiration timestamp without refreshing."""
         return self._expires_at
+
+    @property
+    def embed_url(self) -> str:
+        """Return the iframe URL without refreshing."""
+        return self._embed_url
+
+    @property
+    def embed_origins(self) -> list[str]:
+        """Return the origins allowed to frame the URL, as the server normalized them."""
+        return list(self._embed_origins)
 
     # -- HTTP helpers (one request per call) --------------------------------
 
@@ -746,6 +825,8 @@ class AsyncServiceURL:
             service_url=data["service_url"],
             token=data["token"],
             expires_at=data["expires_at"],
+            embed_url=data.get("embed_url") or "",
+            embed_origins=data.get("embed_origins"),
             _refresher=_refresher,
         )
 
@@ -808,10 +889,14 @@ class ServiceLoginURL:
         access: Who may open it — ``"restricted"`` for anyone with
             ``sandboxes:read`` on the sandbox, ``"workspace"`` for any member
             of the owning workspace.
+        embed_origins: Origins whose pages may show the URL in an iframe, as
+            the server normalized them. A viewer signs in from inside the
+            frame through a LangSmith popup.
     """
 
     url: str
     access: str
+    embed_origins: list[str] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ServiceLoginURL:
@@ -819,6 +904,7 @@ class ServiceLoginURL:
         return cls(
             url=data.get("browser_url") or data.get("service_url", ""),
             access=data.get("access", ""),
+            embed_origins=list(data.get("embed_origins") or []),
         )
 
 
@@ -914,6 +1000,7 @@ class CommandHandle:
         self._last_stdout_offset = stdout_offset
         self._last_stderr_offset = stderr_offset
         self._reconnect_attempts = 0
+        self._started_at = time.monotonic()
 
         # New executions (command_id=""): eager_start reads "started" message.
         # Reconnections (command_id set): the "started" message is the server's
@@ -1014,7 +1101,6 @@ class CommandHandle:
         - After kill():                  no reconnect, error propagates
         """
         add_sandbox_metadata(self._sandbox.id)
-        import time
 
         self._reconnect_attempts = 0
         while True:
@@ -1045,11 +1131,23 @@ class CommandHandle:
                     ) from e
 
                 is_hot_reload = isinstance(e, SandboxServerReloadError)
-                if not is_hot_reload:
-                    delay = min(
+                delay = (
+                    0.0
+                    if is_hot_reload
+                    else min(
                         self._BACKOFF_BASE * (2 ** (self._reconnect_attempts - 1)),
                         self._BACKOFF_MAX,
                     )
+                )
+                _log_command_reconnect(
+                    self._command_id,
+                    self._reconnect_attempts,
+                    self.MAX_AUTO_RECONNECTS,
+                    time.monotonic() - self._started_at,
+                    e,
+                    delay,
+                )
+                if delay:
                     time.sleep(delay)
 
                 assert self._command_id is not None
@@ -1210,6 +1308,7 @@ class AsyncCommandHandle:
         self._last_stdout_offset = stdout_offset
         self._last_stderr_offset = stderr_offset
         self._reconnect_attempts = 0
+        self._started_at = time.monotonic()
 
         # New executions (command_id=""): _ensure_started reads "started".
         # Reconnections (command_id set): the "started" message is the server's
@@ -1333,11 +1432,23 @@ class AsyncCommandHandle:
                     ) from e
 
                 is_hot_reload = isinstance(e, SandboxServerReloadError)
-                if not is_hot_reload:
-                    delay = min(
+                delay = (
+                    0.0
+                    if is_hot_reload
+                    else min(
                         self._BACKOFF_BASE * (2 ** (self._reconnect_attempts - 1)),
                         self._BACKOFF_MAX,
                     )
+                )
+                _log_command_reconnect(
+                    self._command_id,
+                    self._reconnect_attempts,
+                    self.MAX_AUTO_RECONNECTS,
+                    time.monotonic() - self._started_at,
+                    e,
+                    delay,
+                )
+                if delay:
                     await asyncio.sleep(delay)
 
                 assert self._command_id is not None

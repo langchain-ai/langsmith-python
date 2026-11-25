@@ -3,52 +3,107 @@
 from __future__ import annotations
 
 from .run import Run as Run
+from .rule import Rule as Rule
+from .agent import Agent as Agent
 from .issue import Issue as Issue
 from .trace import Trace as Trace
+from .shared import QueryPatchEvent as QueryPatchEvent, QueryPatchOperation as QueryPatchOperation
 from .thread import Thread as Thread
-from .missing import Missing as Missing
+from .dataset import Dataset as Dataset
+from .session import Session as Session
 from .run_type import RunType as RunType
 from .data_type import DataType as DataType
+from .evaluator import Evaluator as Evaluator
+from .proxy_config import ProxyConfig as ProxyConfig
 from .thread_stats import ThreadStats as ThreadStats
 from .thread_trace import ThreadTrace as ThreadTrace
-from .missing_param import MissingParam as MissingParam
 from .run_type_enum import RunTypeEnum as RunTypeEnum
 from .prompt_webhook import PromptWebhook as PromptWebhook
+from .tracer_session import TracerSession as TracerSession
 from .online_evaluator import OnlineEvaluator as OnlineEvaluator
+from .repo_list_params import RepoListParams as RepoListParams
 from .run_select_field import RunSelectField as RunSelectField
 from .sandbox_response import SandboxResponse as SandboxResponse
+from .sql_query_params import SqlQueryParams as SqlQueryParams
 from .trace_aggregates import TraceAggregates as TraceAggregates
+from .workspace_secret import WorkspaceSecret as WorkspaceSecret
+from .agent_list_params import AgentListParams as AgentListParams
+from .evaluator_webhook import EvaluatorWebhook as EvaluatorWebhook
+from .get_repo_response import GetRepoResponse as GetRepoResponse
 from .issue_list_params import IssueListParams as IssueListParams
+from .repo_with_lookups import RepoWithLookups as RepoWithLookups
 from .snapshot_response import SnapshotResponse as SnapshotResponse
+from .commit_list_params import CommitListParams as CommitListParams
 from .info_list_response import InfoListResponse as InfoListResponse
 from .online_spend_limit import OnlineSpendLimit as OnlineSpendLimit
+from .proxy_config_param import ProxyConfigParam as ProxyConfigParam
+from .repo_create_params import RepoCreateParams as RepoCreateParams
+from .repo_update_params import RepoUpdateParams as RepoUpdateParams
 from .run_get_url_params import RunGetURLParams as RunGetURLParams
+from .sql_query_response import SqlQueryResponse as SqlQueryResponse
 from .trace_query_params import TraceQueryParams as TraceQueryParams
+from .agent_create_params import AgentCreateParams as AgentCreateParams
+from .agent_update_params import AgentUpdateParams as AgentUpdateParams
+from .commit_with_lookups import CommitWithLookups as CommitWithLookups
+from .evaluator_top_level import EvaluatorTopLevel as EvaluatorTopLevel
 from .run_query_v2_params import RunQueryV2Params as RunQueryV2Params
+from .tag_key_with_values import TagKeyWithValues as TagKeyWithValues
 from .thread_query_params import ThreadQueryParams as ThreadQueryParams
 from .thread_stats_params import ThreadStatsParams as ThreadStatsParams
+from .commit_create_params import CommitCreateParams as CommitCreateParams
+from .create_repo_response import CreateRepoResponse as CreateRepoResponse
 from .online_llm_evaluator import OnlineLlmEvaluator as OnlineLlmEvaluator
 from .run_get_url_response import RunGetURLResponse as RunGetURLResponse
+from .sandbox_mount_config import SandboxMountConfig as SandboxMountConfig
 from .service_url_response import ServiceURLResponse as ServiceURLResponse
+from .agent_retrieve_params import AgentRetrieveParams as AgentRetrieveParams
+from .custom_charts_section import CustomChartsSection as CustomChartsSection
 from .download_url_response import DownloadURLResponse as DownloadURLResponse
+from .evaluator_list_params import EvaluatorListParams as EvaluatorListParams
 from .issue_retrieve_params import IssueRetrieveParams as IssueRetrieveParams
 from .online_code_evaluator import OnlineCodeEvaluator as OnlineCodeEvaluator
 from .online_evaluator_type import OnlineEvaluatorType as OnlineEvaluatorType
 from .sandbox_list_response import SandboxListResponse as SandboxListResponse
+from .session_create_params import SessionCreateParams as SessionCreateParams
+from .session_feedback_stat import SessionFeedbackStat as SessionFeedbackStat
+from .session_update_params import SessionUpdateParams as SessionUpdateParams
+from .timedelta_input_param import TimedeltaInputParam as TimedeltaInputParam
+from .ai_search_parse_params import AISearchParseParams as AISearchParseParams
+from .commit_create_response import CommitCreateResponse as CommitCreateResponse
+from .commit_retrieve_params import CommitRetrieveParams as CommitRetrieveParams
+from .dataset_list_v2_params import DatasetListV2Params as DatasetListV2Params
+from .dataset_transformation import DatasetTransformation as DatasetTransformation
 from .run_retrieve_v2_params import RunRetrieveV2Params as RunRetrieveV2Params
+from .session_list_v2_params import SessionListV2Params as SessionListV2Params
 from .session_resolve_params import SessionResolveParams as SessionResolveParams
 from .snapshot_list_response import SnapshotListResponse as SnapshotListResponse
 from .sort_by_dataset_column import SortByDatasetColumn as SortByDatasetColumn
 from .trace_list_runs_params import TraceListRunsParams as TraceListRunsParams
 from .annotation_queue_schema import AnnotationQueueSchema as AnnotationQueueSchema
+from .evaluator_list_response import EvaluatorListResponse as EvaluatorListResponse
 from .sandbox_status_response import SandboxStatusResponse as SandboxStatusResponse
+from .session_retrieve_params import SessionRetrieveParams as SessionRetrieveParams
+from .ai_search_parse_response import AISearchParseResponse as AISearchParseResponse
+from .code_evaluator_top_level import CodeEvaluatorTopLevel as CodeEvaluatorTopLevel
+from .commit_manifest_response import CommitManifestResponse as CommitManifestResponse
+from .commit_retrieve_response import CommitRetrieveResponse as CommitRetrieveResponse
+from .evaluator_list_v2_params import EvaluatorListV2Params as EvaluatorListV2Params
+from .run_stats_group_by_param import RunStatsGroupByParam as RunStatsGroupByParam
+from .session_create_v2_params import SessionCreateV2Params as SessionCreateV2Params
+from .session_dashboard_params import SessionDashboardParams as SessionDashboardParams
 from .session_resolve_response import SessionResolveResponse as SessionResolveResponse
 from .session_sortable_columns import SessionSortableColumns as SessionSortableColumns
+from .session_update_v2_params import SessionUpdateV2Params as SessionUpdateV2Params
 from .trace_list_runs_response import TraceListRunsResponse as TraceListRunsResponse
+from .evaluator_pagerduty_alert import EvaluatorPagerdutyAlert as EvaluatorPagerdutyAlert
 from .online_evaluator_run_rule import OnlineEvaluatorRunRule as OnlineEvaluatorRunRule
 from .thread_list_traces_params import ThreadListTracesParams as ThreadListTracesParams
+from .workspace_tag_list_params import WorkspaceTagListParams as WorkspaceTagListParams
 from .online_evaluator_spend_day import OnlineEvaluatorSpendDay as OnlineEvaluatorSpendDay
 from .prompt_webhook_test_params import PromptWebhookTestParams as PromptWebhookTestParams
+from .sandbox_mount_config_param import SandboxMountConfigParam as SandboxMountConfigParam
+from .session_retrieve_v2_params import SessionRetrieveV2Params as SessionRetrieveV2Params
+from .workspace_tag_list_response import WorkspaceTagListResponse as WorkspaceTagListResponse
 from .annotation_queue_size_schema import AnnotationQueueSizeSchema as AnnotationQueueSizeSchema
 from .online_evaluator_list_params import OnlineEvaluatorListParams as OnlineEvaluatorListParams
 from .online_evaluator_spend_group import OnlineEvaluatorSpendGroup as OnlineEvaluatorSpendGroup
@@ -56,6 +111,7 @@ from .prompt_webhook_create_params import PromptWebhookCreateParams as PromptWeb
 from .prompt_webhook_list_response import PromptWebhookListResponse as PromptWebhookListResponse
 from .prompt_webhook_test_response import PromptWebhookTestResponse as PromptWebhookTestResponse
 from .prompt_webhook_update_params import PromptWebhookUpdateParams as PromptWebhookUpdateParams
+from .workspace_secret_list_params import WorkspaceSecretListParams as WorkspaceSecretListParams
 from .online_evaluator_spend_params import OnlineEvaluatorSpendParams as OnlineEvaluatorSpendParams
 from .thread_aggregate_stats_params import ThreadAggregateStatsParams as ThreadAggregateStatsParams
 from .annotation_queue_export_params import AnnotationQueueExportParams as AnnotationQueueExportParams
@@ -64,8 +120,11 @@ from .online_evaluator_create_params import OnlineEvaluatorCreateParams as Onlin
 from .online_evaluator_delete_params import OnlineEvaluatorDeleteParams as OnlineEvaluatorDeleteParams
 from .online_evaluator_update_params import OnlineEvaluatorUpdateParams as OnlineEvaluatorUpdateParams
 from .product_feedback_create_params import ProductFeedbackCreateParams as ProductFeedbackCreateParams
+from .workspace_secret_upsert_params import WorkspaceSecretUpsertParams as WorkspaceSecretUpsertParams
 from .bulk_delete_evaluators_response import BulkDeleteEvaluatorsResponse as BulkDeleteEvaluatorsResponse
+from .e_prompt_optimization_algorithm import EPromptOptimizationAlgorithm as EPromptOptimizationAlgorithm
 from .sandbox_list_usage_costs_params import SandboxListUsageCostsParams as SandboxListUsageCostsParams
+from .sandbox_retrieve_usage_response import SandboxRetrieveUsageResponse as SandboxRetrieveUsageResponse
 from .thread_aggregate_stats_response import ThreadAggregateStatsResponse as ThreadAggregateStatsResponse
 from .annotation_queue_populate_params import AnnotationQueuePopulateParams as AnnotationQueuePopulateParams
 from .create_online_evaluator_response import CreateOnlineEvaluatorResponse as CreateOnlineEvaluatorResponse
@@ -84,6 +143,9 @@ from .annotation_queue_retrieve_size_params import (
     AnnotationQueueRetrieveSizeParams as AnnotationQueueRetrieveSizeParams,
 )
 from .run_schema_with_annotation_queue_info import RunSchemaWithAnnotationQueueInfo as RunSchemaWithAnnotationQueueInfo
+from .evaluator_create_decision_model_params import (
+    EvaluatorCreateDecisionModelParams as EvaluatorCreateDecisionModelParams,
+)
 from .annotation_queue_annotation_queues_params import (
     AnnotationQueueAnnotationQueuesParams as AnnotationQueueAnnotationQueuesParams,
 )

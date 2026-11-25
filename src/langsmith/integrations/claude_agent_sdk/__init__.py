@@ -11,6 +11,8 @@ was called still get traced.
 import logging
 from typing import Optional
 
+from langsmith.address import AgentAddress
+
 from ._client import instrument_claude_client, instrument_sdk_mcp_tool
 from ._config import set_tracing_config
 
@@ -24,6 +26,7 @@ def configure_claude_agent_sdk(
     project_name: Optional[str] = None,
     metadata: Optional[dict] = None,
     tags: Optional[list[str]] = None,
+    address: Optional[AgentAddress] = None,
 ) -> bool:
     """Enable LangSmith tracing for the Claude Agent SDK by patching entry points.
 
@@ -41,6 +44,8 @@ def configure_claude_agent_sdk(
     Args:
         name: Name of the root trace.
         project_name: LangSmith project to trace to.
+        address: An `AgentAddress` to trace to instead of a project;
+            cannot be combined with `project_name`.
         metadata: Metadata to associate with all traces.
         tags: Tags to associate with all traces.
 
@@ -67,6 +72,7 @@ def configure_claude_agent_sdk(
     set_tracing_config(
         name=name,
         project_name=project_name,
+        address=address,
         metadata=metadata,
         tags=tags,
     )

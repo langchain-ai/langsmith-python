@@ -30,6 +30,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal, Optional, cast
 
+from langsmith.address import AgentAddress
 from langsmith import RunTree
 from langsmith._internal.voice.audio import (
     DEFAULT_MAX_AUDIO_SECONDS,
@@ -453,6 +454,7 @@ def start_session(
     thread_id: str,
     sample_rate: int,
     project_name: Optional[str] = None,
+    address: Optional[AgentAddress] = None,
     tags: Optional[list[str]] = None,
     metadata: Optional[dict[str, Any]] = None,
     name: str = "realtime_session",
@@ -466,6 +468,9 @@ def start_session(
 
     ``project_name`` falls back to LangSmith's standard resolution
     (``LANGSMITH_PROJECT``) when omitted, like any other ``RunTree``.
+
+    ``address`` is an ``AgentAddress`` to trace to instead of a project;
+    it cannot be combined with ``project_name``.
 
     ``client`` is an optional LangSmith ``Client`` for all tracing writes; child
     spans inherit it via ``create_child``. ``None`` uses the SDK's standard
@@ -501,6 +506,10 @@ def start_session(
     # default factory; passing ``None`` explicitly fails validation, so only
     # forward it when set and let the SDK resolve ``LANGSMITH_PROJECT`` otherwise.
     project_kwargs = {"project_name": project_name} if project_name is not None else {}
+    # ``RunTree`` rejects an address combined with a project and resolves the
+    # destination from the environment when neither is given.
+    if address is not None:
+        project_kwargs["address"] = address  # type: ignore[assignment]
     # Only forward an explicit client; omit it so ``RunTree`` keeps its standard
     # env-based resolution when the caller didn't supply one.
     client_kwargs = {"client": client} if client is not None else {}
