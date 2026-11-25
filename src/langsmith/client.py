@@ -141,6 +141,14 @@ from langsmith.address import Address, AgentAddress
 from langsmith.prompt_cache import PromptCache, prompt_cache_singleton
 from langsmith.schemas import AttachmentInfo, ExampleWithRuns
 
+# Every `client.<resource>` on the sync `Client` is async. Deprecation warnings say so,
+# and how to call it from sync code with the same Client.
+_SYNC_HINT = (
+    "On Client it is async: await it. In sync code, keep the same Client and run the "
+    "migrated calls once with asyncio.run(). "
+)
+_SELECTS_HINT = 'It returns only the fields in selects=[...]: include "ID" and every field you read. '
+
 logger = logging.getLogger(__name__)
 
 _TRACING_DROP_LOG_INTERVAL_S = 60
@@ -4084,8 +4092,10 @@ class Client:
 
     @_deprecated(
         "read_run() is deprecated and will be removed after Jan 31, 2027. "
-        "Use client.runs.retrieve() instead."
-        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-runs"
+        "Use client.runs.retrieve() instead. "
+        + _SYNC_HINT
+        + _SELECTS_HINT
+        + "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-runs"
         "#runs-retrieve for the migration guide."
     )
     def read_run(
@@ -4170,7 +4180,8 @@ class Client:
     @_deprecated(
         "read_thread() is deprecated and will be removed after Jan 31, 2027. "
         "Use client.threads.list_traces() instead. "
-        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-threads"
+        + _SYNC_HINT
+        + "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-threads"
         "#threads-list-traces for the migration guide."
     )
     def read_thread(
@@ -4240,8 +4251,10 @@ class Client:
 
     @_deprecated(
         "list_runs() is deprecated and will be removed after Jan 31, 2027. "
-        "Use client.runs.query() instead."
-        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-query-runs"
+        "Use client.runs.query() instead. "
+        + _SYNC_HINT
+        + _SELECTS_HINT
+        + "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-query-runs"
         "#runs-query for the migration guide."
     )
     def list_runs(
@@ -4440,7 +4453,8 @@ class Client:
     @_deprecated(
         "list_threads() is deprecated and will be removed after Jan 31, 2027. "
         "Use client.threads.query() instead. "
-        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-threads"
+        + _SYNC_HINT
+        + "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-threads"
         "#threads-query for the migration guide."
     )
     def list_threads(
@@ -4660,7 +4674,8 @@ class Client:
     @_deprecated(
         "get_run_url() is deprecated and will be removed after Jan 31, 2027. "
         "Use client.runs.get_url() instead. "
-        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-runs"
+        + _SYNC_HINT
+        + "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-runs"
         "#runs-get-url for the migration guide."
     )
     def get_run_url(
@@ -4744,7 +4759,8 @@ class Client:
     @_deprecated(
         "share_run() is deprecated and will be removed after Jan 31, 2027. "
         "Use client.runs.share.create() instead. "
-        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback"
+        + _SYNC_HINT
+        + "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback"
         "#share-and-read-public-runs for the migration guide."
     )
     def share_run(self, run_id: ID_TYPE, *, share_id: Optional[ID_TYPE] = None) -> str:
@@ -4782,7 +4798,8 @@ class Client:
     @_deprecated(
         "unshare_run() is deprecated and will be removed after Jan 31, 2027. "
         "Use client.runs.share.delete() instead. "
-        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback"
+        + _SYNC_HINT
+        + "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback"
         "#share-and-read-public-runs for the migration guide."
     )
     def unshare_run(self, run_id: ID_TYPE) -> None:
@@ -4809,8 +4826,9 @@ class Client:
 
     @_deprecated(
         "read_run_shared_link() is deprecated and will be removed after Jan 31, 2027. "
-        'Use client.runs.retrieve(selects=["SHARE_URL"]) instead.'
-        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback"
+        'Use client.runs.retrieve(selects=["SHARE_URL"]) instead. '
+        + _SYNC_HINT
+        + "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback"
         "#share-and-read-public-runs for the migration guide."
     )
     def read_run_shared_link(self, run_id: ID_TYPE) -> Optional[str]:
@@ -4856,7 +4874,9 @@ class Client:
     @_deprecated(
         "read_shared_run() is deprecated and will be removed after Jan 31, 2027. "
         "Use client.public.runs.retrieve() instead. "
-        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback"
+        + _SYNC_HINT
+        + _SELECTS_HINT
+        + "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback"
         "#share-and-read-public-runs for the migration guide."
     )
     def read_shared_run(self, share_token: Union[ID_TYPE, str], run_id: Optional[ID_TYPE] = None) -> ls_schemas.Run:
@@ -4891,7 +4911,9 @@ class Client:
     @_deprecated(
         "list_shared_runs() is deprecated and will be removed after Jan 31, 2027. "
         "Use client.public.runs.query() instead. "
-        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback"
+        + _SYNC_HINT
+        + _SELECTS_HINT
+        + "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback"
         "#share-and-read-public-runs for the migration guide."
     )
     def list_shared_runs(
@@ -9213,7 +9235,8 @@ class Client:
     @_deprecated(
         "add_runs_to_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
         "Use client.annotation_queues.items.create() instead. "
-        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs for the migration guide."
+        + _SYNC_HINT
+        + "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs for the migration guide."
     )
     def add_runs_to_annotation_queue(
         self,
@@ -9265,7 +9288,8 @@ class Client:
     @_deprecated(
         "delete_run_from_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
         "Use client.annotation_queues.items.delete_all() instead. "
-        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration for the migration guide."
+        + _SYNC_HINT
+        + "See https://docs.langchain.com/langsmith/smithdb-sdk-migration for the migration guide."
     )
     def delete_run_from_annotation_queue(self, queue_id: ID_TYPE, *, run_id: ID_TYPE) -> None:
         """Delete a run from an annotation queue with the specified `queue_id` and `run_id`.
@@ -9293,7 +9317,8 @@ class Client:
     @_deprecated(
         "get_run_from_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
         "Use client.annotation_queues.items.list() instead. "
-        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide."
+        + _SYNC_HINT
+        + "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide."
     )
     def get_run_from_annotation_queue(self, queue_id: ID_TYPE, *, index: int) -> ls_schemas.RunWithAnnotationQueueInfo:
         """Get a run from an annotation queue at the specified index.
@@ -9327,7 +9352,8 @@ class Client:
     @_deprecated(
         "list_runs_from_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
         "Use client.annotation_queues.items.list() instead. "
-        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide."
+        + _SYNC_HINT
+        + "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide."
     )
     def list_runs_from_annotation_queue(
         self,
@@ -11110,7 +11136,9 @@ class Client:
     @_deprecated(
         "get_experiment_results() is deprecated and will be removed after Jan 31, 2027. "
         "Use client.datasets.experiment_runs.query() instead. "
-        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-experiments"
+        + _SYNC_HINT
+        + _SELECTS_HINT
+        + "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-experiments"
         "#dataset-experiment-runs-query for the migration guide."
     )
     def get_experiment_results(

@@ -8068,7 +8068,9 @@ def test_read_thread_does_not_warn_about_list_runs() -> None:
         client.read_thread(thread_id="t1", project_id=uuid.uuid4())
 
     messages = _deprecation_messages(recorded)
-    assert any("read_thread() is deprecated" in m for m in messages)
+    [read_thread_message] = [m for m in messages if "read_thread() is deprecated" in m]
+    # threads.list_traces has no "ID" select, so the selects hint must not name it.
+    assert 'include "ID"' not in read_thread_message
     assert not any("list_runs() is deprecated" in m for m in messages)
 
 
@@ -8102,7 +8104,10 @@ def test_read_run_with_child_runs_does_not_warn_about_list_runs() -> None:
 
     paginate.assert_called_once()
     messages = _deprecation_messages(recorded)
-    assert any("read_run() is deprecated" in m for m in messages)
+    [read_run_message] = [m for m in messages if "read_run() is deprecated" in m]
+    # Sync callers learn the replacement is async and how to run it from sync code.
+    assert "asyncio.run()" in read_run_message
+    assert 'include "ID"' in read_run_message
     assert not any("list_runs() is deprecated" in m for m in messages)
 
 
@@ -8228,6 +8233,7 @@ def test_run_sharing_methods_are_deprecated(method: str, takes_share_token: bool
     assert len(messages) == 1, messages
     assert f"{method}() is deprecated" in messages[0]
     assert expected in messages[0]
+    assert "asyncio.run()" in messages[0]
     assert "#share-and-read-public-runs" in messages[0]
 
 
@@ -8274,6 +8280,8 @@ async def test_async_run_sharing_methods_are_deprecated(method: str, expected: s
     assert f"{method}() is deprecated" in messages[0]
     assert expected in messages[0]
     assert "#share-and-read-public-runs" in messages[0]
+    # AsyncClient callers already await, so they get no sync hint.
+    assert "asyncio.run()" not in messages[0]
 
 
 async def test_async_run_is_shared_does_not_warn_about_read_run_shared_link() -> None:

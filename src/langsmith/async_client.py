@@ -669,6 +669,7 @@ class AsyncClient:
     @_deprecated(
         "read_run() is deprecated and will be removed after Jan 31, 2027. "
         "Use client.runs.retrieve() instead. "
+        'It returns only the fields in selects=[...]: include "ID" and every field you read. '
         "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-runs"
         "#runs-retrieve for the migration guide."
     )
@@ -716,6 +717,7 @@ class AsyncClient:
     @_deprecated(
         "list_runs() is deprecated and will be removed after Jan 31, 2027. "
         "Use client.runs.query() instead. "
+        'It returns only the fields in selects=[...]: include "ID" and every field you read. '
         "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-query-runs"
         "#runs-query for the migration guide."
     )
