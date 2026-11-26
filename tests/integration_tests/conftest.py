@@ -1,6 +1,7 @@
 import datetime
 import functools
 import inspect
+import json
 import os
 import re
 
@@ -84,6 +85,21 @@ GATEWAY_PREFIXES = {
 }
 
 
+def _strip_volatile_body_fields(body_str):
+    """Drop per-run and default-valued fields that newer SDKs add or omit."""
+    try:
+        body = json.loads(body_str)
+    except ValueError:
+        return body_str
+    if not isinstance(body, dict):
+        return body_str
+    stripped = body.pop("prompt_cache_key", None) is not None
+    if body.get("stream") is False:
+        body.pop("stream")
+        stripped = True
+    return json.dumps(body) if stripped else body_str
+
+
 def filter_request_data(request):
     """Filter sensitive data from requests and only record AI API calls."""
 
@@ -107,6 +123,7 @@ def filter_request_data(request):
             # Replace API keys and other sensitive data
             body_str = re.sub(r'(api[-_]?key"?\s*:\s*")\w+(")', r"\1FILTERED\2", body_str)
             body_str = re.sub(r"(Bearer\s+)[A-Za-z0-9-_]+", r"\1FILTERED", body_str)
+            body_str = _strip_volatile_body_fields(body_str)
 
             # Update the request body
             if isinstance(request.body, bytes):

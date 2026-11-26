@@ -51,6 +51,7 @@ async def test_openai_agents_tracing_processor():
 
     agent = Agent(
         name="Captain Obvious",
+        model="gpt-4o",
         instructions="You are Captain Obvious, the world's" + " most literal technical support agent.",
     )
 
@@ -429,12 +430,14 @@ async def test_ls_agent_type_metadata_for_handoffs():
     # Create a subagent for handoffs
     handoff_agent = Agent(
         name="Handoff Agent",
+        model="gpt-4.1",
         instructions="You are a math expert. Answer math questions concisely.",
     )
 
     # Create main agent with handoff
     main_agent = Agent(
         name="Assistant",
+        model="gpt-4.1",
         instructions=("You are a helpful assistant. Hand off to Handoff Agent for math questions."),
         handoffs=[handoff_agent],
     )

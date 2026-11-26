@@ -57,7 +57,7 @@ langsmith_pyo3 = ["langsmith-pyo3>=0.1.0rc2"]
 # Enabled via `pip install langsmith[otel]`
 otel = [
     "opentelemetry-sdk>=1.30.0",
-    "opentelemetry-api>=1.30.0",
+    "opentelemetry-api>=1.45.2",
     "opentelemetry-exporter-otlp-proto-http>=1.30.0",
 ]
 
@@ -65,16 +65,16 @@ otel = [
 pipecat = [
     "pipecat-ai>=1.0",
     "opentelemetry-sdk>=1.30.0",
-    "opentelemetry-api>=1.30.0",
+    "opentelemetry-api>=1.45.2",
     "opentelemetry-exporter-otlp-proto-http>=1.30.0",
     "cachetools>=5.0.0",
 ]
 
 # Enabled via `pip install langsmith[livekit]`
 livekit = [
-    "livekit-agents>=1.6",
+    "livekit-agents>=1.9.0,<2",
     "opentelemetry-sdk>=1.30.0",
-    "opentelemetry-api>=1.30.0",
+    "opentelemetry-api>=1.45.2",
     "opentelemetry-exporter-otlp-proto-http>=1.30.0",
     "cachetools>=5.0.0",
 ]
@@ -113,7 +113,7 @@ strands-agents = [
     "strands-agents>=0.1.0",
     "strands-agents-tools>=0.2.0,<0.9",
     "opentelemetry-sdk>=1.30.0",
-    "opentelemetry-api>=1.30.0",
+    "opentelemetry-api>=1.45.2",
     "opentelemetry-exporter-otlp-proto-http>=1.30.0",
 ]
 
@@ -136,6 +136,11 @@ langsmith_plugin = "langsmith.pytest_plugin"
 managed = true
 required-version = ">=0.9"
 exclude-newer = "P7D"
+# Soup Sieve 4.0 needs Python 3.11.5; mark the floor so the published Python minimum stays 3.11.
+constraint-dependencies = ["soupsieve>=4.0.0; python_full_version >= '3.11.5'"]
+# livekit-agents 1.9.0 (released 2026-11-25) carries the patched OpenTelemetry floor. Remove this
+# exception after 2026-12-02, once that release is older than the seven-day quarantine.
+exclude-newer-package = { livekit-agents = "2026-11-27T00:00:00Z" }
 # Retain security floors over transitive pins (livekit-agents: json-repair;
 # strands-agents: mcp; pipecat-ai and strands-agents-tools: pillow<13, which needs Python 3.11).
 override-dependencies = [
@@ -186,15 +191,15 @@ dev = [
     "pytest-dotenv>=0.5.2",
     "opentelemetry-sdk>=1.34.1",
     "opentelemetry-exporter-otlp-proto-http>=1.34.1",
-    "opentelemetry-api>=1.34.1",
+    "opentelemetry-api>=1.45.2",
     "cachetools>=5.0.0",
     "bump2version>=1.0.1",
     "openai-agents>=0.2.4",
     "claude-agent-sdk>=0.1.0",
     "strands-agents>=0.1.0",
     "strands-agents-tools>=0.2.0,<0.9",
-    "langchain-core>=1.0.0,<1.5.0",
-    "langchain-openai>=1.0.0,<1.4.0",
+    "langchain-core>=1.5.4,<2.0.0",
+    "langchain-openai>=1.5.0,<2.0.0",
     "langchain-anthropic>=1.0.0,<1.5.0",
     "debugpy>=1.8.17",
     "google-genai>=1.2.0",
