@@ -136,19 +136,22 @@ langsmith_plugin = "langsmith.pytest_plugin"
 managed = true
 required-version = ">=0.9"
 exclude-newer = "P7D"
-# Soup Sieve 4.0 needs Python 3.11.5; mark the floor so the published Python minimum stays 3.11.
-constraint-dependencies = ["soupsieve>=4.0.0; python_full_version >= '3.11.5'"]
 # livekit-agents 1.9.0 (released 2026-11-25) carries the patched OpenTelemetry floor. Remove this
 # exception after 2026-12-02, once that release is older than the seven-day quarantine.
 exclude-newer-package = { livekit-agents = "2026-11-27T00:00:00Z" }
 # Retain security floors over transitive pins (livekit-agents: json-repair;
 # strands-agents: mcp; pipecat-ai and strands-agents-tools: pillow<13, which needs Python 3.11).
+# Every patched Soup Sieve needs Python 3.11.5, so the lockfile leaves strands-agents-tools (its only
+# route in, via markdownify and Beautiful Soup) out of 3.11.0-3.11.4; the published Python minimum
+# and extras stay unchanged.
+constraint-dependencies = ["soupsieve>=4.0.0"]
 override-dependencies = [
     "json-repair>=0.60.1",
     "mcp>=2.2.0",
     "nltk>=3.10.4",
     "pillow>=13.0.0",
     "pyasn1>=0.6.5",
+    "strands-agents-tools>=0.2.0,<0.9; python_full_version >= '3.11.5'",
 ]
 
 [dependency-groups]
