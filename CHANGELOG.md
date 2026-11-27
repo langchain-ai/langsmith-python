@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.16.3](https://github.com/langchain-ai/langsmith-python/compare/v0.16.2...v0.16.3) (2026-11-27)
+
+
+### Features
+
+* accept cancelled run status in readers ([de01f91](https://github.com/langchain-ai/langsmith-python/commit/de01f914282e8318e0d88be4808d61351499a9b4))
+* **python:** trace MCP clients and servers ([36c0092](https://github.com/langchain-ai/langsmith-python/commit/36c009298d1dd673d8bb80e9fa57d20ccd3f4519))
+* **sdks:** emit ls_run_status on OTEL spans and test Claude Agent SDK cancel paths (LIN-734) ([25dbca6](https://github.com/langchain-ai/langsmith-python/commit/25dbca62aa9ffc69c048dcb8b2be96b5b69c42b2))
+
+
+### Bug Fixes
+
+* **python:** drop vulnerable Soup Sieve from the SDK lockfile ([d8b44cd](https://github.com/langchain-ai/langsmith-python/commit/d8b44cda15db1d1c6d765a58a7482997ba44530e))
+* **sdk:** say Python replacements are async in deprecation warnings ([2f811fc](https://github.com/langchain-ai/langsmith-python/commit/2f811fc8105fad568e4837755675f0200e759632))
+* **sdks:** patch vulnerable Java, JavaScript and Python SDK dependencies ([76f1f01](https://github.com/langchain-ai/langsmith-python/commit/76f1f019f6e08def8208139f275788bd864f2e07))
+
 ## [0.16.2](https://github.com/langchain-ai/langsmith-python/compare/v0.16.1...v0.16.2) (2026-11-24)
 
 
