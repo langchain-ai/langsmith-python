@@ -266,7 +266,7 @@ class TestUsageMetadata:
         um = SimpleNamespace(
             prompt_token_count=100,
             candidates_token_count=40,
-            total_token_count=140,
+            total_token_count=148,
             cached_content_token_count=15,
             thoughts_token_count=8,
             prompt_tokens_details=[_mtc("AUDIO", 90), _mtc("TEXT", 10)],
@@ -274,8 +274,8 @@ class TestUsageMetadata:
         )
         assert _usage_metadata(_event(usage_metadata=um)) == {
             "input_tokens": 100,
-            "output_tokens": 40,
-            "total_tokens": 140,
+            "output_tokens": 48,
+            "total_tokens": 148,
             "input_token_details": {"audio": 90, "cache_read": 15},
             "output_token_details": {"audio": 35, "reasoning": 8},
         }
