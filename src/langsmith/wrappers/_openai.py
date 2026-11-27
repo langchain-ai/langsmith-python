@@ -175,6 +175,8 @@ def _reduce_choices(choices: list[Choice]) -> dict:
             message["role"] = c.delta.role
             break
     tool_calls: defaultdict[int, list[ChoiceDeltaToolCall]] = defaultdict(list)
+    latest_index: Optional[int] = None
+    latest_id: Optional[str] = None
     for c in choices:
         if hasattr(c, "delta"):
             if getattr(c.delta, "content", None):
@@ -192,7 +194,23 @@ def _reduce_choices(choices: list[Choice]) -> dict:
                 tool_calls_list = c.delta.tool_calls
                 if tool_calls_list is not None:
                     for tool_call in tool_calls_list:
-                        tool_calls[tool_call.index].append(tool_call)
+                        index = tool_call.index
+                        if index is None:
+                            # Some OpenAI-compatible APIs (e.g. Gemini) omit the index and
+                            # send each parallel call whole in its own chunk: a new id, or a
+                            # name without an id, starts a call; anything else continues
+                            # the latest one.
+                            name_ = getattr(tool_call.function, "name", None)
+                            starts_call = (
+                                latest_index is None
+                                or (tool_call.id and tool_call.id != latest_id)
+                                or (not tool_call.id and name_)
+                            )
+                            index = max(tool_calls.keys(), default=-1) + 1 if starts_call else latest_index
+                        if index != latest_index:
+                            latest_index, latest_id = index, None
+                        latest_id = tool_call.id or latest_id
+                        tool_calls[index].append(tool_call)
     if tool_calls:
         message["tool_calls"] = [None for _ in range(max(tool_calls.keys()) + 1)]
         for index, tool_call_chunks in tool_calls.items():
