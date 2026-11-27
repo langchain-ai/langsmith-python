@@ -1798,11 +1798,17 @@ def _setup_run(
             run_tree_kwargs["id"] = ls_client._ensure_uuid(id_)
         new_run = run_trees.RunTree(**cast(Any, run_tree_kwargs))
     # Post run if enabled=True (force) or if tracing is enabled globally
-    if enabled is True or utils.tracing_is_enabled() is True:
+    tracing_enabled = utils.tracing_is_enabled()
+    if enabled is True or tracing_enabled is True:
         try:
             new_run.post()
         except BaseException as e:
             LOGGER.error(f"Failed to post run {new_run.id}: {e}")
+    elif _context._TRACING_ENABLED.get() is None:
+        # The run is not sent but is still the current run for its children,
+        # which would send themselves under a parent that never arrives.
+        # Give them the answer this run got.
+        context.run(_context._TRACING_ENABLED.set, tracing_enabled)
     response_container = _TraceableContainer(
         new_run=new_run,
         project_name=selected_project,
