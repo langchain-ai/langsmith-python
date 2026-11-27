@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextvars
 import functools
 import json
@@ -11,7 +12,7 @@ import threading
 import urllib.parse
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Any, NamedTuple, Optional, Union, cast
+from typing import Any, Literal, NamedTuple, Optional, Union, cast
 from uuid import UUID
 
 from pydantic import ConfigDict, Field, PrivateAttr, model_validator
@@ -34,6 +35,34 @@ from langsmith.client import (
 from langsmith.uuid import uuid7_from_datetime
 
 logger = logging.getLogger(__name__)
+
+RunEndStatus = Literal["cancelled", "interrupted"]
+"""Explicit terminal run statuses a tracer may send besides success/error."""
+
+_RUN_END_STATUSES = ("cancelled", "interrupted")
+
+
+def run_status_from_exception(exc: Optional[BaseException]) -> Optional[RunEndStatus]:
+    """Return the explicit status an exception asks to be traced with.
+
+    Only deliberate stops are marked: an exception (or, for `CancelledError`,
+    its first argument) exposing `ls_run_status` of `cancelled` or
+    `interrupted` (e.g. a class attribute set by the library that raises it).
+    Anything else, including timeouts and unmarked `CancelledError`, returns
+    `None` and stays an error; no exception class is recognized by name.
+    """
+    if exc is None:
+        return None
+    candidates = [exc]
+    # `Task.cancel(msg)` passes `msg` as CancelledError's first argument. Other
+    # exceptions wrapping a marked exception are ordinary failures.
+    if isinstance(exc, asyncio.CancelledError) and exc.args:
+        candidates.append(exc.args[0])
+    for candidate in candidates:
+        status = getattr(candidate, "ls_run_status", None)
+        if status in _RUN_END_STATUSES:
+            return cast(RunEndStatus, status)
+    return None
 
 
 class ApiKeyAuth(TypedDict):
@@ -434,6 +463,12 @@ class RunTree(ls_schemas.RunBase):
         ),
     )
     extra: dict = Field(default_factory=dict)
+    status: Optional[RunEndStatus] = None
+    """Explicit terminal status: `cancelled` or `interrupted`.
+
+    Servers that do not know the field ignore it, and the run keeps the
+    status derived from `error`. Set it through `end(status=...)`.
+    """
     tags: Optional[list[str]] = Field(default_factory=list)
     events: list[dict] = Field(default_factory=list)
     """List of events associated with the run, like
@@ -686,8 +721,15 @@ class RunTree(ls_schemas.RunBase):
         end_time: Optional[datetime] = None,
         events: Optional[Sequence[ls_schemas.RunEvent]] = None,
         metadata: Optional[dict[str, Any]] = None,
+        status: Optional[RunEndStatus] = None,
     ) -> None:
-        """Set the end time of the run and all child runs."""
+        """Set the end time of the run and all child runs.
+
+        Args:
+            status: Optional explicit terminal status (`cancelled` or
+                `interrupted`) sent alongside `error`. Leave unset for
+                ordinary success and failure.
+        """
         self.end_time = end_time or datetime.now(timezone.utc)
         # We've already 'set' the outputs, so ignore
         # the ones that are automatically included
@@ -700,6 +742,12 @@ class RunTree(ls_schemas.RunBase):
                     self.outputs.update(dict_outputs)
         if error is not None:
             self.error = error
+            # The status describes the error it ends with, so a later error
+            # that carries none does not inherit an earlier cancel.
+            self.status = status
+        elif status is not None and self.error is None:
+            # A cancel arriving after a real error must not relabel that error.
+            self.status = status
         if events is not None:
             self.add_event(events)
         if metadata is not None:
@@ -1044,6 +1092,7 @@ class RunTree(ls_schemas.RunBase):
                     inputs=None if exclude_inputs else run_dict["inputs"],
                     outputs=run_dict["outputs"],
                     error=run_dict.get("error"),
+                    status=run_dict.get("status"),
                     parent_run_id=run_dict.get("parent_run_id"),
                     session_name=run_dict.get("session_name"),
                     address=run_dict.get("address"),
@@ -1066,6 +1115,7 @@ class RunTree(ls_schemas.RunBase):
                 inputs=(None if exclude_inputs else (self.inputs.copy() if self.inputs else None)),
                 outputs=self.outputs.copy() if self.outputs else None,
                 error=self.error,
+                status=self.status,
                 parent_run_id=self.parent_run_id,
                 session_id=self.session_id,
                 session_name=self.session_name,

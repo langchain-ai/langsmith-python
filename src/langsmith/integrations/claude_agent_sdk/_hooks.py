@@ -83,6 +83,11 @@ class SessionState:
     # Root LangSmith run used for parenting root-level hook spans.
     root_run: Optional[RunTree] = None
 
+    # Set when the conversation was cancelled (``CancelledError`` reached the
+    # traced stream). Runs left open at cleanup are then ``cancelled`` rather
+    # than errors.
+    cancelled: bool = False
+
 
 # Module-level *default* session. Used when no ContextVar is set (e.g. tests
 # that poke hooks directly, or hooks firing outside a traced conversation).
@@ -352,9 +357,12 @@ async def post_tool_use_failure_hook(
 
         tool_run, _ = run_info
 
+        # ``is_interrupt`` means the user interrupted the tool: a deliberate
+        # stop, not a failure.
         tool_run.end(
             outputs={"error": error},
             error=error,
+            status="cancelled" if input_data.get("is_interrupt") else None,
         )
 
         try:
@@ -523,7 +531,10 @@ def clear_active_tool_runs(session: Optional[SessionState] = None) -> None:
     # 1. End orphaned subagent runs (SubagentStop never fired)
     for agent_id, subagent_run in session.subagent_runs.items():
         try:
-            subagent_run.end(error="Subagent run not completed (conversation ended)")
+            subagent_run.end(
+                error="Subagent run not completed (conversation ended)",
+                status="cancelled" if session.cancelled else None,
+            )
             subagent_run.patch()
         except Exception as e:
             logger.debug(f"Failed to clean up orphaned subagent run {agent_id}: {e}")
@@ -539,7 +550,10 @@ def clear_active_tool_runs(session: Optional[SessionState] = None) -> None:
     # 3. End orphaned tool runs
     for tool_use_id, (tool_run, _) in session.active_tool_runs.items():
         try:
-            tool_run.end(error="Tool run not completed (conversation ended)")
+            tool_run.end(
+                error="Tool run not completed (conversation ended)",
+                status="cancelled" if session.cancelled else None,
+            )
             tool_run.patch()
         except Exception as e:
             logger.debug(f"Failed to clean up orphaned tool run {tool_use_id}: {e}")
@@ -553,3 +567,5 @@ def clear_active_tool_runs(session: Optional[SessionState] = None) -> None:
     session.subagent_transcript_paths.clear()
     session.main_transcript_path = None
     session.root_run = None
+    # Per response: the next response must not inherit this one's cancel.
+    session.cancelled = False

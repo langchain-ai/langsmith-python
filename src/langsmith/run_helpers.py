@@ -52,7 +52,7 @@ from langsmith._runtime_overrides import (
 )
 from langsmith.address import AgentAddress
 from langsmith.env import _runtime_env
-from langsmith.run_trees import WriteReplica
+from langsmith.run_trees import WriteReplica, run_status_from_exception
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -1207,7 +1207,10 @@ class trace:
             return
         if exc_type is not None:
             tb = _format_error_with_exceptions_to_handle(exc_value, self.exceptions_to_handle)
-            self.new_run.end(error=tb)
+            self.new_run.end(
+                error=tb,
+                status=run_status_from_exception(exc_value) if tb is not None else None,
+            )
         if self.old_ctx is not None:
             enabled = utils.tracing_is_enabled(self.old_ctx)
             if enabled is True and self._end_on_exit and not self._untraced:
@@ -1538,7 +1541,11 @@ def _container_end(
             except BaseException as e:
                 warnings.warn(f"Failed to run _on_success function: {e}")
 
-    run_tree.end(outputs=dict_outputs, error=error_repr)
+    status = run_status_from_exception(error) if error_repr is not None else None
+    if status is None and isinstance(error, GeneratorExit):
+        # A consumer closing a generator early is a deliberate stop, not a failure.
+        status = "cancelled"
+    run_tree.end(outputs=dict_outputs, error=error_repr, status=status)
     # Patch run if enabled=True (force) or if tracing is enabled globally
     enabled = container.get("enabled")
     if enabled is True or utils.tracing_is_enabled() is True:

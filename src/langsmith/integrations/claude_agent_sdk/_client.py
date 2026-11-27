@@ -1,5 +1,6 @@
 """Client instrumentation for Claude Agent SDK."""
 
+import asyncio
 import logging
 import time
 import weakref
@@ -16,6 +17,7 @@ from langsmith.run_helpers import (
     get_tracing_context,
     trace,
 )
+from langsmith.run_trees import RunEndStatus, run_status_from_exception
 
 from ._config import get_tracing_config
 from ._hooks import (
@@ -619,9 +621,13 @@ def instrument_claude_client(original_class: Any) -> None:
 
             prompt_for_llm: Any = self._ls_prompt
 
-            def _end_run() -> None:
+            def _end_run(error: Optional[str] = None, status: Optional[RunEndStatus] = None) -> None:
                 main_collected = collected_by_ctx.get(None, [])
-                run.end(outputs=main_collected[-1] if main_collected else None)
+                run.end(
+                    outputs=main_collected[-1] if main_collected else None,
+                    error=error,
+                    status=status,
+                )
 
             try:
                 async for msg in messages:
@@ -721,7 +727,19 @@ def instrument_claude_client(original_class: Any) -> None:
             except GeneratorExit:
                 # Consumer closed the stream before a ResultMessage arrived.
                 logger.debug("Claude Agent stream closed by consumer; ending run %s", run.id)
-                _end_run()
+                # Closing the stream early is a deliberate stop (as in the JS
+                # integration): the run and its orphaned tool/subagent runs end
+                # cancelled. The error text keeps old servers from showing success.
+                session.cancelled = True
+                _end_run(error="Cancelled", status="cancelled")
+            except asyncio.CancelledError as e:
+                # Only a deliberate stop is cancelled. `asyncio.timeout`,
+                # `wait_for` and anyio deadlines inject an unmarked
+                # CancelledError, which stays an error. trace() reads the
+                # marker for the root run; the flag drives the orphan cleanup.
+                if run_status_from_exception(e) == "cancelled":
+                    session.cancelled = True
+                raise
             except Exception:
                 # Let the SDK error reach the caller. The trace() context
                 # manager records it on the root run on the way out.

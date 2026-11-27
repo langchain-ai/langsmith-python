@@ -3699,6 +3699,7 @@ class Client:
         tenant_id: Optional[str] = None,
         authorization: Optional[str] = None,
         cookie: Optional[str] = None,
+        status: Optional[Literal["cancelled", "interrupted"]] = None,
         **kwargs: Any,
     ) -> None:
         """Update a run in the LangSmith API.
@@ -3729,6 +3730,10 @@ class Client:
             tenant_id (Optional[str]): The tenant ID for multi-tenant requests.
             authorization (Optional[str]): The Authorization header value.
             cookie (Optional[str]): The Cookie header value.
+            status (Optional[Literal["cancelled", "interrupted"]]): Explicit
+                terminal status, sent as a top-level field of the run. Servers
+                that do not recognize it ignore it, and the run keeps the
+                status derived from `error`.
             **kwargs (Any): Ignored, except `address`.
 
         Returns:
@@ -3802,6 +3807,9 @@ class Client:
             data["end_time"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
         if error is not None:
             data["error"] = self._hide_run_error(error)
+        if status is not None:
+            # Stays in the main JSON part of a multipart request; never its own part.
+            data["status"] = status
         if inputs is not None:
             data["inputs"] = self._hide_run_inputs(inputs)
         if outputs is not None:

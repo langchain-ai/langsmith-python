@@ -1208,6 +1208,38 @@ class TestReceiveMessagesInstrumented:
         assert "transport died" in (root_runs[0].error or "")
         assert root_runs[0].end_time is not None
 
+    def test_breaking_out_mid_stream_is_cancelled(self, client_cls, root_runs, monkeypatch):
+        """Closing the stream before a ResultMessage cancels the run and its orphans."""
+        from langsmith.integrations.claude_agent_sdk import _client as _client_module
+
+        seen = {}
+        real_clear = _client_module.clear_active_tool_runs
+
+        def recording_clear(session):
+            # Orphaned tool/subagent runs end cancelled iff this flag is set.
+            seen["cancelled"] = session.cancelled
+            return real_clear(session)
+
+        monkeypatch.setattr(_client_module, "clear_active_tool_runs", recording_clear)
+
+        async def main():
+            client = client_cls()
+            await client.query("say hi")
+            stream = client.receive_messages()
+            async for msg in stream:
+                assert isinstance(msg, AssistantMessage)  # no ResultMessage yet
+                break
+            await stream.aclose()
+
+        self._run(main())
+
+        assert len(root_runs) == 1
+        run = root_runs[0]
+        assert run.status == "cancelled"
+        assert run.error == "Cancelled"
+        assert run.end_time is not None
+        assert seen["cancelled"] is True
+
     def test_receive_response_not_double_traced(self, client_cls, root_runs):
         async def main():
             client = client_cls()
@@ -1285,7 +1317,7 @@ class TestReceiveMessagesInstrumented:
             assert get_current_run_tree() is None
             await stream.aclose()
             assert root_runs[0].end_time is not None
-            assert root_runs[0].error is None
+            assert root_runs[0].status == "cancelled"
             assert get_current_run_tree() is None
 
         self._run(main())
