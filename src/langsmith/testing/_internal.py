@@ -1045,8 +1045,14 @@ def _run_test(
     ignore_hosts = [test_case.test_suite.client.api_url]
     allow_hosts = langtest_extra.get("cached_hosts") or None
 
+    # This only runs with test tracking on, so the test's own trace must be
+    # recorded even when LANGSMITH_TRACING is unset: otherwise no run tree is
+    # set, log_* raise, and the experiment gets no runs. An explicit
+    # tracing_context(enabled=...) around the test still takes precedence.
+    enabled = True if current_context["enabled"] is None else current_context["enabled"]
+
     with (
-        rh.tracing_context(**{**current_context, "metadata": metadata}),
+        rh.tracing_context(**{**current_context, "metadata": metadata, "enabled": enabled}),
         ls_utils.with_optional_cache(cache_path, ignore_hosts=ignore_hosts, allow_hosts=allow_hosts),
     ):
         _test()
@@ -1124,8 +1130,14 @@ async def _arun_test(
     cached_hosts = langtest_extra.get("cached_hosts")
     allow_hosts = cached_hosts if cached_hosts else None
 
+    # This only runs with test tracking on, so the test's own trace must be
+    # recorded even when LANGSMITH_TRACING is unset: otherwise no run tree is
+    # set, log_* raise, and the experiment gets no runs. An explicit
+    # tracing_context(enabled=...) around the test still takes precedence.
+    enabled = True if current_context["enabled"] is None else current_context["enabled"]
+
     with (
-        rh.tracing_context(**{**current_context, "metadata": metadata}),
+        rh.tracing_context(**{**current_context, "metadata": metadata, "enabled": enabled}),
         ls_utils.with_optional_cache(cache_path, ignore_hosts=ignore_hosts, allow_hosts=allow_hosts),
     ):
         await _test()

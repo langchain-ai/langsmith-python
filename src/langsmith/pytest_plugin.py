@@ -309,8 +309,8 @@ def pytest_configure(config):
             raise ValueError(msg)
         if ls_utils.test_tracking_is_disabled():
             msg = (
-                "--langsmith-output not supported when env var"
-                "LANGSMITH_TEST_TRACKING='false'. Please remove the"
+                "--langsmith-output not supported when env var "
+                "LANGSMITH_TEST_TRACKING='false'. Please remove the "
                 "'--langsmith-output' option "
                 "or enable test tracking."
             )
