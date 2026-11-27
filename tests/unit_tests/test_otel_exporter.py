@@ -422,6 +422,22 @@ def _attributes_for_run(run_info: dict) -> dict:
     return {call.args[0]: call.args[1] for call in span.set_attribute.call_args_list}
 
 
+@pytest.mark.parametrize(
+    "run_info,expected",
+    [
+        ({"status": "cancelled", "end_time": "2024-01-01T00:00:00"}, "cancelled"),
+        ({"status": "interrupted", "end_time": "2024-01-01T00:00:00"}, "interrupted"),
+        ({"status": "cancelled"}, None),  # not terminal
+        ({"status": "success", "end_time": "2024-01-01T00:00:00"}, None),
+        ({"error": "TimeoutError()", "end_time": "2024-01-01T00:00:00"}, None),
+    ],
+    ids=["cancelled", "interrupted", "non-terminal", "other-status", "no-status"],
+)
+def test_run_status_attribute_only_for_deliberate_terminal_stops(run_info, expected):
+    attrs = _attributes_for_run({"run_type": "chain", "name": "r", **run_info})
+    assert attrs.get("langsmith.metadata.ls_run_status") == expected
+
+
 def test_tool_definitions_pass_through_provider_shapes():
     tools = [
         {

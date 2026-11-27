@@ -102,6 +102,11 @@ LANGSMITH_SESSION_NAME = "langsmith.trace.session_name"
 LANGSMITH_RUN_TYPE = "langsmith.span.kind"
 LANGSMITH_NAME = "langsmith.trace.name"
 LANGSMITH_METADATA = "langsmith.metadata"
+# Explicit terminal status for deliberately cancelled/interrupted runs. Third
+# party OTEL users can set the same attribute on a span; see
+# ``langsmith.integrations.otel``.
+LANGSMITH_RUN_STATUS = f"{LANGSMITH_METADATA}.ls_run_status"
+_OTEL_RUN_STATUSES = ("cancelled", "interrupted")
 LANGSMITH_TAGS = "langsmith.span.tags"
 LANGSMITH_RUNTIME = "langsmith.span.runtime"
 LANGSMITH_REQUEST_STREAMING = "langsmith.request.streaming"
@@ -585,6 +590,12 @@ class OTELExporter:
                 safe = otel_safe_attribute_value(value)
                 if safe is not None:
                     span.set_attribute(f"{LANGSMITH_METADATA}.{key}", safe)
+
+        # Only deliberate stops are marked; timeouts and unmarked cancels stay
+        # errors. Only a terminal run carries the status.
+        status = run_info.get("status")
+        if status in _OTEL_RUN_STATUSES and run_info.get("end_time"):
+            span.set_attribute(LANGSMITH_RUN_STATUS, status)
 
         tags = run_info.get("tags")
         if tags:
