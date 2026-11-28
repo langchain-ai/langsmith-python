@@ -145,6 +145,7 @@ class TestInjectTracingHooks:
                 sys.modules.pop("claude_agent_sdk", None)
 
         for event in (
+            "UserPromptSubmit",
             "PreToolUse",
             "PostToolUse",
             "PostToolUseFailure",
@@ -1393,6 +1394,60 @@ class TestReceiveMessagesInstrumented:
             assert len(tools) == 1
             assert tools[0].end_time is not None
             assert tools[0].error is None
+
+    def test_run_without_tool_call_gets_usage_from_transcript(self, root_runs, tmp_path):
+        """A run with no tool call must still read the main transcript.
+
+        The stream only carries the usage of the first chunk of each message
+        (8 output tokens here). Without the transcript path, that value is
+        what reaches LangSmith.
+        """
+        from types import SimpleNamespace
+
+        from langsmith.integrations.claude_agent_sdk._client import (
+            instrument_claude_client,
+        )
+
+        transcript = _write_transcript(
+            tmp_path / "main.jsonl",
+            [
+                {
+                    "type": "assistant",
+                    "message": {
+                        "id": "msg_1",
+                        "usage": {"input_tokens": 10, "output_tokens": 302},
+                        "stop_reason": "end_turn",
+                    },
+                }
+            ],
+        )
+
+        class NoToolCall(FakeSDKClient):
+            async def receive_messages(self):
+                # Like the CLI: fire the hooks registered for this event.
+                for matcher in self.options.hooks.get("UserPromptSubmit", []):
+                    for hook in matcher.hooks:
+                        await hook(
+                            {"hook_event_name": "UserPromptSubmit", "prompt": "hi", "transcript_path": transcript},
+                            None,
+                            MagicMock(),
+                        )
+                msg = AssistantMessage("hello", "msg_1")
+                msg.usage = {"input_tokens": 10, "output_tokens": 8}
+                yield msg
+                yield ResultMessage()
+
+        instrument_claude_client(NoToolCall)
+
+        async def main():
+            client = NoToolCall(options=SimpleNamespace(hooks=None))
+            await client.query("hi")
+            async for _ in client.receive_messages():
+                pass
+
+        self._run(main())
+        [llm_run] = [c for c in root_runs[0].child_runs if c.run_type == "llm"]
+        assert llm_run.extra["metadata"]["usage_metadata"]["output_tokens"] == 302
 
     @pytest.mark.parametrize("ending", ["result", "exhaust", "error", "close"])
     def test_caller_can_change_context_between_messages(self, root_runs, ending):

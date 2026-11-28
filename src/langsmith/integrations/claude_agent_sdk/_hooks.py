@@ -78,6 +78,8 @@ class SessionState:
 
     # Main session transcript path, captured from BaseHookInput.transcript_path
     # on the first hook that fires (every hook inherits this field).
+    # UserPromptSubmit fires on every run, so the path is known even when the
+    # run makes no tool call.
     main_transcript_path: Optional[str] = None
 
     # Root LangSmith run used for parenting root-level hook spans.
@@ -180,6 +182,29 @@ def get_subagent_run_by_tool_id(tool_use_id: str) -> Optional[RunTree]:
 # ── Hook functions ────────────────────────────────────────────────────────────
 
 
+def _capture_main_transcript_path(session: SessionState, data: dict[str, Any]) -> None:
+    """Keep the first ``transcript_path`` seen; usage is read from it later."""
+    if session.main_transcript_path is None and data.get("transcript_path"):
+        session.main_transcript_path = str(data["transcript_path"])
+
+
+async def user_prompt_submit_hook(
+    input_data: "HookInput",
+    tool_use_id: Optional[str],
+    context: "HookContext",
+) -> "HookJSONOutput":
+    """Capture the main transcript path at the start of every run.
+
+    Without it, a run with no tool call keeps the partial usage of the live
+    stream instead of the final usage from the transcript.
+
+    Returns:
+        Hook output (empty dict lets the prompt through)
+    """
+    _capture_main_transcript_path(_session_for_hook(), dict(input_data))
+    return {}
+
+
 async def pre_tool_use_hook(
     input_data: "HookInput",
     tool_use_id: Optional[str],
@@ -204,9 +229,7 @@ async def pre_tool_use_hook(
     agent_id: Optional[str] = str(data["agent_id"]) if data.get("agent_id") else None
     session = _session_for_hook()
 
-    # Capture main session transcript path from BaseHookInput
-    if session.main_transcript_path is None and data.get("transcript_path"):
-        session.main_transcript_path = str(data["transcript_path"])
+    _capture_main_transcript_path(session, data)
 
     # If this is an Agent tool call, record it so SubagentStart can find it
     if tool_name == "Agent":
